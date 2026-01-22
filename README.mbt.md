@@ -87,37 +87,6 @@ Add to your Claude Desktop config (`claude_desktop_config.json`):
 }
 ```
 
-## Architecture
-
-### Core Components
-
-```
-colmugx/mcp
-├── src/
-│   ├── tool.mbt           # Tool trait, ToolResult, helpers
-│   ├── schema.mbt         # Schema DSL (ParamDef, expand_params_to_json)
-│   ├── args.mbt           # ArgsParser trait implementation
-│   ├── server/
-│   │   ├── server.mbt     # MCPServer, JSON-RPC handlers
-│   │   ├── registry.mbt   # ToolRegistry (internal)
-│   │   └── tool_bridge.mbt # Tool trait integration
-│   ├── transport/
-│   │   ├── transport.mbt  # Transport trait, AnyTransport enum
-│   │   ├── stdio.mbt      # STDIO transport implementation
-│   │   └── http.mbt       # HTTP transport implementation
-│   └── types/
-│       └── types.mbt      # Error types, JsonRpcRequest
-```
-
-### Design Philosophy
-
-The SDK follows these principles:
-
-1. **Trait-Based Tools**: Use the `Tool` trait for type-safe, composable tool definitions
-2. **Maria-Inspired Safety**: Noraise patterns and explicit error handling
-3. **Transport Agnostic**: Same tools work with STDIO or HTTP
-4. **Protocol Compliant**: Full MCP 2025-06-18 compliance
-
 ## API Reference
 
 ### Tool Trait
@@ -127,7 +96,7 @@ pub(open) trait Tool {
   name(Self) -> String
   description(Self) -> String
   params(Self) -> Array[ParamDef]
-  execute(Self, Json) -> ToolResult
+  async execute(Self, Json) -> ToolResult
 }
 ```
 
@@ -232,168 +201,11 @@ Production patterns including:
 - Multi-output tools
 - Tool aliases and wrappers
 
-## Testing
-
-### Run All Tests
-
-```bash
-moon test
-```
-
-### Test Coverage
-
-- **87 tests** covering all major components
-- Unit tests for Tool, Schema, Args parsing
-- Integration tests for Server, Registry
-- Transport layer tests for STDIO and HTTP
-
-### Test Files
-
-- [`src/tool_test.mbt`](src/tool_test.mbt) - Tool trait, ToolResult, helpers (32 tests)
-- [`src/schema_test.mbt`](src/schema_test.mbt) - Schema DSL, ParamDef (14 tests)
-- [`src/args_test.mbt`](src/args_test.mbt) - ArgsParser implementation (14 tests)
-- [`src/server/server_test.mbt`](src/server/server_test.mbt) - MCPServer, ToolRegistry (14 tests)
-- [`src/transport/transport_test.mbt`](src/transport/transport_test.mbt) - Transport implementations (13 tests)
-
-## MCP Protocol Support
-
-### Supported Methods
-
-- ✅ `initialize` - Server initialization handshake
-- ✅ `tools/list` - List available tools
-- ✅ `tools/call` - Execute a tool
-
-### Protocol Version
-
-MCP 2025-06-18 (latest)
-
-### JSON-RPC Version
-
-2.0
-
-## Error Handling
-
-The SDK provides comprehensive error handling:
-
-```moonbit
-match get_string(args, "required_field") {
-  Ok(value) => // Use value
-  Err(error) => return ToolResult::error(error.message())
-}
-```
-
-Error types:
-- `ParseError` - Invalid JSON
-- `InvalidRequest` - Malformed request
-- `MethodNotFound` - Unknown method
-- `InvalidParams` - Invalid parameters
-- `InternalError` - Server error
-
-## Best Practices
-
-### 1. Tool Naming
-
-Use descriptive, lowercase names with underscores:
-
-```moonbit
-// Good
-"search_documents"
-"analyze_sentiment"
-
-// Avoid
-"SearchDocuments"
-"searchDocuments"
-```
-
-### 2. Parameter Validation
-
-Always validate parameters in `execute`:
-
-```moonbit
-impl Tool for MyTool with execute(_self : MyTool, args : Json) -> ToolResult {
-  let input = match get_string(args, "input") {
-    Ok(i) => i
-    Err(_) => return ToolResult::error("Missing 'input' parameter")
-  }
-
-  if input.is_empty() {
-    return ToolResult::error("'input' cannot be empty")
-  }
-
-  // Process input...
-}
-```
-
-### 3. Error Messages
-
-Provide clear, actionable error messages:
-
-```moonbit
-// Good
-ToolResult::error("'count' must be a positive number")
-
-// Avoid
-ToolResult::error("Invalid count")
-```
-
-### 4. Schema Design
-
-Use appropriate parameter types and descriptions:
-
-```moonbit
-impl Tool for MyTool with params(_self : MyTool) -> Array[ParamDef] {
-  [
-    string_param("query", "Full-text search query (supports quotes for phrases)"),
-    optional_number_param("limit", "Maximum results to return (default: 10, max: 100)"),
-    optional_string_param("sort", "Sort order: relevance, date, or title (default: relevance)"),
-  ]
-}
-```
-
-## Limitations and Future Work
-
-### Current Limitations
-
-1. **Async Testing**: MoonBit's test framework doesn't support async tests directly
-   - Workaround: Integration tests cover async functionality through public APIs
-2. **Resources/Prompts**: MCP Resources and Prompts not yet implemented
-3. **Streaming SSE**: HTTP transport SSE streaming is a no-op placeholder
-
-### Planned Features
-
-- [ ] Resource support (file reading, listing)
-- [ ] Prompt templates
-- [ ] Sampling support
-- [ ] Completion helpers
-- [ ] Enhanced HTTP SSE streaming
-- [ ] WebSocket transport
-
-## Contributing
-
-Contributions welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass (`moon test`)
-5. Submit a pull request
-
 ## License
 
-[Specify your license here]
+Apache-2.0
 
 ## Support
 
 - **Issues**: Report bugs and feature requests on GitHub
 - **Discussions**: Use GitHub Discussions for questions
-- **Documentation**: See [`examples/`](examples/) directory for usage patterns
-
-## Acknowledgments
-
-Built with ❤️ in MoonBit. Implements the [Model Context Protocol](https://modelcontextprotocol.io/) by Anthropic.
-
----
-
-**Version**: 1.0.0
-**MCP Protocol**: 2025-06-18
-**MoonBit**: Latest
