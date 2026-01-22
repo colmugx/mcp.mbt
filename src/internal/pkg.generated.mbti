@@ -1,0 +1,30 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/mcp/internal"
+
+// Values
+pub fn extract_int_from_json(Json, String) -> Int?
+
+pub fn extract_string_from_json(Json, String) -> String?
+
+pub fn json_array(Array[String]) -> String
+
+pub fn json_bool(Bool) -> String
+
+pub fn json_number(Int) -> String
+
+pub fn json_object(Array[(String, String)]) -> String
+
+pub fn json_string(String) -> String
+
+pub fn jsonrpc_error(Int, Int, String) -> String
+
+pub fn jsonrpc_success(Int, String) -> String
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

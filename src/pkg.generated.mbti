@@ -1,0 +1,70 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/mcp"
+
+// Values
+pub fn boolean_param(String, String) -> ParamDef
+
+pub fn expand_params_to_json(Array[ParamDef]) -> Json
+
+pub fn get_number(Json, String) -> Result[Double, ToolResult]
+
+pub fn get_optional_number(Json, String) -> Result[Double?, ToolResult]
+
+pub fn get_optional_string(Json, String) -> Result[String?, ToolResult]
+
+pub fn get_string(Json, String) -> Result[String, ToolResult]
+
+pub fn number_param(String, String) -> ParamDef
+
+pub fn optional_boolean_param(String, String) -> ParamDef
+
+pub fn optional_number_param(String, String) -> ParamDef
+
+pub fn optional_string_param(String, String) -> ParamDef
+
+pub fn string_param(String, String) -> ParamDef
+
+// Errors
+
+// Types and methods
+pub(all) enum ContentItem {
+  Text(String)
+  Image(String, mime_type~ : String)
+  Resource(String)
+}
+pub impl Eq for ContentItem
+pub impl Show for ContentItem
+
+pub struct ParamDef {
+  name : String
+  description : String
+  type_ : String
+  required : Bool
+}
+pub impl Eq for ParamDef
+pub impl Show for ParamDef
+
+pub struct ToolResult {
+  content : Array[ContentItem]
+  is_error : Bool
+}
+pub fn ToolResult::error(String) -> Self
+pub fn ToolResult::success(Array[ContentItem]) -> Self
+pub fn ToolResult::text(String) -> Self
+pub impl Eq for ToolResult
+pub impl Show for ToolResult
+
+// Type aliases
+
+// Traits
+pub trait ToToolResult {
+  to_tool_result(Self) -> ToolResult
+}
+
+pub(open) trait Tool {
+  name(Self) -> String
+  description(Self) -> String
+  params(Self) -> Array[ParamDef]
+  async execute(Self, Json) -> ToolResult
+}
+

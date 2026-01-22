@@ -1,0 +1,65 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/mcp/transport"
+
+import(
+  "colmugx/mcp/types"
+  "moonbitlang/async/aqueue"
+)
+
+// Values
+pub fn validate_jsonrpc_message(String) -> Result[Unit, @types.MCPError]
+
+// Errors
+
+// Types and methods
+pub(all) enum AnyTransport {
+  Stdio(StdioTransport)
+  Http(HttpTransport)
+}
+pub fn AnyTransport::close(Self) -> Unit
+pub async fn AnyTransport::receive(Self) -> String? raise @types.TransportError
+pub async fn AnyTransport::send(Self, String) -> Unit raise @types.TransportError
+pub fn AnyTransport::send_event(Self, event_type~ : String, data~ : String) -> Unit
+pub fn AnyTransport::supports_streaming(Self) -> Bool
+
+type HttpPendingRequest
+
+type HttpResponse
+
+pub struct HttpTransport {
+  port : Int
+  endpoint_path : String
+  pending_requests : @aqueue.Queue[HttpPendingRequest]
+  mut current_reply_queue : @aqueue.Queue[HttpResponse]?
+  session_id : String?
+}
+pub fn HttpTransport::close(Self) -> Unit
+pub fn HttpTransport::new(port? : Int, endpoint_path? : String) -> Self
+pub async fn HttpTransport::receive(Self) -> String? raise @types.TransportError
+pub async fn HttpTransport::send(Self, String) -> Unit raise @types.TransportError
+pub fn HttpTransport::send_event(Self, event_type~ : String, data~ : String) -> Unit
+pub async fn HttpTransport::start(Self) -> Unit raise @types.TransportError
+pub fn HttpTransport::supports_streaming(Self) -> Bool
+
+pub struct StdioTransport {
+  mut closed : Bool
+}
+pub fn StdioTransport::close(Self) -> Unit
+pub fn StdioTransport::new() -> Self
+pub async fn StdioTransport::receive(Self) -> String? raise @types.TransportError
+pub async fn StdioTransport::send(Self, String) -> Unit raise @types.TransportError
+pub fn StdioTransport::send_event(Self, event_type~ : String, data~ : String) -> Unit
+pub fn StdioTransport::supports_streaming(Self) -> Bool
+pub impl Show for StdioTransport
+
+// Type aliases
+
+// Traits
+pub(open) trait Transport {
+  receive(Self) -> String? raise @types.TransportError
+  send(Self, String) -> Unit raise @types.TransportError
+  send_event(Self, event_type~ : String, data~ : String) -> Unit
+  supports_streaming(Self) -> Bool
+  close(Self) -> Unit
+}
+

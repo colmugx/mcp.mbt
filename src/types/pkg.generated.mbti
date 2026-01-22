@@ -1,0 +1,137 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/mcp/types"
+
+import(
+  "colmugx/mcp"
+)
+
+// Values
+
+// Errors
+pub(all) suberror MCPError {
+  ParseError(String)
+  InvalidRequest(String)
+  MethodNotFound(String)
+  InvalidParams(String)
+  InternalError(String)
+  TransportError(TransportError)
+  ToolError(String)
+}
+pub fn MCPError::message(Self) -> String
+pub fn MCPError::to_error_code(Self) -> Int
+pub impl Eq for MCPError
+pub impl Show for MCPError
+
+pub(all) suberror TransportError {
+  ConnectionClosed
+  ReadError(String)
+  WriteError(String)
+  Timeout
+  InvalidState(String)
+}
+pub impl Eq for TransportError
+pub impl Show for TransportError
+
+// Types and methods
+pub(all) struct GetPromptResult {
+  description : String?
+  messages : Array[PromptMessage]
+}
+pub impl Eq for GetPromptResult
+pub impl Show for GetPromptResult
+
+pub struct JsonRpcError {
+  code : Int
+  message : String
+  data : Json?
+}
+pub impl Eq for JsonRpcError
+pub impl Show for JsonRpcError
+
+pub struct JsonRpcRequest {
+  jsonrpc : String
+  id : Int
+  method_name : String
+  params : Json
+}
+pub fn JsonRpcRequest::from_json(Json) -> Result[Self, MCPError]
+pub impl Eq for JsonRpcRequest
+pub impl Show for JsonRpcRequest
+
+pub struct JsonRpcResponse {
+  jsonrpc : String
+  id : Int
+  result : Result[Json, JsonRpcError]
+}
+pub impl Eq for JsonRpcResponse
+pub impl Show for JsonRpcResponse
+
+pub(all) struct Prompt {
+  name : String
+  description : String?
+  arguments : Array[PromptArgument]?
+}
+pub impl Eq for Prompt
+pub impl Show for Prompt
+
+pub(all) struct PromptArgument {
+  name : String
+  description : String?
+  required : Bool?
+}
+pub impl Eq for PromptArgument
+pub impl Show for PromptArgument
+
+pub struct PromptCapabilities {
+  list_changed : Bool
+}
+pub impl Eq for PromptCapabilities
+pub impl Show for PromptCapabilities
+
+pub(all) struct PromptMessage {
+  role : String
+  content : @mcp.ContentItem
+}
+pub impl Eq for PromptMessage
+pub impl Show for PromptMessage
+
+pub struct ResourceCapabilities {
+  subscribe : Bool
+  list_changed : Bool
+}
+pub impl Eq for ResourceCapabilities
+pub impl Show for ResourceCapabilities
+
+pub struct ServerCapabilities {
+  tools : ToolCapabilities?
+  resources : ResourceCapabilities?
+  prompts : PromptCapabilities?
+}
+pub impl Eq for ServerCapabilities
+pub impl Show for ServerCapabilities
+
+pub struct ServerInfo {
+  name : String
+  version : String
+}
+pub impl Eq for ServerInfo
+pub impl Show for ServerInfo
+
+pub struct ToolCapabilities {
+  list_changed : Bool
+}
+pub impl Eq for ToolCapabilities
+pub impl Show for ToolCapabilities
+
+pub(all) struct ToolDefinition {
+  name : String
+  description : String
+  input_schema : Json
+}
+pub impl Eq for ToolDefinition
+pub impl Show for ToolDefinition
+
+// Type aliases
+
+// Traits
+

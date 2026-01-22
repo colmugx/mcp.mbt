@@ -1,0 +1,40 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/mcp/server"
+
+import(
+  "colmugx/mcp"
+  "colmugx/mcp/transport"
+  "colmugx/mcp/types"
+)
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct MCPServer {
+  name : String
+  version : String
+  registry : ToolRegistry
+}
+pub async fn MCPServer::handle_request(Self, String) -> String
+pub fn MCPServer::new(String, String) -> Self
+pub fn MCPServer::register_tool(Self, String, String, Json, async (Json) -> Result[@mcp.ToolResult, @types.MCPError]) -> Unit
+pub fn[T : @mcp.Tool] MCPServer::register_trait_tool(Self, T) -> Unit
+pub async fn MCPServer::run(Self, @transport.AnyTransport) -> Unit raise @types.TransportError
+
+type ToolEntry
+
+pub(all) struct ToolRegistry {
+  tools : Array[ToolEntry]
+}
+pub async fn ToolRegistry::call_tool(Self, String, Json) -> Result[@mcp.ToolResult, @types.MCPError]
+pub fn ToolRegistry::list_tools(Self) -> Array[@types.ToolDefinition]
+pub fn ToolRegistry::new() -> Self
+pub fn ToolRegistry::register(Self, String, String, Json, async (Json) -> Result[@mcp.ToolResult, @types.MCPError]) -> Unit
+pub fn[T : @mcp.Tool] ToolRegistry::register_trait_tool(Self, T) -> Unit
+
+// Type aliases
+
+// Traits
+

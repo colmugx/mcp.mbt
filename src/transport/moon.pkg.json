@@ -1,0 +1,9 @@
+{
+  "import": [
+    "colmugx/mcp/types",
+    "moonbitlang/async/stdio",
+    "moonbitlang/async/http",
+    "moonbitlang/async/socket",
+    "moonbitlang/async"
+  ]
+}
