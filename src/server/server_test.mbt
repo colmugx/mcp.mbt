@@ -25,7 +25,7 @@ test "MCPServer register_tool adds to registry" {
     "test_tool",
     "Test description",
     Json::object({ "type": Json::string("object") }),
-    async fn(_args) { Ok(@mcp.ToolResult::text("test")) },
+    async fn(_args) { Ok(ToolResult::text("test")) },
   )
 
   assert_eq(server.registry.list_tools().length(), 1)
@@ -39,14 +39,14 @@ test "MCPServer register_tool preserves order" {
     "tool1",
     "First tool",
     Json::object({}),
-    async fn(_args) { Ok(@mcp.ToolResult::text("test1")) },
+    async fn(_args) { Ok(ToolResult::text("test1")) },
   )
 
   server.register_tool(
     "tool2",
     "Second tool",
     Json::object({}),
-    async fn(_args) { Ok(@mcp.ToolResult::text("test2")) },
+    async fn(_args) { Ok(ToolResult::text("test2")) },
   )
 
   assert_eq(server.registry.list_tools().length(), 2)
@@ -71,7 +71,7 @@ test "MCPServer tool metadata is stored correctly" {
     "test",
     "Test tool description",
     schema,
-    async fn(_args) { Ok(@mcp.ToolResult::text("test")) },
+    async fn(_args) { Ok(ToolResult::text("test")) },
   )
 
   let tool_entry = server.registry.list_tools()[0]
@@ -96,7 +96,7 @@ test "ToolRegistry::register adds tool entry" {
     "test_tool",
     "Test tool description",
     Json::object({ "type": Json::string("object") }),
-    async fn(_args) { Ok(@mcp.ToolResult::text("test")) },
+    async fn(_args) { Ok(ToolResult::text("test")) },
   )
 
   assert_eq(registry.list_tools().length(), 1)
@@ -111,14 +111,14 @@ test "ToolRegistry::list_tools returns tool definitions" {
     "tool1",
     "Description 1",
     Json::object({}),
-    async fn(_args) { Ok(@mcp.ToolResult::text("test")) },
+    async fn(_args) { Ok(ToolResult::text("test")) },
   )
 
   registry.register(
     "tool2",
     "Description 2",
     Json::object({}),
-    async fn(_args) { Ok(@mcp.ToolResult::text("test")) },
+    async fn(_args) { Ok(ToolResult::text("test")) },
   )
 
   let tools = registry.list_tools()
@@ -145,7 +145,7 @@ test "ToolRegistry preserves input schemas" {
     "test",
     "Test tool",
     schema,
-    async fn(_args) { Ok(@mcp.ToolResult::text("test")) },
+    async fn(_args) { Ok(ToolResult::text("test")) },
   )
 
   assert_eq(registry.list_tools()[0].input_schema, schema)
@@ -163,7 +163,7 @@ test "ToolRegistry::list_tools includes all metadata" {
     "my_tool",
     "My tool description",
     schema,
-    async fn(_args) { Ok(@mcp.ToolResult::text("result")) },
+    async fn(_args) { Ok(ToolResult::text("result")) },
   )
 
   let tools = registry.list_tools()
@@ -187,21 +187,21 @@ test "example: register multiple tools and verify" {
     "tool_a",
     "Tool A description",
     Json::object({}),
-    async fn(_args) { Ok(@mcp.ToolResult::text("A")) },
+    async fn(_args) { Ok(ToolResult::text("A")) },
   )
 
   server.register_tool(
     "tool_b",
     "Tool B description",
     Json::object({}),
-    async fn(_args) { Ok(@mcp.ToolResult::text("B")) },
+    async fn(_args) { Ok(ToolResult::text("B")) },
   )
 
   server.register_tool(
     "tool_c",
     "Tool C description",
     Json::object({}),
-    async fn(_args) { Ok(@mcp.ToolResult::text("C")) },
+    async fn(_args) { Ok(ToolResult::text("C")) },
   )
 
   // Verify server metadata
@@ -252,7 +252,7 @@ test "example: server with complex schemas" {
     "search",
     "Search with complex parameters",
     complex_schema,
-    async fn(_args) { Ok(@mcp.ToolResult::text("search results")) },
+    async fn(_args) { Ok(ToolResult::text("search results")) },
   )
 
   // Verify schema is preserved

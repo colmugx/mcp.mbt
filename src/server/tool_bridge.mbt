@@ -1,4 +1,4 @@
-pub fn[T : @mcp.Tool] ToolRegistry::register_trait_tool(
+pub fn[T : @tool.Tool] ToolRegistry::register_trait_tool(
   self : ToolRegistry,
   tool : T,
 ) -> Unit {
@@ -6,9 +6,9 @@ pub fn[T : @mcp.Tool] ToolRegistry::register_trait_tool(
   let description = tool.description()
   let params = tool.params()
 
-  let input_schema = @mcp.expand_params_to_json(params)
+  let input_schema = expand_params_to_json(params)
 
-  let handler = async fn(args : Json) -> Result[@mcp.ToolResult, @types.MCPError] {
+  let handler = async fn(args : Json) -> Result[@tool.ToolResult, @types.MCPError] {
     Ok(tool.execute(args))
   }
 

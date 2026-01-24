@@ -61,7 +61,7 @@ pub(all) struct Prompt {
 
 pub(all) struct PromptMessage {
   role : String
-  content : @mcp.ContentItem
+  content : @tool.ContentItem
 } derive(Show, Eq)
 
 pub(all) struct GetPromptResult {

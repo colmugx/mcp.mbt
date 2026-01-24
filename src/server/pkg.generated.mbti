@@ -2,12 +2,25 @@
 package "colmugx/mcp/server"
 
 import(
-  "colmugx/mcp"
+  "colmugx/mcp/tool"
   "colmugx/mcp/transport"
   "colmugx/mcp/types"
 )
 
 // Values
+pub fn boolean_param(String, String) -> @tool.ParamDef
+
+pub fn expand_params_to_json(Array[@tool.ParamDef]) -> Json
+
+pub fn number_param(String, String) -> @tool.ParamDef
+
+pub fn optional_boolean_param(String, String) -> @tool.ParamDef
+
+pub fn optional_number_param(String, String) -> @tool.ParamDef
+
+pub fn optional_string_param(String, String) -> @tool.ParamDef
+
+pub fn string_param(String, String) -> @tool.ParamDef
 
 // Errors
 
@@ -19,8 +32,8 @@ pub struct MCPServer {
 }
 pub async fn MCPServer::handle_request(Self, String) -> String
 pub fn MCPServer::new(String, String) -> Self
-pub fn MCPServer::register_tool(Self, String, String, Json, async (Json) -> Result[@mcp.ToolResult, @types.MCPError]) -> Unit
-pub fn[T : @mcp.Tool] MCPServer::register_trait_tool(Self, T) -> Unit
+pub fn MCPServer::register_tool(Self, String, String, Json, async (Json) -> Result[@tool.ToolResult, @types.MCPError]) -> Unit
+pub fn[T : @tool.Tool] MCPServer::register_trait_tool(Self, T) -> Unit
 pub async fn MCPServer::run(Self, @transport.AnyTransport) -> Unit raise @types.TransportError
 
 type ToolEntry
@@ -28,11 +41,11 @@ type ToolEntry
 pub(all) struct ToolRegistry {
   tools : Array[ToolEntry]
 }
-pub async fn ToolRegistry::call_tool(Self, String, Json) -> Result[@mcp.ToolResult, @types.MCPError]
+pub async fn ToolRegistry::call_tool(Self, String, Json) -> Result[@tool.ToolResult, @types.MCPError]
 pub fn ToolRegistry::list_tools(Self) -> Array[@types.ToolDefinition]
 pub fn ToolRegistry::new() -> Self
-pub fn ToolRegistry::register(Self, String, String, Json, async (Json) -> Result[@mcp.ToolResult, @types.MCPError]) -> Unit
-pub fn[T : @mcp.Tool] ToolRegistry::register_trait_tool(Self, T) -> Unit
+pub fn ToolRegistry::register(Self, String, String, Json, async (Json) -> Result[@tool.ToolResult, @types.MCPError]) -> Unit
+pub fn[T : @tool.Tool] ToolRegistry::register_trait_tool(Self, T) -> Unit
 
 // Type aliases
 

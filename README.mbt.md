@@ -1,26 +1,18 @@
 # MoonBit MCP Server SDK
 
-A comprehensive Model Context Protocol (MCP) server implementation in MoonBit, enabling easy integration of AI tools with MCP clients like Claude Desktop.
+A type-safe Model Context Protocol (MCP) server implementation in MoonBit, enabling easy integration of AI tools with MCP clients like Claude Desktop.
 
-## Features
-
-- **🔌 Dual Transport Support**: STDIO (for Claude Desktop) and HTTP with streaming
-- **🛠️ Simple Tool API**: Define tools using the trait-based `Tool` interface
-- **📝 Type-Safe Schema Generation**: Automatic JSON Schema generation from parameter definitions
-- **✅ Comprehensive Testing**: 87+ unit and integration tests
-- **🚀 Production Ready**: Error handling, validation, and protocol compliance (MCP 2025-06-18)
-- **📦 Zero-Dependencies**: Built on MoonBit standard library
+**API Documentation**: Available inline with code examples
+**Examples**: See `examples/` directory
+**Status**: Experimental, API subject to change
 
 ## Installation
 
 ```bash
-# Add to your moon.pkg.json dependencies
-{
-  "dependencies": [
-    { "path": "path/to/mcp.mbt", "url": "https://github.com/colmugx/mcp.mbt" }
-  ]
-}
+moon add colmugx/mcp
 ```
+
+This package requires `moonbitlang/async` as a dependency.
 
 ## Quick Start
 
@@ -29,19 +21,19 @@ A comprehensive Model Context Protocol (MCP) server implementation in MoonBit, e
 ```moonbit
 struct EchoTool {}
 
-impl Tool for EchoTool with name(_self : EchoTool) -> String {
+pub impl Tool for EchoTool with name(_self : EchoTool) -> String {
   "echo"
 }
 
-impl Tool for EchoTool with description(_self : EchoTool) -> String {
+pub impl Tool for EchoTool with description(_self : EchoTool) -> String {
   "Echoes back the input text"
 }
 
-impl Tool for EchoTool with params(_self : EchoTool) -> Array[ParamDef] {
+pub impl Tool for EchoTool with params(_self : EchoTool) -> Array[ParamDef] {
   [string_param("text", "The text to echo back")]
 }
 
-impl Tool for EchoTool with execute(_self : EchoTool, args : Json) -> ToolResult {
+pub impl Tool for EchoTool with execute(_self : EchoTool, args : Json) -> ToolResult {
   let text = match get_string(args, "text") {
     Ok(t) => t
     Err(_) => return ToolResult::error("Missing 'text' parameter")
@@ -54,18 +46,12 @@ impl Tool for EchoTool with execute(_self : EchoTool, args : Json) -> ToolResult
 
 ```moonbit
 fn main() {
-  // Create server
   let server = MCPServer::new("my-mcp-server", "1.0.0")
-
-  // Register tool
   server.register_trait_tool(EchoTool::{})
 
-  // Choose transport
+  // STDIO for Claude Desktop
   let transport = AnyTransport::Stdio(StdioTransport::new())
-  // OR for HTTP:
-  // let transport = AnyTransport::Http(HttpTransport::new(port=4240))
 
-  // Run server
   server.run(transport) catch {
     e => @stdio.stderr.write("Error: " + e.to_string())
   }
@@ -74,7 +60,7 @@ fn main() {
 
 ### 3. Test with Claude Desktop
 
-Add to your Claude Desktop config (`claude_desktop_config.json`):
+Add to `claude_desktop_config.json`:
 
 ```json
 {
@@ -87,7 +73,51 @@ Add to your Claude Desktop config (`claude_desktop_config.json`):
 }
 ```
 
-## API Reference
+## Features
+
+### Core Protocol
+- [x] Tools (list, call)
+- [ ] Resources (list, read, subscribe, unsubscribe)
+- [ ] Prompts (list, get)
+
+### Transports
+- [x] STDIO (for Claude Desktop)
+- [x] HTTP with SSE streaming
+- [ ] WebSocket
+
+### Advanced Capabilities
+- [ ] Logging
+- [ ] Completions (argument autocompletion)
+- [ ] Sampling (LLM completion requests)
+
+### Notifications
+- [x] Tools list changed
+- [ ] Resources list changed
+- [ ] Prompts list changed
+- [ ] Resources updated
+- [ ] Progress tracking
+
+### Production Features
+- [x] Basic error handling
+- [ ] Structured logging (JSON)
+- [ ] Metrics collection
+- [ ] Health checks
+- [ ] Authentication
+- [ ] Rate limiting
+- [ ] Caching
+
+### Testing & Examples
+- [x] Unit tests (87+ tests)
+- [ ] Integration tests
+- [ ] Resource examples
+- [ ] Prompt examples
+- [ ] Production deployment examples
+
+### Developer Tools
+- [ ] CLI tools (generator, validator, test client)
+- [ ] Type generation from JSON Schema
+
+## API Overview
 
 ### Tool Trait
 
@@ -100,60 +130,14 @@ pub(open) trait Tool {
 }
 ```
 
-### ToolResult
-
-```moonbit
-// Success with text
-ToolResult::text("Success message")
-
-// Error result
-ToolResult::error("Error message")
-
-// Success with multiple content items
-ToolResult::success([ContentItem::Text("Line 1"), ContentItem::Text("Line 2")])
-```
-
-### Parameter Definitions
-
-```moonbit
-// Required parameters
-string_param("name", "Description")
-number_param("count", "Description")
-boolean_param("enabled", "Description")
-
-// Optional parameters
-optional_string_param("nickname", "Optional description")
-optional_number_param("limit", "Optional limit")
-optional_boolean_param("verbose", "Verbose output")
-```
-
-### Argument Parsing
-
-```moonbit
-// Required fields
-let name = get_string(args, "name")  // Result<String, MCPError>
-let count = get_number(args, "count")  // Result<Double, MCPError>
-
-// Optional fields
-let nickname = get_optional_string(args, "nickname")  // Result<Option<String>, MCPError>
-```
-
-### MCPServer
+### Server
 
 ```moonbit
 // Create server
 let server = MCPServer::new("server-name", "1.0.0")
 
-// Register tools using Tool trait
+// Register tools
 server.register_trait_tool(MyTool::{})
-
-// Register tools using legacy handler API
-server.register_tool(
-  name="tool_name",
-  description="Tool description",
-  input_schema=Json::object({...}),
-  handler=async fn(args) { Ok(ToolResult::text("result")) }
-)
 
 // Run server
 server.run(transport)  // Blocks until transport closes
@@ -162,44 +146,33 @@ server.run(transport)  // Blocks until transport closes
 ### Transports
 
 ```moonbit
-// STDIO (for Claude Desktop)
+// STDIO (Claude Desktop)
 let stdio = AnyTransport::Stdio(StdioTransport::new())
 
-// HTTP (for web clients)
-let http = AnyTransport::Http(HttpTransport::new(
-  port=4240,
-  endpoint_path="/mcp"
-))
-
-// Both support the same interface
-transport.send(message)
-transport.receive()  // async
-transport.close()
+// HTTP (web clients)
+let http = AnyTransport::Http(HttpTransport::new(port=4240))
 ```
 
 ## Examples
 
-The SDK includes comprehensive examples:
+The `@examples` package demonstrates all core SDK features with 5 example tools:
 
-### 1. STDIO Server ([`examples/stdio_server.mbt`](examples/stdio_server.mbt))
-Minimal MCP server using STDIO transport for Claude Desktop integration.
+- **EchoTool** - Basic echo for testing connectivity
+- **CalculateTool** - Calculator with arithmetic operations
+- **TransformTextTool** - Text transformation (uppercase, lowercase, reverse, etc.)
+- **AnalyzeTextTool** - Text analysis (word count, character count, etc.)
+- **GetTimestampTool** - Get current timestamp in various formats
 
-### 2. HTTP Server ([`examples/http_server.mbt`](examples/http_server.mbt))
-HTTP-based MCP server with streaming support for web clients.
+Run the example server:
+```bash
+moon run @examples/cmd/main
+```
 
-### 3. Real-World Tools ([`examples/real_world_tools.mbt`](examples/real_world_tools.mbt))
-Practical tools demonstrating:
-- Calculator with arithmetic operations
-- Text processor (uppercase, lowercase, reverse, word count)
-- Data converter (Base64, URL encoding)
+## Documentation
 
-### 4. Advanced Patterns ([`examples/advanced_patterns.mbt`](examples/advanced_patterns.mbt))
-Production patterns including:
-- Tool composition and workflows
-- Stateful tools
-- Input validation and error handling
-- Multi-output tools
-- Tool aliases and wrappers
+- **[TODO.md](TODO.md)** - Detailed implementation roadmap
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contribution guidelines
+- **[MCP Spec](https://modelcontextprotocol.io/specification/)** - Official specification
 
 ## License
 
@@ -207,5 +180,5 @@ Apache-2.0
 
 ## Support
 
-- **Issues**: Report bugs and feature requests on GitHub
-- **Discussions**: Use GitHub Discussions for questions
+- **Issues**: [GitHub Issues](https://github.com/colmugx/mcp.mbt/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/colmugx/mcp.mbt/discussions)

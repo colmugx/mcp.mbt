@@ -1,12 +1,14 @@
-///| =====================================================
-///| Schema DSL Unit Tests
-///| Tests for parameter definitions and schema generation
-///| =====================================================
+///|
+using @tool {
+  trait Tool,
+  type ParamDef,
+  type ToolResult,
+  get_string,
+  get_optional_string,
+}
 
-///| =====================================================
-///| ParamDef Constructor Tests
-///| =====================================================
-
+///|
+/// =====================================================
 test "string_param creates required string parameter" {
   let param = string_param("name", "User name")
   assert_eq(param.name, "name")
@@ -15,6 +17,7 @@ test "string_param creates required string parameter" {
   assert_eq(param.required, true)
 }
 
+///|
 test "optional_string_param creates optional string parameter" {
   let param = optional_string_param("nickname", "Optional nickname")
   assert_eq(param.name, "nickname")
@@ -23,6 +26,7 @@ test "optional_string_param creates optional string parameter" {
   assert_eq(param.required, false)
 }
 
+///|
 test "number_param creates required number parameter" {
   let param = number_param("count", "Item count")
   assert_eq(param.name, "count")
@@ -31,6 +35,7 @@ test "number_param creates required number parameter" {
   assert_eq(param.required, true)
 }
 
+///|
 test "optional_number_param creates optional number parameter" {
   let param = optional_number_param("limit", "Result limit")
   assert_eq(param.name, "limit")
@@ -39,6 +44,7 @@ test "optional_number_param creates optional number parameter" {
   assert_eq(param.required, false)
 }
 
+///|
 test "boolean_param creates required boolean parameter" {
   let param = boolean_param("active", "Is active")
   assert_eq(param.name, "active")
@@ -47,6 +53,7 @@ test "boolean_param creates required boolean parameter" {
   assert_eq(param.required, true)
 }
 
+///|
 test "optional_boolean_param creates optional boolean parameter" {
   let param = optional_boolean_param("verbose", "Verbose output")
   assert_eq(param.name, "verbose")
@@ -55,6 +62,7 @@ test "optional_boolean_param creates optional boolean parameter" {
   assert_eq(param.required, false)
 }
 
+///|
 test "ParamDef derive Eq and Show" {
   let param1 = string_param("test", "Test parameter")
   let param2 = string_param("test", "Test parameter")
@@ -70,11 +78,13 @@ test "ParamDef derive Eq and Show" {
 }
 
 ///| =====================================================
-///| Schema Generation Tests
-///| =====================================================
 
+///| Schema Generation Tests
+
+///|
+/// =====================================================
 test "expand_params_to_json with empty params" {
-  let params: Array[ParamDef] = []
+  let params : Array[ParamDef] = []
   let schema = expand_params_to_json(params)
 
   // Should be an object with empty properties and required arrays
@@ -94,10 +104,10 @@ test "expand_params_to_json with empty params" {
   }
 }
 
+///|
 test "expand_params_to_json with single required string param" {
   let params = [string_param("name", "User name")]
   let schema = expand_params_to_json(params)
-
   match schema {
     Object(map) => {
       // Check type
@@ -110,7 +120,10 @@ test "expand_params_to_json with single required string param" {
           match props.get("name") {
             Some(Object(prop)) => {
               assert_eq(prop.get("type"), Some(Json::string("string")))
-              assert_eq(prop.get("description"), Some(Json::string("User name")))
+              assert_eq(
+                prop.get("description"),
+                Some(Json::string("User name")),
+              )
             }
             _ => panic()
           }
@@ -131,19 +144,17 @@ test "expand_params_to_json with single required string param" {
   }
 }
 
+///|
 test "expand_params_to_json with optional parameter" {
   let params = [
     string_param("required_field", "Required field"),
     optional_string_param("optional_field", "Optional field"),
   ]
   let schema = expand_params_to_json(params)
-
   match schema {
     Object(map) => {
       match map.get("properties") {
-        Some(Object(props)) => {
-          assert_eq(props.length(), 2)
-        }
+        Some(Object(props)) => assert_eq(props.length(), 2)
         _ => panic()
       }
 
@@ -160,6 +171,7 @@ test "expand_params_to_json with optional parameter" {
   }
 }
 
+///|
 test "expand_params_to_json with multiple parameter types" {
   let params = [
     string_param("text", "Text content"),
@@ -168,37 +180,29 @@ test "expand_params_to_json with multiple parameter types" {
     optional_string_param("optional", "Optional parameter"),
   ]
   let schema = expand_params_to_json(params)
-
   match schema {
     Object(map) => {
       match map.get("properties") {
         Some(Object(props)) => {
           // Check all parameter types
           match props.get("text") {
-            Some(Object(prop)) => {
+            Some(Object(prop)) =>
               assert_eq(prop.get("type"), Some(Json::string("string")))
-            }
             _ => panic()
           }
-
           match props.get("count") {
-            Some(Object(prop)) => {
+            Some(Object(prop)) =>
               assert_eq(prop.get("type"), Some(Json::string("number")))
-            }
             _ => panic()
           }
-
           match props.get("enabled") {
-            Some(Object(prop)) => {
+            Some(Object(prop)) =>
               assert_eq(prop.get("type"), Some(Json::string("boolean")))
-            }
             _ => panic()
           }
-
           match props.get("optional") {
-            Some(Object(prop)) => {
+            Some(Object(prop)) =>
               assert_eq(prop.get("type"), Some(Json::string("string")))
-            }
             _ => panic()
           }
         }
@@ -207,9 +211,7 @@ test "expand_params_to_json with multiple parameter types" {
 
       // Check required array (should have 3 items, not optional)
       match map.get("required") {
-        Some(Array(req)) => {
-          assert_eq(req.length(), 3)
-        }
+        Some(Array(req)) => assert_eq(req.length(), 3)
         _ => panic()
       }
     }
@@ -217,29 +219,31 @@ test "expand_params_to_json with multiple parameter types" {
   }
 }
 
+///|
 test "expand_params_to_json with parameter description" {
   let params = [string_param("query", "Search query string")]
   let schema = expand_params_to_json(params)
-
   match schema {
-    Object(map) => {
+    Object(map) =>
       match map.get("properties") {
-        Some(Object(props)) => {
+        Some(Object(props)) =>
           match props.get("query") {
             Some(Object(prop)) => {
-              assert_eq(prop.get("description"), Some(Json::string("Search query string")))
+              assert_eq(
+                prop.get("description"),
+                Some(Json::string("Search query string")),
+              )
               assert_eq(prop.get("type"), Some(Json::string("string")))
             }
             _ => panic()
           }
-        }
         _ => panic()
       }
-    }
     _ => panic()
   }
 }
 
+///|
 test "expand_params_to_json preserves parameter order" {
   let params = [
     string_param("first", "First parameter"),
@@ -247,9 +251,8 @@ test "expand_params_to_json preserves parameter order" {
     string_param("third", "Third parameter"),
   ]
   let schema = expand_params_to_json(params)
-
   match schema {
-    Object(map) => {
+    Object(map) =>
       match map.get("required") {
         Some(Array(req)) => {
           assert_eq(req.length(), 3)
@@ -259,25 +262,31 @@ test "expand_params_to_json preserves parameter order" {
         }
         _ => panic()
       }
-    }
     _ => panic()
   }
 }
 
 ///| =====================================================
-///| Example: Complete Tool Schema
-///| =====================================================
 
+///| Example: Complete Tool Schema
+
+///|
+/// =====================================================
+
+///|
 struct SearchTool {}
 
+///|
 impl Tool for SearchTool with name(_self : SearchTool) -> String {
   "search"
 }
 
+///|
 impl Tool for SearchTool with description(_self : SearchTool) -> String {
   "Search for items"
 }
 
+///|
 impl Tool for SearchTool with params(_self : SearchTool) -> Array[ParamDef] {
   [
     string_param("query", "Search query"),
@@ -286,6 +295,7 @@ impl Tool for SearchTool with params(_self : SearchTool) -> Array[ParamDef] {
   ]
 }
 
+///|
 impl Tool for SearchTool with execute(_self : SearchTool, args : Json) -> ToolResult {
   let query = match get_string(args, "query") {
     Ok(q) => q
@@ -294,20 +304,19 @@ impl Tool for SearchTool with execute(_self : SearchTool, args : Json) -> ToolRe
 
   // Extract optional parameters with defaults
   let limit = match args {
-    Object(map) => match map.get("limit") {
-      Some(Number(n, ..)) => n.to_int()
-      Some(Null) => 10
-      None => 10
-      _ => 10
-    }
+    Object(map) =>
+      match map.get("limit") {
+        Some(Number(n, ..)) => n.to_int()
+        Some(Null) => 10
+        None => 10
+        _ => 10
+      }
     _ => 10
   }
-
   let sort = match get_optional_string(args, "sort") {
     Ok(Some(s)) => s
     _ => "relevance"
   }
-
   ToolResult::text("Search: \{query}, limit: \{limit}, sort: \{sort}")
 }
 

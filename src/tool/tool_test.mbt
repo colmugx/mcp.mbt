@@ -221,7 +221,7 @@ impl Tool for EchoTool with description(_self : EchoTool) -> String {
 }
 
 impl Tool for EchoTool with params(_self : EchoTool) -> Array[ParamDef] {
-  [string_param("text", "Text to echo back")]
+  [@server.string_param("text", "Text to echo back")]
 }
 
 impl Tool for EchoTool with execute(_self : EchoTool, args : Json) -> ToolResult {

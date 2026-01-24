@@ -1,7 +1,7 @@
 {
   "name": "colmugx/mcp",
-  "description": "",
-  "version": "0.2.0",
+  "description": "Type-safe MCP server implementation in MoonBit with dual transport support (STDIO/HTTP)",
+  "version": "0.2.1",
   "deps": {
     "moonbitlang/async": "0.16.2"
   },

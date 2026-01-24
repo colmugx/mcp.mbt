@@ -13,12 +13,12 @@ pub fn MCPServer::register_tool(
   name : String,
   description : String,
   input_schema : Json,
-  handler : async (Json) -> Result[@mcp.ToolResult, @types.MCPError],
+  handler : async (Json) -> Result[@tool.ToolResult, @types.MCPError],
 ) -> Unit {
   self.registry.register(name, description, input_schema, handler)
 }
 
-pub fn[T : @mcp.Tool] MCPServer::register_trait_tool(
+pub fn[T : @tool.Tool] MCPServer::register_trait_tool(
   self : MCPServer,
   tool : T,
 ) -> Unit {
@@ -71,18 +71,18 @@ async fn handle_tools_call(
         Ok(tool_result) => {
           let content_items = tool_result.content.map(fn(item) {
             match item {
-              @mcp.Text(text) =>
+              @tool.Text(text) =>
                 @internal.json_object([
                   ("type", @internal.json_string("text")),
                   ("text", @internal.json_string(text)),
                 ])
-              @mcp.Image(data, mime_type~) =>
+              @tool.Image(data, mime_type~) =>
                 @internal.json_object([
                   ("type", @internal.json_string("image")),
                   ("data", @internal.json_string(data)),
                   ("mimeType", @internal.json_string(mime_type)),
                 ])
-              @mcp.Resource(uri) =>
+              @tool.Resource(uri) =>
                 @internal.json_object([
                   ("type", @internal.json_string("resource")),
                   ("uri", @internal.json_string(uri)),

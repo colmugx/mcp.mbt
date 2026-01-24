@@ -2,7 +2,7 @@
 package "colmugx/mcp/types"
 
 import(
-  "colmugx/mcp"
+  "colmugx/mcp/tool"
 )
 
 // Values
@@ -90,7 +90,7 @@ pub impl Show for PromptCapabilities
 
 pub(all) struct PromptMessage {
   role : String
-  content : @mcp.ContentItem
+  content : @tool.ContentItem
 }
 pub impl Eq for PromptMessage
 pub impl Show for PromptMessage

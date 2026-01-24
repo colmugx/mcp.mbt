@@ -2,7 +2,7 @@ struct ToolEntry {
   name : String
   description : String
   input_schema : Json
-  handler : async (Json) -> Result[@mcp.ToolResult, @types.MCPError]
+  handler : async (Json) -> Result[@tool.ToolResult, @types.MCPError]
 }
 
 pub(all) struct ToolRegistry {
@@ -18,7 +18,7 @@ pub fn ToolRegistry::register(
   name : String,
   description : String,
   input_schema : Json,
-  handler : async (Json) -> Result[@mcp.ToolResult, @types.MCPError],
+  handler : async (Json) -> Result[@tool.ToolResult, @types.MCPError],
 ) -> Unit {
   self.tools.push({ name, description, input_schema, handler })
 }
@@ -37,7 +37,7 @@ pub async fn ToolRegistry::call_tool(
   self : ToolRegistry,
   name : String,
   params : Json,
-) -> Result[@mcp.ToolResult, @types.MCPError] {
+) -> Result[@tool.ToolResult, @types.MCPError] {
   for entry in self.tools {
     if entry.name == name {
       let handler = entry.handler

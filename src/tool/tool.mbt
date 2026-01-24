@@ -70,31 +70,31 @@ pub trait ToToolResult {
 
 ///|
 /// Built-in conversion from String
-impl ToToolResult for String with to_tool_result(self : String) -> ToolResult {
+pub impl ToToolResult for String with to_tool_result(self : String) -> ToolResult {
   ToolResult::text(self)
 }
 
 ///|
 /// Built-in conversion from Int
-impl ToToolResult for Int with to_tool_result(self : Int) -> ToolResult {
+pub impl ToToolResult for Int with to_tool_result(self : Int) -> ToolResult {
   ToolResult::text(self.to_string())
 }
 
 ///|
 /// Built-in conversion from Bool
-impl ToToolResult for Bool with to_tool_result(self : Bool) -> ToolResult {
+pub impl ToToolResult for Bool with to_tool_result(self : Bool) -> ToolResult {
   ToolResult::text(self.to_string())
 }
 
 ///|
 /// Built-in conversion from Double (number)
-impl ToToolResult for Double with to_tool_result(self : Double) -> ToolResult {
+pub impl ToToolResult for Double with to_tool_result(self : Double) -> ToolResult {
   ToolResult::text(self.to_string())
 }
 
 ///|
 /// Built-in conversion from ToolResult (identity)
-impl ToToolResult for ToolResult with to_tool_result(self : ToolResult) -> ToolResult {
+pub impl ToToolResult for ToolResult with to_tool_result(self : ToolResult) -> ToolResult {
   self
 }
 
@@ -106,7 +106,7 @@ impl ToToolResult for ToolResult with to_tool_result(self : ToolResult) -> ToolR
 
 ///|
 /// Parameter definition for tool schema
-pub struct ParamDef {
+pub(all) struct ParamDef {
   name : String
   description : String
   type_ : String // "string", "number", "boolean", "object", "array"
