@@ -8,7 +8,7 @@ async fn main {
   println("Starting MCP Server Example...")
 
   // Create server instance
-  let server = @server.MCPServer::new("mcp-example-server", "1.0.0")
+  let server = @mcp.MCPServer::new("mcp-example-server", "1.0.0")
 
   // Register tools
   println("Registering tools...")
@@ -19,13 +19,11 @@ async fn main {
   server.register_trait_tool(@lib.GetTimestampTool::{  })
   println("5 tools registered successfully.")
 
-  // Use STDIO transport
-  let transport = @transport.AnyTransport::Stdio(
-    @transport.StdioTransport::new(),
+  let transport = @mcp.AnyTransport::Stdio(
+    @mcp.StdioTransport::new(),
   )
   println("Server started with STDIO transport. Waiting for requests...")
 
-  // Run server
   server.run(transport) catch {
     e => println("Server error: " + e.to_string())
   }

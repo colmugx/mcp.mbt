@@ -5,9 +5,7 @@
       "path": "username/example",
       "alias": "lib"
     },
-    "colmugx/mcp",
-    "colmugx/mcp/server",
-    "colmugx/mcp/transport",
-    "moonbitlang/async"
+    "moonbitlang/async",
+    "colmugx/mcp"
   ]
 }

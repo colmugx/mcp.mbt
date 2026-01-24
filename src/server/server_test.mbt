@@ -1,62 +1,55 @@
-///| =====================================================
 ///| Server and Registry Integration Tests
+
 ///| Tests for MCPServer and ToolRegistry (simplified)
-///| =====================================================
 
-///| =====================================================
-///| MCPServer Tests
-///| =====================================================
-
+///|
+/// MCPServer Tests
 test "MCPServer::new creates server with name and version" {
   let server = MCPServer::new("test-server", "1.0.0")
   assert_eq(server.name, "test-server")
   assert_eq(server.version, "1.0.0")
 }
 
+///|
 test "MCPServer::new creates empty registry" {
   let server = MCPServer::new("test-server", "1.0.0")
   assert_eq(server.registry.list_tools().length(), 0)
 }
 
+///|
 test "MCPServer register_tool adds to registry" {
   let server = MCPServer::new("test-server", "1.0.0")
-
   server.register_tool(
     "test_tool",
     "Test description",
     Json::object({ "type": Json::string("object") }),
     async fn(_args) { Ok(ToolResult::text("test")) },
   )
-
   assert_eq(server.registry.list_tools().length(), 1)
   assert_eq(server.registry.list_tools()[0].name, "test_tool")
 }
 
+///|
 test "MCPServer register_tool preserves order" {
   let server = MCPServer::new("test-server", "1.0.0")
-
-  server.register_tool(
-    "tool1",
-    "First tool",
-    Json::object({}),
-    async fn(_args) { Ok(ToolResult::text("test1")) },
-  )
-
-  server.register_tool(
-    "tool2",
-    "Second tool",
-    Json::object({}),
-    async fn(_args) { Ok(ToolResult::text("test2")) },
-  )
-
+  server.register_tool("tool1", "First tool", Json::object({}), async fn(
+    _args,
+  ) {
+    Ok(ToolResult::text("test1"))
+  })
+  server.register_tool("tool2", "Second tool", Json::object({}), async fn(
+    _args,
+  ) {
+    Ok(ToolResult::text("test2"))
+  })
   assert_eq(server.registry.list_tools().length(), 2)
   assert_eq(server.registry.list_tools()[0].name, "tool1")
   assert_eq(server.registry.list_tools()[1].name, "tool2")
 }
 
+///|
 test "MCPServer tool metadata is stored correctly" {
   let server = MCPServer::new("test-server", "1.0.0")
-
   let schema = Json::object({
     "type": Json::string("object"),
     "properties": Json::object({
@@ -66,14 +59,11 @@ test "MCPServer tool metadata is stored correctly" {
       }),
     }),
   })
-
-  server.register_tool(
-    "test",
-    "Test tool description",
-    schema,
-    async fn(_args) { Ok(ToolResult::text("test")) },
-  )
-
+  server.register_tool("test", "Test tool description", schema, async fn(
+    _args,
+  ) {
+    Ok(ToolResult::text("test"))
+  })
   let tool_entry = server.registry.list_tools()[0]
   assert_eq(tool_entry.name, "test")
   assert_eq(tool_entry.description, "Test tool description")
@@ -81,46 +71,43 @@ test "MCPServer tool metadata is stored correctly" {
 }
 
 ///| =====================================================
-///| ToolRegistry Tests
-///| =====================================================
 
+///| ToolRegistry Tests
+
+///|
+/// =====================================================
 test "ToolRegistry::new creates empty registry" {
   let registry = ToolRegistry::new()
   assert_eq(registry.list_tools().length(), 0)
 }
 
+///|
 test "ToolRegistry::register adds tool entry" {
   let registry = ToolRegistry::new()
-
   registry.register(
     "test_tool",
     "Test tool description",
     Json::object({ "type": Json::string("object") }),
     async fn(_args) { Ok(ToolResult::text("test")) },
   )
-
   assert_eq(registry.list_tools().length(), 1)
   assert_eq(registry.list_tools()[0].name, "test_tool")
   assert_eq(registry.list_tools()[0].description, "Test tool description")
 }
 
+///|
 test "ToolRegistry::list_tools returns tool definitions" {
   let registry = ToolRegistry::new()
-
-  registry.register(
-    "tool1",
-    "Description 1",
-    Json::object({}),
-    async fn(_args) { Ok(ToolResult::text("test")) },
-  )
-
-  registry.register(
-    "tool2",
-    "Description 2",
-    Json::object({}),
-    async fn(_args) { Ok(ToolResult::text("test")) },
-  )
-
+  registry.register("tool1", "Description 1", Json::object({}), async fn(
+    _args,
+  ) {
+    Ok(ToolResult::text("test"))
+  })
+  registry.register("tool2", "Description 2", Json::object({}), async fn(
+    _args,
+  ) {
+    Ok(ToolResult::text("test"))
+  })
   let tools = registry.list_tools()
   assert_eq(tools.length(), 2)
   assert_eq(tools[0].name, "tool1")
@@ -129,46 +116,33 @@ test "ToolRegistry::list_tools returns tool definitions" {
   assert_eq(tools[1].description, "Description 2")
 }
 
+///|
 test "ToolRegistry preserves input schemas" {
   let registry = ToolRegistry::new()
-
   let schema = Json::object({
     "type": Json::string("object"),
     "properties": Json::object({
-      "value": Json::object({
-        "type": Json::string("string"),
-      }),
+      "value": Json::object({ "type": Json::string("string") }),
     }),
   })
-
-  registry.register(
-    "test",
-    "Test tool",
-    schema,
-    async fn(_args) { Ok(ToolResult::text("test")) },
-  )
-
+  registry.register("test", "Test tool", schema, async fn(_args) {
+    Ok(ToolResult::text("test"))
+  })
   assert_eq(registry.list_tools()[0].input_schema, schema)
 }
 
+///|
 test "ToolRegistry::list_tools includes all metadata" {
   let registry = ToolRegistry::new()
-
   let schema = Json::object({
     "type": Json::string("object"),
     "properties": Json::object({}),
   })
-
-  registry.register(
-    "my_tool",
-    "My tool description",
-    schema,
-    async fn(_args) { Ok(ToolResult::text("result")) },
-  )
-
+  registry.register("my_tool", "My tool description", schema, async fn(_args) {
+    Ok(ToolResult::text("result"))
+  })
   let tools = registry.list_tools()
   assert_eq(tools.length(), 1)
-
   let tool = tools[0]
   assert_eq(tool.name, "my_tool")
   assert_eq(tool.description, "My tool description")
@@ -176,33 +150,30 @@ test "ToolRegistry::list_tools includes all metadata" {
 }
 
 ///| =====================================================
-///| Example: Complete Server Setup
-///| =====================================================
 
+///| Example: Complete Server Setup
+
+///|
+/// =====================================================
 test "example: register multiple tools and verify" {
   let server = MCPServer::new("multi-tool-server", "1.0.0")
 
   // Register multiple tools
-  server.register_tool(
-    "tool_a",
-    "Tool A description",
-    Json::object({}),
-    async fn(_args) { Ok(ToolResult::text("A")) },
-  )
-
-  server.register_tool(
-    "tool_b",
-    "Tool B description",
-    Json::object({}),
-    async fn(_args) { Ok(ToolResult::text("B")) },
-  )
-
-  server.register_tool(
-    "tool_c",
-    "Tool C description",
-    Json::object({}),
-    async fn(_args) { Ok(ToolResult::text("C")) },
-  )
+  server.register_tool("tool_a", "Tool A description", Json::object({}), async fn(
+    _args,
+  ) {
+    Ok(ToolResult::text("A"))
+  })
+  server.register_tool("tool_b", "Tool B description", Json::object({}), async fn(
+    _args,
+  ) {
+    Ok(ToolResult::text("B"))
+  })
+  server.register_tool("tool_c", "Tool C description", Json::object({}), async fn(
+    _args,
+  ) {
+    Ok(ToolResult::text("C"))
+  })
 
   // Verify server metadata
   assert_eq(server.name, "multi-tool-server")
@@ -224,9 +195,9 @@ test "example: register multiple tools and verify" {
   assert_eq(tools[2].name, "tool_c")
 }
 
+///|
 test "example: server with complex schemas" {
   let server = MCPServer::new("complex-server", "1.0.0")
-
   let complex_schema = Json::object({
     "type": Json::string("object"),
     "properties": Json::object({
@@ -243,11 +214,8 @@ test "example: server with complex schemas" {
         "description": Json::string("Filter options"),
       }),
     }),
-    "required": Json::array([
-      Json::string("query"),
-    ]),
+    "required": Json::array([Json::string("query")]),
   })
-
   server.register_tool(
     "search",
     "Search with complex parameters",

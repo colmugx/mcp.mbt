@@ -9,6 +9,27 @@ import(
 )
 
 // Values
+pub fn boolean_param(String, String) -> @tool.ParamDef
+
+pub fn expand_params_to_json(Array[@tool.ParamDef]) -> Json
+
+pub fn get_number(Json, String) -> Result[Double, @tool.ToolResult]
+
+pub fn get_optional_number(Json, String) -> Result[Double?, @tool.ToolResult]
+
+pub fn get_optional_string(Json, String) -> Result[String?, @tool.ToolResult]
+
+pub fn get_string(Json, String) -> Result[String, @tool.ToolResult]
+
+pub fn number_param(String, String) -> @tool.ParamDef
+
+pub fn optional_boolean_param(String, String) -> @tool.ParamDef
+
+pub fn optional_number_param(String, String) -> @tool.ParamDef
+
+pub fn optional_string_param(String, String) -> @tool.ParamDef
+
+pub fn string_param(String, String) -> @tool.ParamDef
 
 // Errors
 
@@ -44,6 +65,8 @@ pub using @server {type ToolRegistry}
 pub using @tool {type ToolResult}
 
 pub using @types {type TransportError}
+
+pub using @tool {trait Tool}
 
 // Traits
 

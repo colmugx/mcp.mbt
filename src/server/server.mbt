@@ -1,13 +1,16 @@
+///|
 pub struct MCPServer {
   name : String
   version : String
   registry : ToolRegistry
 }
 
+///|
 pub fn MCPServer::new(name : String, version : String) -> MCPServer {
   { name, version, registry: ToolRegistry::new() }
 }
 
+///|
 pub fn MCPServer::register_tool(
   self : MCPServer,
   name : String,
@@ -18,6 +21,7 @@ pub fn MCPServer::register_tool(
   self.registry.register(name, description, input_schema, handler)
 }
 
+///|
 pub fn[T : @tool.Tool] MCPServer::register_trait_tool(
   self : MCPServer,
   tool : T,
@@ -25,8 +29,11 @@ pub fn[T : @tool.Tool] MCPServer::register_trait_tool(
   self.registry.register_trait_tool(tool)
 }
 
+///|
 fn handle_initialize(server : MCPServer, id : Int) -> String {
-  let tools_cap = @internal.json_object([("listChanged", @internal.json_bool(true))])
+  let tools_cap = @internal.json_object([
+    ("listChanged", @internal.json_bool(true)),
+  ])
   let capabilities = @internal.json_object([("tools", tools_cap)])
   let server_info = @internal.json_object([
     ("name", @internal.json_string(server.name)),
@@ -40,6 +47,7 @@ fn handle_initialize(server : MCPServer, id : Int) -> String {
   @internal.jsonrpc_success(id, result)
 }
 
+///|
 fn handle_tools_list(server : MCPServer, id : Int) -> String {
   let tools = server.registry.list_tools()
   let tool_jsons = tools.map(fn(tool) {
@@ -49,10 +57,13 @@ fn handle_tools_list(server : MCPServer, id : Int) -> String {
       ("inputSchema", tool.input_schema.stringify()),
     ])
   })
-  let result = @internal.json_object([("tools", @internal.json_array(tool_jsons))])
+  let result = @internal.json_object([
+    ("tools", @internal.json_array(tool_jsons)),
+  ])
   @internal.jsonrpc_success(id, result)
 }
 
+///|
 async fn handle_tools_call(
   server : MCPServer,
   id : Int,
@@ -101,6 +112,7 @@ async fn handle_tools_call(
   }
 }
 
+///|
 pub async fn MCPServer::handle_request(
   self : MCPServer,
   request_json : String,
@@ -125,6 +137,7 @@ pub async fn MCPServer::handle_request(
   }
 }
 
+///|
 pub async fn MCPServer::run(
   self : MCPServer,
   transport : @transport.AnyTransport,

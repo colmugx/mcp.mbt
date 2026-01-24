@@ -40,7 +40,7 @@ pub(all) struct GetPromptResult {
 pub impl Eq for GetPromptResult
 pub impl Show for GetPromptResult
 
-pub struct JsonRpcError {
+pub(all) struct JsonRpcError {
   code : Int
   message : String
   data : Json?
@@ -48,7 +48,7 @@ pub struct JsonRpcError {
 pub impl Eq for JsonRpcError
 pub impl Show for JsonRpcError
 
-pub struct JsonRpcRequest {
+pub(all) struct JsonRpcRequest {
   jsonrpc : String
   id : Int
   method_name : String
@@ -58,7 +58,7 @@ pub fn JsonRpcRequest::from_json(Json) -> Result[Self, MCPError]
 pub impl Eq for JsonRpcRequest
 pub impl Show for JsonRpcRequest
 
-pub struct JsonRpcResponse {
+pub(all) struct JsonRpcResponse {
   jsonrpc : String
   id : Int
   result : Result[Json, JsonRpcError]
@@ -82,7 +82,7 @@ pub(all) struct PromptArgument {
 pub impl Eq for PromptArgument
 pub impl Show for PromptArgument
 
-pub struct PromptCapabilities {
+pub(all) struct PromptCapabilities {
   list_changed : Bool
 }
 pub impl Eq for PromptCapabilities
@@ -95,14 +95,14 @@ pub(all) struct PromptMessage {
 pub impl Eq for PromptMessage
 pub impl Show for PromptMessage
 
-pub struct ResourceCapabilities {
+pub(all) struct ResourceCapabilities {
   subscribe : Bool
   list_changed : Bool
 }
 pub impl Eq for ResourceCapabilities
 pub impl Show for ResourceCapabilities
 
-pub struct ServerCapabilities {
+pub(all) struct ServerCapabilities {
   tools : ToolCapabilities?
   resources : ResourceCapabilities?
   prompts : PromptCapabilities?
@@ -110,14 +110,14 @@ pub struct ServerCapabilities {
 pub impl Eq for ServerCapabilities
 pub impl Show for ServerCapabilities
 
-pub struct ServerInfo {
+pub(all) struct ServerInfo {
   name : String
   version : String
 }
 pub impl Eq for ServerInfo
 pub impl Show for ServerInfo
 
-pub struct ToolCapabilities {
+pub(all) struct ToolCapabilities {
   list_changed : Bool
 }
 pub impl Eq for ToolCapabilities

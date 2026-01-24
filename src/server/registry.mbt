@@ -1,3 +1,4 @@
+///|
 struct ToolEntry {
   name : String
   description : String
@@ -5,14 +6,17 @@ struct ToolEntry {
   handler : async (Json) -> Result[@tool.ToolResult, @types.MCPError]
 }
 
+///|
 pub(all) struct ToolRegistry {
   tools : Array[ToolEntry]
 }
 
+///|
 pub fn ToolRegistry::new() -> ToolRegistry {
   { tools: [] }
 }
 
+///|
 pub fn ToolRegistry::register(
   self : ToolRegistry,
   name : String,
@@ -23,7 +27,10 @@ pub fn ToolRegistry::register(
   self.tools.push({ name, description, input_schema, handler })
 }
 
-pub fn ToolRegistry::list_tools(self : ToolRegistry) -> Array[@types.ToolDefinition] {
+///|
+pub fn ToolRegistry::list_tools(
+  self : ToolRegistry,
+) -> Array[@types.ToolDefinition] {
   self.tools.map(fn(entry) {
     {
       name: entry.name,
@@ -33,6 +40,7 @@ pub fn ToolRegistry::list_tools(self : ToolRegistry) -> Array[@types.ToolDefinit
   })
 }
 
+///|
 pub async fn ToolRegistry::call_tool(
   self : ToolRegistry,
   name : String,

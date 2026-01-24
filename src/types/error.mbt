@@ -1,6 +1,3 @@
-///| MCP Error Types
-/// Defines error types for the MCP protocol and transport layers
-
 ///|
 /// Transport-level errors
 /// These occur at the communication layer (network, IO, etc.)
@@ -46,8 +43,8 @@ pub fn MCPError::to_error_code(self : MCPError) -> Int {
     MethodNotFound(_) => -32601
     InvalidParams(_) => -32602
     InternalError(_) => -32603
-    TransportError(_) => -32603 // Map transport errors to internal error
-    ToolError(_) => -32000 // Server-defined error
+    TransportError(_) => -32603
+    ToolError(_) => -32000
   }
 }
 

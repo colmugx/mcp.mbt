@@ -1,85 +1,82 @@
 ///|
-
-///| Comprehensive MCP Server Example
-
-///| Demonstrates all core features of the MoonBit MCP SDK
-
-///|=====================================================
-
-///| Tool: Echo
+using @mcp {
+  trait Tool,
+  type ParamDef,
+  type ToolResult,
+  type ContentItem,
+  string_param,
+  number_param,
+  optional_number_param,
+  optional_string_param,
+  get_number,
+  get_string,
+  get_optional_string,
+  get_optional_number,
+}
 
 ///|
-///=====================================================
-/// Demonstrates: Basic validation, single string parameter
 pub(all) struct EchoTool {}
 
 ///|
-pub impl @mcp.Tool for EchoTool with name(_) -> String {
+pub impl Tool for EchoTool with name(_) -> String {
   "echo"
 }
 
 ///|
-pub impl @mcp.Tool for EchoTool with description(_) -> String {
+pub impl Tool for EchoTool with description(_) -> String {
   "Echo back the input text. Useful for testing MCP connectivity."
 }
 
 ///|
-pub impl @mcp.Tool for EchoTool with params(_) -> Array[@mcp.ParamDef] {
-  [@mcp.string_param("text", "The text to echo back")]
+pub impl Tool for EchoTool with params(_) -> Array[ParamDef] {
+  [string_param("text", "The text to echo back")]
 }
 
 ///|
-pub impl @mcp.Tool for EchoTool with execute(_, args : Json) -> @mcp.ToolResult {
-  match @mcp.get_string(args, "text") {
-    Ok(text) => @mcp.ToolResult::text(text)
+pub impl Tool for EchoTool with execute(_, args : Json) -> ToolResult {
+  match get_string(args, "text") {
+    Ok(text) => ToolResult::text(text)
     Err(result) => result
   }
 }
 
-///|=====================================================
-
-///| Tool: Calculate
-
 ///|
-///=====================================================
+/// Tool: Calculate
 /// Demonstrates: Number parsing, error handling, multiple operations
 pub(all) struct CalculateTool {}
 
 ///|
-pub impl @mcp.Tool for CalculateTool with name(_self : CalculateTool) -> String {
+pub impl Tool for CalculateTool with name(_self : CalculateTool) -> String {
   "calculate"
 }
 
 ///|
-pub impl @mcp.Tool for CalculateTool with description(_self : CalculateTool) -> String {
+pub impl Tool for CalculateTool with description(_self : CalculateTool) -> String {
   "Perform arithmetic operations: add, sub, mul, div, pow, sqrt"
 }
 
 ///|
-pub impl @mcp.Tool for CalculateTool with params(_self : CalculateTool) -> Array[
-  @mcp.ParamDef,
+pub impl Tool for CalculateTool with params(_self : CalculateTool) -> Array[
+  ParamDef,
 ] {
   [
-    @mcp.string_param("operation", "Operation: add, sub, mul, div, pow, sqrt"),
-    @mcp.number_param("a", "First operand"),
-    @mcp.optional_number_param("b", "Second operand (not needed for sqrt)"),
+    string_param("operation", "Operation: add, sub, mul, div, pow, sqrt"),
+    number_param("a", "First operand"),
+    optional_number_param("b", "Second operand (not needed for sqrt)"),
   ]
 }
 
 ///|
-pub impl @mcp.Tool for CalculateTool with execute(
-  _self : CalculateTool,
-  args : Json,
-) -> @mcp.ToolResult {
-  let op = match @mcp.get_string(args, "operation") {
+pub impl Tool for CalculateTool with execute(_self : CalculateTool, args : Json) -> ToolResult {
+  let op = match get_string(args, "operation") {
     Ok(o) => o
     Err(result) => return result
   }
-  let a = match @mcp.get_number(args, "a") {
+  let a = match get_number(args, "a") {
     Ok(n) => n
     Err(result) => return result
   }
-  let b_opt = match @mcp.get_optional_number(args, "b") {
+  let b_opt = match get_optional_number(args, "b") {
     Ok(n_opt) => n_opt
     Err(result) => return result
   }
@@ -108,8 +105,8 @@ pub impl @mcp.Tool for CalculateTool with execute(
     _ => Err("Unknown operation: " + op)
   }
   match result {
-    Ok(n) => @mcp.ToolResult::text(n.to_string())
-    Err(msg) => @mcp.ToolResult::error(msg)
+    Ok(n) => ToolResult::text(n.to_string())
+    Err(msg) => ToolResult::error(msg)
   }
 }
 
@@ -146,49 +143,41 @@ fn sqrt_float(n : Double) -> Double {
   }
 }
 
-///|=====================================================
-
-///| Tool: Transform Text
-
 ///|
-///=====================================================
+/// Tool: Transform Text
 /// Demonstrates: String manipulation, multiple operation types
 pub(all) struct TransformTextTool {}
 
 ///|
-pub impl @mcp.Tool for TransformTextTool with name(_self : TransformTextTool) -> String {
+pub impl Tool for TransformTextTool with name(_self : TransformTextTool) -> String {
   "transform_text"
 }
 
 ///|
-pub impl @mcp.Tool for TransformTextTool with description(
-  _self : TransformTextTool,
-) -> String {
+pub impl Tool for TransformTextTool with description(_self : TransformTextTool) -> String {
   "Transform text: uppercase, lowercase, reverse"
 }
 
 ///|
-pub impl @mcp.Tool for TransformTextTool with params(_self : TransformTextTool) -> Array[
-  @mcp.ParamDef,
+pub impl Tool for TransformTextTool with params(_self : TransformTextTool) -> Array[
+  ParamDef,
 ] {
   [
-    @mcp.string_param("text", "The text to transform"),
-    @mcp.string_param(
-      "operation", "Transformation: uppercase, lowercase, reverse",
-    ),
+    string_param("text", "The text to transform"),
+    string_param("operation", "Transformation: uppercase, lowercase, reverse"),
   ]
 }
 
 ///|
-pub impl @mcp.Tool for TransformTextTool with execute(
+pub impl Tool for TransformTextTool with execute(
   _self : TransformTextTool,
   args : Json,
-) -> @mcp.ToolResult {
-  let text = match @mcp.get_string(args, "text") {
+) -> ToolResult {
+  let text = match get_string(args, "text") {
     Ok(t) => t
     Err(result) => return result
   }
-  let op = match @mcp.get_string(args, "operation") {
+  let op = match get_string(args, "operation") {
     Ok(o) => o
     Err(result) => return result
   }
@@ -205,58 +194,54 @@ pub impl @mcp.Tool for TransformTextTool with execute(
       }
       reversed
     }
-    _ => return @mcp.ToolResult::error("Unknown operation: " + op)
+    _ => return ToolResult::error("Unknown operation: " + op)
   }
-  @mcp.ToolResult::text(result)
+  ToolResult::text(result)
 }
 
-///|=====================================================
-
-///| Tool: Analyze Text
-
 ///|
-///=====================================================
+/// Tool: Analyze Text
 /// Demonstrates: Multiple content items, optional parameters
 pub(all) struct AnalyzeTextTool {}
 
 ///|
-pub impl @mcp.Tool for AnalyzeTextTool with name(_self : AnalyzeTextTool) -> String {
+pub impl Tool for AnalyzeTextTool with name(_self : AnalyzeTextTool) -> String {
   "analyze_text"
 }
 
 ///|
-pub impl @mcp.Tool for AnalyzeTextTool with description(_self : AnalyzeTextTool) -> String {
+pub impl Tool for AnalyzeTextTool with description(_self : AnalyzeTextTool) -> String {
   "Analyze text and return word count, character count, and line count"
 }
 
 ///|
-pub impl @mcp.Tool for AnalyzeTextTool with params(_self : AnalyzeTextTool) -> Array[
-  @mcp.ParamDef,
+pub impl Tool for AnalyzeTextTool with params(_self : AnalyzeTextTool) -> Array[
+  ParamDef,
 ] {
   [
-    @mcp.string_param("text", "The text to analyze"),
-    @mcp.optional_string_param(
+    string_param("text", "The text to analyze"),
+    optional_string_param(
       "metrics", "Comma-separated: words,chars,lines (default: all)",
     ),
   ]
 }
 
 ///|
-pub impl @mcp.Tool for AnalyzeTextTool with execute(
+pub impl Tool for AnalyzeTextTool with execute(
   _self : AnalyzeTextTool,
   args : Json,
-) -> @mcp.ToolResult {
-  let text = match @mcp.get_string(args, "text") {
+) -> ToolResult {
+  let text = match get_string(args, "text") {
     Ok(t) => t
     Err(result) => return result
   }
-  let metrics_str = match @mcp.get_optional_string(args, "metrics") {
+  let metrics_str = match get_optional_string(args, "metrics") {
     Ok(Some(m)) => m
     Ok(None) => "words,chars,lines"
     Err(result) => return result
   }
   let metrics = metrics_str.split(",")
-  let results : Array[@mcp.ContentItem] = []
+  let results : Array[ContentItem] = []
   let should_check = fn(metric : String) -> Bool {
     for m in metrics {
       if m.trim() == metric {
@@ -267,17 +252,17 @@ pub impl @mcp.Tool for AnalyzeTextTool with execute(
   }
   if should_check("words") {
     let wc = word_count(text)
-    results.push(@mcp.ContentItem::Text("Words: " + wc.to_string()))
+    results.push(ContentItem::Text("Words: " + wc.to_string()))
   }
   if should_check("chars") {
     let cc = text.length()
-    results.push(@mcp.ContentItem::Text("Characters: " + cc.to_string()))
+    results.push(ContentItem::Text("Characters: " + cc.to_string()))
   }
   if should_check("lines") {
     let lc = line_count(text)
-    results.push(@mcp.ContentItem::Text("Lines: " + lc.to_string()))
+    results.push(ContentItem::Text("Lines: " + lc.to_string()))
   }
-  @mcp.ToolResult::success(results)
+  ToolResult::success(results)
 }
 
 ///|
@@ -286,7 +271,6 @@ fn word_count(text : String) -> Int {
   if trimmed.length() == 0 {
     0
   } else {
-    // Count words by tracking transitions
     let mut count = 0
     let mut in_word = false
     for c in trimmed.to_array() {
@@ -316,43 +300,36 @@ fn line_count(text : String) -> Int {
   }
 }
 
-///|=====================================================
-
-///| Tool: Get Timestamp
-
 ///|
-///=====================================================
+/// Tool: Get Timestamp
 /// Demonstrates: No parameters, multiple outputs
 pub(all) struct GetTimestampTool {}
 
 ///|
-pub impl @mcp.Tool for GetTimestampTool with name(_self : GetTimestampTool) -> String {
+pub impl Tool for GetTimestampTool with name(_self : GetTimestampTool) -> String {
   "get_timestamp"
 }
 
 ///|
-pub impl @mcp.Tool for GetTimestampTool with description(
-  _self : GetTimestampTool,
-) -> String {
+pub impl Tool for GetTimestampTool with description(_self : GetTimestampTool) -> String {
   "Get current timestamp in multiple formats"
 }
 
 ///|
-pub impl @mcp.Tool for GetTimestampTool with params(_self : GetTimestampTool) -> Array[
-  @mcp.ParamDef,
+pub impl Tool for GetTimestampTool with params(_self : GetTimestampTool) -> Array[
+  ParamDef,
 ] {
-  [] // No parameters
+  []
 }
 
 ///|
-pub impl @mcp.Tool for GetTimestampTool with execute(
+pub impl Tool for GetTimestampTool with execute(
   _self : GetTimestampTool,
   _args : Json,
-) -> @mcp.ToolResult {
-  // Placeholder timestamp (2024-01-01 00:00:00 UTC)
+) -> ToolResult {
   let content = [
-    @mcp.ContentItem::Text("Unix epoch (ms): 1704067200000"),
-    @mcp.ContentItem::Text("ISO 8601: 2024-01-01T00:00:00Z"),
+    ContentItem::Text("Unix epoch (ms): 1704067200000"),
+    ContentItem::Text("ISO 8601: 2024-01-01T00:00:00Z"),
   ]
-  @mcp.ToolResult::success(content)
+  ToolResult::success(content)
 }

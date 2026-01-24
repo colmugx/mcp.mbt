@@ -1,3 +1,4 @@
+///|
 pub(open) trait Transport {
   receive(Self) -> String? raise @types.TransportError
   send(Self, String) -> Unit raise @types.TransportError
@@ -6,11 +7,13 @@ pub(open) trait Transport {
   close(Self) -> Unit
 }
 
+///|
 pub(all) enum AnyTransport {
   Stdio(StdioTransport)
   Http(HttpTransport)
 }
 
+///|
 pub async fn AnyTransport::receive(
   self : AnyTransport,
 ) -> String? raise @types.TransportError {
@@ -20,6 +23,7 @@ pub async fn AnyTransport::receive(
   }
 }
 
+///|
 pub async fn AnyTransport::send(
   self : AnyTransport,
   message : String,
@@ -30,6 +34,7 @@ pub async fn AnyTransport::send(
   }
 }
 
+///|
 pub fn AnyTransport::send_event(
   self : AnyTransport,
   event_type~ : String,
@@ -41,6 +46,7 @@ pub fn AnyTransport::send_event(
   }
 }
 
+///|
 pub fn AnyTransport::supports_streaming(self : AnyTransport) -> Bool {
   match self {
     Stdio(t) => t.supports_streaming()
@@ -48,6 +54,7 @@ pub fn AnyTransport::supports_streaming(self : AnyTransport) -> Bool {
   }
 }
 
+///|
 pub fn AnyTransport::close(self : AnyTransport) -> Unit {
   match self {
     Stdio(t) => t.close()
@@ -55,15 +62,18 @@ pub fn AnyTransport::close(self : AnyTransport) -> Unit {
   }
 }
 
-pub fn validate_jsonrpc_message(message : String) -> Result[Unit, @types.MCPError] {
+///|
+pub fn validate_jsonrpc_message(
+  message : String,
+) -> Result[Unit, @types.MCPError] {
   let json = @json.parse(message) catch {
     _ => return Err(@types.ParseError("Invalid JSON"))
   }
-
   if json is Object(obj) {
     match obj.get("jsonrpc") {
       Some(String("2.0")) => ()
-      _ => return Err(@types.InvalidRequest("Missing or invalid 'jsonrpc' field"))
+      _ =>
+        return Err(@types.InvalidRequest("Missing or invalid 'jsonrpc' field"))
     }
     let has_method = obj.get("method") is Some(_)
     let has_result = obj.get("result") is Some(_)

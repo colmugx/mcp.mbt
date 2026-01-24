@@ -1,19 +1,5 @@
-///| Core MCP Tool API - v3.1 (Comprehensive Design)
-
-///| Based on: MCP Protocol 2025-06-18 + Maria's safety patterns
-
-// Using Json type from @json package (moonbitlang/core/json)
-// Json is available globally via prelude
-
-///|=====================================================
-
-///| Content Types (MCP Protocol)
-
-///|=====================================================
-
 ///|
 /// Content item for MCP tool results
-/// Supports text, image, and resource content types per MCP spec
 pub(all) enum ContentItem {
   Text(String)
   /// Image with base64 data and mime type
@@ -22,16 +8,8 @@ pub(all) enum ContentItem {
   Resource(String)
 } derive(Eq, Show)
 
-///|=====================================================
-
-///| Tool Result (MCP Protocol Format)
-
-///|=====================================================
-
 ///|
 /// Tool execution result following MCP protocol format
-/// - content: Array of content items (text, images, resources)
-/// - is_error: Whether this result represents an error
 pub struct ToolResult {
   content : Array[ContentItem]
   is_error : Bool
@@ -55,15 +33,10 @@ pub fn ToolResult::error(message : String) -> ToolResult {
   { content: [Text(message)], is_error: true }
 }
 
-///|=====================================================
-
 ///| ToToolResult Trait (Maria-inspired type conversion)
-
-///|=====================================================
 
 ///|
 /// Trait for types that can be converted to ToolResult
-/// Borrowed from Maria's design pattern for type safety
 pub trait ToToolResult {
   to_tool_result(Self) -> ToolResult
 }
@@ -98,12 +71,6 @@ pub impl ToToolResult for ToolResult with to_tool_result(self : ToolResult) -> T
   self
 }
 
-///|=====================================================
-
-///| Tool Trait (Main API)
-
-///|=====================================================
-
 ///|
 /// Parameter definition for tool schema
 pub(all) struct ParamDef {
@@ -115,25 +82,12 @@ pub(all) struct ParamDef {
 
 ///|
 /// Core Tool trait following MCP protocol
-/// - name: Tool identifier (unique)
-/// - description: Human-readable description
-/// - params: Parameter definitions for schema generation
-/// - execute: Tool logic (async - can call async HTTP clients)
 pub(open) trait Tool {
   name(Self) -> String
   description(Self) -> String
   params(Self) -> Array[ParamDef]
-
-  /// Execute tool with JSON arguments (async)
-  /// Returns ToolResult (never raises exceptions - follows Maria's noraise pattern)
   async execute(Self, Json) -> ToolResult
 }
-
-///|=====================================================
-
-///| Helper Functions for JSON Parsing
-
-///|=====================================================
 
 ///|
 /// Extract string from JSON, returning error ToolResult on failure

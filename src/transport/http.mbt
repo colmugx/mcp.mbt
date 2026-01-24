@@ -1,13 +1,16 @@
+///|
 struct HttpPendingRequest {
   message : String
   reply_queue : @async.Queue[HttpResponse]
 }
 
+///|
 struct HttpResponse {
   body : String
   use_sse : Bool
 }
 
+///|
 pub struct HttpTransport {
   port : Int
   endpoint_path : String
@@ -16,6 +19,7 @@ pub struct HttpTransport {
   session_id : String?
 }
 
+///|
 pub fn HttpTransport::new(
   port? : Int = 4240,
   endpoint_path? : String = "/mcp",
@@ -29,6 +33,7 @@ pub fn HttpTransport::new(
   }
 }
 
+///|
 pub async fn HttpTransport::start(
   self : HttpTransport,
 ) -> Unit raise @types.TransportError {
@@ -111,6 +116,7 @@ pub async fn HttpTransport::start(
   }
 }
 
+///|
 pub async fn HttpTransport::receive(
   self : HttpTransport,
 ) -> String? raise @types.TransportError {
@@ -123,6 +129,7 @@ pub async fn HttpTransport::receive(
   }
 }
 
+///|
 pub async fn HttpTransport::send(
   self : HttpTransport,
   message : String,
@@ -139,6 +146,7 @@ pub async fn HttpTransport::send(
   }
 }
 
+///|
 pub fn HttpTransport::send_event(
   self : HttpTransport,
   event_type~ : String,
@@ -149,10 +157,12 @@ pub fn HttpTransport::send_event(
   ignore(self)
 }
 
+///|
 pub fn HttpTransport::supports_streaming(_self : HttpTransport) -> Bool {
   true
 }
 
+///|
 pub fn HttpTransport::close(self : HttpTransport) -> Unit {
   ignore(self)
 }

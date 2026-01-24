@@ -1,36 +1,39 @@
 ///|
-/// Create a string parameter definition
 pub fn string_param(name : String, description : String) -> @tool.ParamDef {
   { name, description, type_: "string", required: true }
 }
 
 ///|
-/// Create an optional string parameter definition
-pub fn optional_string_param(name : String, description : String) -> @tool.ParamDef {
+pub fn optional_string_param(
+  name : String,
+  description : String,
+) -> @tool.ParamDef {
   { name, description, type_: "string", required: false }
 }
 
 ///|
-/// Create a number parameter definition
 pub fn number_param(name : String, description : String) -> @tool.ParamDef {
   { name, description, type_: "number", required: true }
 }
 
 ///|
-/// Create an optional number parameter definition
-pub fn optional_number_param(name : String, description : String) -> @tool.ParamDef {
+pub fn optional_number_param(
+  name : String,
+  description : String,
+) -> @tool.ParamDef {
   { name, description, type_: "number", required: false }
 }
 
 ///|
-/// Create a boolean parameter definition
 pub fn boolean_param(name : String, description : String) -> @tool.ParamDef {
   { name, description, type_: "boolean", required: true }
 }
 
 ///|
-/// Create an optional boolean parameter definition
-pub fn optional_boolean_param(name : String, description : String) -> @tool.ParamDef {
+pub fn optional_boolean_param(
+  name : String,
+  description : String,
+) -> @tool.ParamDef {
   { name, description, type_: "boolean", required: false }
 }
 
@@ -46,14 +49,12 @@ pub fn expand_params_to_json(params : Array[@tool.ParamDef]) -> Json {
     }
     properties_map.set(param.name, Json::object(prop_map))
   }
-
   let required_list : Array[Json] = []
   for param in params {
     if param.required {
       required_list.push(Json::string(param.name))
     }
   }
-
   let schema_map : Map[String, Json] = Map::default()
   schema_map.set("type", Json::string("object"))
   schema_map.set("properties", Json::object(properties_map))

@@ -8,7 +8,6 @@ using @tool {
 }
 
 ///|
-/// =====================================================
 test "string_param creates required string parameter" {
   let param = string_param("name", "User name")
   assert_eq(param.name, "name")

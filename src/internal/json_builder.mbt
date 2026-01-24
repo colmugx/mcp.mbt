@@ -1,3 +1,4 @@
+///|
 fn escape_json_string(s : String) -> String {
   let builder = StringBuilder::new()
   let len = s.length()
@@ -17,14 +18,17 @@ fn escape_json_string(s : String) -> String {
   builder.to_string()
 }
 
+///|
 pub fn json_string(s : String) -> String {
   "\"" + escape_json_string(s) + "\""
 }
 
+///|
 pub fn json_number(n : Int) -> String {
   n.to_string()
 }
 
+///|
 pub fn json_bool(b : Bool) -> String {
   if b {
     "true"
@@ -33,6 +37,7 @@ pub fn json_bool(b : Bool) -> String {
   }
 }
 
+///|
 pub fn json_object(pairs : Array[(String, String)]) -> String {
   if pairs.is_empty() {
     "{}"
@@ -70,6 +75,7 @@ pub fn json_array(values : Array[String]) -> String {
   }
 }
 
+///|
 pub fn jsonrpc_success(id : Int, result : String) -> String {
   json_object([
     ("jsonrpc", json_string("2.0")),
@@ -78,6 +84,7 @@ pub fn jsonrpc_success(id : Int, result : String) -> String {
   ])
 }
 
+///|
 pub fn jsonrpc_error(id : Int, code : Int, message : String) -> String {
   let error_obj = json_object([
     ("code", json_number(code)),
