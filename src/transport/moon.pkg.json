@@ -4,6 +4,7 @@
     "moonbitlang/async/stdio",
     "moonbitlang/async/http",
     "moonbitlang/async/socket",
-    "moonbitlang/async"
+    "moonbitlang/async",
+    "colmugx/mcp/internal"
   ]
 }

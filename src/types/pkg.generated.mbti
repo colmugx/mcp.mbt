@@ -6,6 +6,11 @@ import(
 )
 
 // Values
+pub fn prompts_list_changed_notification() -> Notification
+
+pub fn resources_list_changed_notification() -> Notification
+
+pub fn tools_list_changed_notification() -> Notification
 
 // Errors
 pub(all) suberror MCPError {
@@ -65,6 +70,22 @@ pub(all) struct JsonRpcResponse {
 }
 pub impl Eq for JsonRpcResponse
 pub impl Show for JsonRpcResponse
+
+pub(all) struct Notification {
+  method : String
+  params : Json?
+}
+pub impl Eq for Notification
+pub impl Show for Notification
+
+pub(all) struct NotificationCapabilities {
+  tools_list_changed : Bool
+  resources_list_changed : Bool
+  resources_updated : Bool
+  prompts_list_changed : Bool
+}
+pub impl Eq for NotificationCapabilities
+pub impl Show for NotificationCapabilities
 
 pub(all) struct Prompt {
   name : String

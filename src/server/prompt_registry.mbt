@@ -10,13 +10,24 @@ struct PromptEntry {
 
 ///|
 pub(all) struct PromptRegistry {
-  prompts : Map[String, PromptEntry]  // Name -> Entry mapping for O(1) lookup
+  prompts : Map[String, PromptEntry] // Name -> Entry mapping for O(1) lookup
+  mut on_change : (() -> Unit)? // Callback for list_changed notification
 }
 
 ///|
 pub fn PromptRegistry::new() -> PromptRegistry {
-  { prompts: Map::default() }
+  { prompts: Map::default(), on_change: None }
 }
+
+///|
+pub fn PromptRegistry::set_on_change(
+  self : PromptRegistry,
+  callback : () -> Unit,
+) -> Unit {
+  self.on_change = Some(callback)
+}
+
+///|
 
 ///|
 pub fn PromptRegistry::register(
@@ -27,6 +38,10 @@ pub fn PromptRegistry::register(
   handler : async (Json) -> Result[@types.GetPromptResult, @types.MCPError],
 ) -> Unit {
   self.prompts.set(name, { name, description, arguments, handler })
+  match self.on_change {
+    Some(callback) => callback()
+    None => ()
+  }
 }
 
 ///|

@@ -1,0 +1,46 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/mcp/resource"
+
+import(
+  "colmugx/mcp/types"
+)
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) enum ResourceContent {
+  Text(String)
+  Blob(String, mime_type~ : String)
+}
+pub impl Eq for ResourceContent
+pub impl Show for ResourceContent
+
+pub(all) struct ResourceDefinition {
+  uri : String
+  name : String
+  description : String?
+  mime_type : String?
+}
+pub impl Eq for ResourceDefinition
+pub impl Show for ResourceDefinition
+
+pub(all) struct ResourceReadResult {
+  uri : String
+  content : ResourceContent
+}
+pub impl Eq for ResourceReadResult
+pub impl Show for ResourceReadResult
+
+// Type aliases
+
+// Traits
+pub(open) trait Resource {
+  name(Self) -> String
+  description(Self) -> String
+  uri(Self) -> String
+  mime_type(Self) -> String
+  async read(Self) -> Result[ResourceReadResult, @types.MCPError]
+}
+

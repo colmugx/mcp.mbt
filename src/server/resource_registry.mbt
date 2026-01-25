@@ -11,14 +11,25 @@ struct ResourceEntry {
 
 ///|
 pub(all) struct ResourceRegistry {
-  resources : Map[String, ResourceEntry]  // URI -> Entry mapping for O(1) lookup
-  mut subscriptions : Array[String]  // Subscribed URIs
+  resources : Map[String, ResourceEntry] // URI -> Entry mapping for O(1) lookup
+  mut subscriptions : Array[String] // Subscribed URIs
+  mut on_change : (() -> Unit)? // Callback for list_changed notification
 }
 
 ///|
 pub fn ResourceRegistry::new() -> ResourceRegistry {
-  { resources: Map::default(), subscriptions: [] }
+  { resources: Map::default(), subscriptions: [], on_change: None }
 }
+
+///|
+pub fn ResourceRegistry::set_on_change(
+  self : ResourceRegistry,
+  callback : () -> Unit,
+) -> Unit {
+  self.on_change = Some(callback)
+}
+
+///|
 
 ///|
 pub fn ResourceRegistry::register(
@@ -30,6 +41,10 @@ pub fn ResourceRegistry::register(
   handler : async () -> Result[@resource.ResourceReadResult, @types.MCPError],
 ) -> Unit {
   self.resources.set(uri, { name, description, uri, mime_type, handler })
+  match self.on_change {
+    Some(callback) => callback()
+    None => ()
+  }
 }
 
 ///|

@@ -17,6 +17,7 @@ pub struct HttpTransport {
   pending_requests : @async.Queue[HttpPendingRequest]
   mut current_reply_queue : @async.Queue[HttpResponse]?
   session_id : String?
+  event_queue : @async.Queue[@types.Notification]
 }
 
 ///|
@@ -30,6 +31,7 @@ pub fn HttpTransport::new(
     pending_requests: @async.Queue::new(kind=Unbounded),
     current_reply_queue: None,
     session_id: None,
+    event_queue: @async.Queue::new(kind=Unbounded),
   }
 }
 
@@ -102,8 +104,16 @@ pub async fn HttpTransport::start(
           "Connection": "keep-alive",
         })
         conn.flush()
+
+        // 实际推送通知事件
         while true {
-          @async.sleep(1000000)
+          let notification = self.event_queue.get()
+          let json = @internal.jsonrpc_notification(
+            notification.method,
+            notification.params,
+          )
+          conn.write("data: " + json + "\n\n")
+          conn.flush()
         }
       }
       _ => {
@@ -143,6 +153,17 @@ pub async fn HttpTransport::send(
         e => raise @types.WriteError(e.to_string())
       }
     None => raise @types.InvalidState("No pending request to reply to")
+  }
+}
+
+///|
+pub async fn HttpTransport::send_notification(
+  self : HttpTransport,
+  notification : @types.Notification,
+) -> Unit raise @types.TransportError {
+  self.event_queue.put(notification) catch {
+    e =>
+      raise @types.WriteError("Failed to send notification: " + e.to_string())
   }
 }
 

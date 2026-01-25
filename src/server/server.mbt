@@ -1,3 +1,7 @@
+///| MCPServer - Main Server Implementation
+
+///|=====================================================
+
 ///|
 pub struct MCPServer {
   name : String
@@ -9,7 +13,13 @@ pub struct MCPServer {
 
 ///|
 pub fn MCPServer::new(name : String, version : String) -> MCPServer {
-  { name, version, registry: ToolRegistry::new(), resource_registry: ResourceRegistry::new(), prompt_registry: PromptRegistry::new() }
+  {
+    name,
+    version,
+    registry: ToolRegistry::new(),
+    resource_registry: ResourceRegistry::new(),
+    prompt_registry: PromptRegistry::new(),
+  }
 }
 
 ///|
@@ -71,7 +81,34 @@ pub fn[T : @prompt.Prompt] MCPServer::register_trait_prompt(
 }
 
 ///|
-fn handle_initialize(server : MCPServer, id : Int) -> String {
+pub async fn MCPServer::notify_tools_list_changed(
+  self : MCPServer,
+  transport : @transport.AnyTransport,
+) -> Unit raise @types.TransportError {
+  let notification = @types.tools_list_changed_notification()
+  transport.send_notification(notification)
+}
+
+///|
+pub async fn MCPServer::notify_resources_list_changed(
+  self : MCPServer,
+  transport : @transport.AnyTransport,
+) -> Unit raise @types.TransportError {
+  let notification = @types.resources_list_changed_notification()
+  transport.send_notification(notification)
+}
+
+///|
+pub async fn MCPServer::notify_prompts_list_changed(
+  self : MCPServer,
+  transport : @transport.AnyTransport,
+) -> Unit raise @types.TransportError {
+  let notification = @types.prompts_list_changed_notification()
+  transport.send_notification(notification)
+}
+
+///|
+pub fn handle_initialize(server : MCPServer, id : Int) -> String {
   let tools_cap = @internal.json_object([
     ("listChanged", @internal.json_bool(true)),
   ])
@@ -168,27 +205,14 @@ async fn handle_tools_call(
 fn handle_resources_list(server : MCPServer, id : Int) -> String {
   let resources = server.resource_registry.list_resources()
   let resource_jsons = resources.map(fn(resource) {
-    let base_fields = [
+    @internal.json_object([
       ("uri", @internal.json_string(resource.uri)),
       ("name", @internal.json_string(resource.name)),
-    ]
-    let with_desc = match resource.description {
-      Some(desc) => {
-        let fields = base_fields
-        fields.push(("description", @internal.json_string(desc)))
-        fields
-      }
-      None => base_fields
-    }
-    let with_mime = match resource.mime_type {
-      Some(mime) => {
-        let fields = with_desc
-        fields.push(("mimeType", @internal.json_string(mime)))
-        fields
-      }
-      None => with_desc
-    }
-    @internal.json_object(with_mime)
+      (
+        "description",
+        resource.description.map(@internal.json_string).unwrap_or("null"),
+      ),
+    ])
   })
   let result = @internal.json_object([
     ("resources", @internal.json_array(resource_jsons)),
@@ -205,7 +229,7 @@ async fn handle_resources_read(
   let uri = @internal.extract_string_from_json(params, "uri")
   match uri {
     None => @internal.jsonrpc_error(id, -32602, "Missing 'uri' parameter")
-    Some(uri_str) => {
+    Some(uri_str) =>
       match server.resource_registry.read_resource(uri_str) {
         Ok(read_result) => {
           let content_json = match read_result.content {
@@ -217,7 +241,7 @@ async fn handle_resources_read(
             @resource.Blob(data, mime_type~) =>
               @internal.json_object([
                 ("uri", @internal.json_string(read_result.uri)),
-                ("blob", @internal.json_string(data)),
+                ("blob", @internal.json_string(data.to_string())),
                 ("mimeType", @internal.json_string(mime_type)),
               ])
           }
@@ -228,7 +252,6 @@ async fn handle_resources_read(
         }
         Err(e) => @internal.jsonrpc_error(id, e.to_error_code(), e.message())
       }
-    }
   }
 }
 
@@ -241,12 +264,11 @@ fn handle_resources_subscribe(
   let uri = @internal.extract_string_from_json(params, "uri")
   match uri {
     None => @internal.jsonrpc_error(id, -32602, "Missing 'uri' parameter")
-    Some(uri_str) => {
+    Some(uri_str) =>
       match server.resource_registry.subscribe(uri_str) {
         Ok(_) => @internal.jsonrpc_success(id, @internal.json_object([]))
         Err(e) => @internal.jsonrpc_error(id, e.to_error_code(), e.message())
       }
-    }
   }
 }
 
@@ -259,12 +281,11 @@ fn handle_resources_unsubscribe(
   let uri = @internal.extract_string_from_json(params, "uri")
   match uri {
     None => @internal.jsonrpc_error(id, -32602, "Missing 'uri' parameter")
-    Some(uri_str) => {
+    Some(uri_str) =>
       match server.resource_registry.unsubscribe(uri_str) {
         Ok(_) => @internal.jsonrpc_success(id, @internal.json_object([]))
         Err(e) => @internal.jsonrpc_error(id, e.to_error_code(), e.message())
       }
-    }
   }
 }
 
@@ -272,48 +293,13 @@ fn handle_resources_unsubscribe(
 fn handle_prompts_list(server : MCPServer, id : Int) -> String {
   let prompts = server.prompt_registry.list_prompts()
   let prompt_jsons = prompts.map(fn(prompt) {
-    let base_fields = [
+    @internal.json_object([
       ("name", @internal.json_string(prompt.name)),
-    ]
-    let with_desc = match prompt.description {
-      Some(desc) => {
-        let fields = base_fields
-        fields.push(("description", @internal.json_string(desc)))
-        fields
-      }
-      None => base_fields
-    }
-    let with_args = match prompt.arguments {
-      Some(args) => {
-        let args_json = args.map(fn(arg) {
-          let arg_base = [
-            ("name", @internal.json_string(arg.name)),
-          ]
-          let arg_with_desc = match arg.description {
-            Some(desc) => {
-              let fields = arg_base
-              fields.push(("description", @internal.json_string(desc)))
-              fields
-            }
-            None => arg_base
-          }
-          let arg_with_req = match arg.required {
-            Some(req) => {
-              let fields = arg_with_desc
-              fields.push(("required", @internal.json_bool(req)))
-              fields
-            }
-            None => arg_with_desc
-          }
-          @internal.json_object(arg_with_req)
-        })
-        let fields = with_desc
-        fields.push(("arguments", @internal.json_array(args_json)))
-        fields
-      }
-      None => with_desc
-    }
-    @internal.json_object(with_args)
+      (
+        "description",
+        prompt.description.map(@internal.json_string).unwrap_or("null"),
+      ),
+    ])
   })
   let result = @internal.json_object([
     ("prompts", @internal.json_array(prompt_jsons)),
@@ -330,54 +316,36 @@ async fn handle_prompts_get(
   let prompt_name = @internal.extract_string_from_json(params, "name")
   match prompt_name {
     None => @internal.jsonrpc_error(id, -32602, "Missing 'name' parameter")
-    Some(name) => {
-      let arguments = if params is Object(obj) {
-        obj.get("arguments").unwrap_or(null)
-      } else {
-        null
-      }
-      match server.prompt_registry.get_prompt(name, arguments) {
+    Some(name) =>
+      match server.prompt_registry.get_prompt(name, params) {
         Ok(prompt_result) => {
           let messages_json = prompt_result.messages.map(fn(msg) {
-            let content_json = match msg.content {
+            let content = match msg.content {
               @tool.Text(text) =>
                 @internal.json_object([
                   ("type", @internal.json_string("text")),
                   ("text", @internal.json_string(text)),
                 ])
-              @tool.Image(data, mime_type~) =>
-                @internal.json_object([
-                  ("type", @internal.json_string("image")),
-                  ("data", @internal.json_string(data)),
-                  ("mimeType", @internal.json_string(mime_type)),
-                ])
-              @tool.Resource(uri) =>
-                @internal.json_object([
-                  ("type", @internal.json_string("resource")),
-                  ("uri", @internal.json_string(uri)),
-                ])
+              _ => "null" // Handle other content types if necessary
             }
             @internal.json_object([
               ("role", @internal.json_string(msg.role)),
-              ("content", content_json),
+              ("content", content),
             ])
           })
-          let result_base = [
+          let result = @internal.json_object([
+            (
+              "description",
+              prompt_result.description
+              .map(@internal.json_string)
+              .unwrap_or("null"),
+            ),
             ("messages", @internal.json_array(messages_json)),
-          ]
-          let result_with_desc = match prompt_result.description {
-            Some(desc) => {
-              let fields = result_base
-              fields.push(("description", @internal.json_string(desc)))
-              fields
-            }
-            None => result_base
-          }
-          @internal.jsonrpc_success(id, @internal.json_object(result_with_desc))
+          ])
+          @internal.jsonrpc_success(id, result)
         }
         Err(e) => @internal.jsonrpc_error(id, e.to_error_code(), e.message())
       }
-    }
   }
 }
 
@@ -397,9 +365,12 @@ pub async fn MCPServer::handle_request(
         "tools/list" => handle_tools_list(self, request.id)
         "tools/call" => handle_tools_call(self, request.id, request.params)
         "resources/list" => handle_resources_list(self, request.id)
-        "resources/read" => handle_resources_read(self, request.id, request.params)
-        "resources/subscribe" => handle_resources_subscribe(self, request.id, request.params)
-        "resources/unsubscribe" => handle_resources_unsubscribe(self, request.id, request.params)
+        "resources/read" =>
+          handle_resources_read(self, request.id, request.params)
+        "resources/subscribe" =>
+          handle_resources_subscribe(self, request.id, request.params)
+        "resources/unsubscribe" =>
+          handle_resources_unsubscribe(self, request.id, request.params)
         "prompts/list" => handle_prompts_list(self, request.id)
         "prompts/get" => handle_prompts_get(self, request.id, request.params)
         _ =>

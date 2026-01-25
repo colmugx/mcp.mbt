@@ -18,6 +18,8 @@ pub fn json_string(String) -> String
 
 pub fn jsonrpc_error(Int, Int, String) -> String
 
+pub fn jsonrpc_notification(String, Json?) -> String
+
 pub fn jsonrpc_success(Int, String) -> String
 
 // Errors

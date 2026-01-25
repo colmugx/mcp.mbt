@@ -20,6 +20,7 @@ pub fn AnyTransport::close(Self) -> Unit
 pub async fn AnyTransport::receive(Self) -> String? raise @types.TransportError
 pub async fn AnyTransport::send(Self, String) -> Unit raise @types.TransportError
 pub fn AnyTransport::send_event(Self, event_type~ : String, data~ : String) -> Unit
+pub async fn AnyTransport::send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
 pub fn AnyTransport::supports_streaming(Self) -> Bool
 
 type HttpPendingRequest
@@ -32,12 +33,14 @@ pub struct HttpTransport {
   pending_requests : @aqueue.Queue[HttpPendingRequest]
   mut current_reply_queue : @aqueue.Queue[HttpResponse]?
   session_id : String?
+  event_queue : @aqueue.Queue[@types.Notification]
 }
 pub fn HttpTransport::close(Self) -> Unit
 pub fn HttpTransport::new(port? : Int, endpoint_path? : String) -> Self
 pub async fn HttpTransport::receive(Self) -> String? raise @types.TransportError
 pub async fn HttpTransport::send(Self, String) -> Unit raise @types.TransportError
 pub fn HttpTransport::send_event(Self, event_type~ : String, data~ : String) -> Unit
+pub async fn HttpTransport::send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
 pub async fn HttpTransport::start(Self) -> Unit raise @types.TransportError
 pub fn HttpTransport::supports_streaming(Self) -> Bool
 
@@ -49,6 +52,7 @@ pub fn StdioTransport::new() -> Self
 pub async fn StdioTransport::receive(Self) -> String? raise @types.TransportError
 pub async fn StdioTransport::send(Self, String) -> Unit raise @types.TransportError
 pub fn StdioTransport::send_event(Self, event_type~ : String, data~ : String) -> Unit
+pub async fn StdioTransport::send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
 pub fn StdioTransport::supports_streaming(Self) -> Bool
 pub impl Show for StdioTransport
 
@@ -58,6 +62,7 @@ pub impl Show for StdioTransport
 pub(open) trait Transport {
   receive(Self) -> String? raise @types.TransportError
   send(Self, String) -> Unit raise @types.TransportError
+  send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
   send_event(Self, event_type~ : String, data~ : String) -> Unit
   supports_streaming(Self) -> Bool
   close(Self) -> Unit

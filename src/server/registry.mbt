@@ -8,12 +8,14 @@ struct ToolEntry {
 
 ///|
 pub(all) struct ToolRegistry {
-  tools : Array[ToolEntry]
+  tools : Map[String, ToolEntry]
+  mut tools_list : Array[@types.ToolDefinition]
+  mut on_change : (() -> Unit)?
 }
 
 ///|
 pub fn ToolRegistry::new() -> ToolRegistry {
-  { tools: [] }
+  { tools: Map::default(), tools_list: [], on_change: None }
 }
 
 ///|
@@ -24,20 +26,36 @@ pub fn ToolRegistry::register(
   input_schema : Json,
   handler : async (Json) -> Result[@tool.ToolResult, @types.MCPError],
 ) -> Unit {
-  self.tools.push({ name, description, input_schema, handler })
+  self.tools.set(name, { name, description, input_schema, handler })
+  let definitions : Array[@types.ToolDefinition] = []
+  self.tools.each(fn(_name, entry) {
+    let def : @types.ToolDefinition = {
+      name: entry.name,
+      description: entry.description,
+      input_schema: entry.input_schema,
+    }
+    definitions.push(def)
+  })
+  self.tools_list = definitions
+  match self.on_change {
+    Some(callback) => callback()
+    None => ()
+  }
 }
 
 ///|
 pub fn ToolRegistry::list_tools(
   self : ToolRegistry,
 ) -> Array[@types.ToolDefinition] {
-  self.tools.map(fn(entry) {
-    {
-      name: entry.name,
-      description: entry.description,
-      input_schema: entry.input_schema,
-    }
-  })
+  self.tools_list
+}
+
+///|
+pub fn ToolRegistry::set_on_change(
+  self : ToolRegistry,
+  callback : () -> Unit,
+) -> Unit {
+  self.on_change = Some(callback)
 }
 
 ///|
@@ -46,11 +64,11 @@ pub async fn ToolRegistry::call_tool(
   name : String,
   params : Json,
 ) -> Result[@tool.ToolResult, @types.MCPError] {
-  for entry in self.tools {
-    if entry.name == name {
+  match self.tools.get(name) {
+    Some(entry) => {
       let handler = entry.handler
-      return handler(params)
+      handler(params)
     }
+    None => Err(@types.MethodNotFound("Tool not found: " + name))
   }
-  Err(@types.MethodNotFound("Tool not found: " + name))
 }

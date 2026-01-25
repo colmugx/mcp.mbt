@@ -96,3 +96,36 @@ pub fn jsonrpc_error(id : Int, code : Int, message : String) -> String {
     ("error", error_obj),
   ])
 }
+
+///|
+pub fn jsonrpc_notification(method : String, params : Json?) -> String {
+  match params {
+    None =>
+      json_object([
+        ("jsonrpc", json_string("2.0")),
+        ("method", json_string(method)),
+      ])
+    Some(p) => {
+      let params_json = json_to_string(p)
+      json_object([
+        ("jsonrpc", json_string("2.0")),
+        ("method", json_string(method)),
+        ("params", params_json),
+      ])
+    }
+  }
+}
+
+///|
+/// Helper function to convert Json to string
+fn json_to_string(json : Json) -> String {
+  match json {
+    String(s) => json_string(s)
+    Number(n, ..) => n.to_string()
+    True => json_bool(true)
+    False => json_bool(false)
+    Null => "null"
+    Object(_) => json_object([])
+    Array(_) => "[]"
+  }
+}

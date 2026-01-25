@@ -1,0 +1,30 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/mcp/prompt"
+
+import(
+  "colmugx/mcp/types"
+)
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct PromptDefinition {
+  name : String
+  description : String?
+  arguments : Array[@types.PromptArgument]?
+}
+pub impl Eq for PromptDefinition
+pub impl Show for PromptDefinition
+
+// Type aliases
+
+// Traits
+pub(open) trait Prompt {
+  name(Self) -> String
+  description(Self) -> String
+  arguments(Self) -> Array[@types.PromptArgument]
+  async get(Self, Json) -> Result[@types.GetPromptResult, @types.MCPError]
+}
+

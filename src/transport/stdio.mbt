@@ -69,6 +69,24 @@ pub fn StdioTransport::supports_streaming(_self : StdioTransport) -> Bool {
 }
 
 ///|
+pub async fn StdioTransport::send_notification(
+  self : StdioTransport,
+  notification : @types.Notification,
+) -> Unit raise @types.TransportError {
+  if self.closed {
+    raise @types.InvalidState("Cannot send on closed transport")
+  }
+  let json = @internal.jsonrpc_notification(
+    notification.method,
+    notification.params,
+  )
+  @stdio.stdout.write(json + "\n") catch {
+    e =>
+      raise @types.WriteError("Failed to send notification: " + e.to_string())
+  }
+}
+
+///|
 pub fn StdioTransport::close(self : StdioTransport) -> Unit {
   if not(self.closed) {
     self.closed = true

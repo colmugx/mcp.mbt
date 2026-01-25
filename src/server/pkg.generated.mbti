@@ -2,6 +2,8 @@
 package "colmugx/mcp/server"
 
 import(
+  "colmugx/mcp/prompt"
+  "colmugx/mcp/resource"
   "colmugx/mcp/tool"
   "colmugx/mcp/transport"
   "colmugx/mcp/types"
@@ -11,6 +13,8 @@ import(
 pub fn boolean_param(String, String) -> @tool.ParamDef
 
 pub fn expand_params_to_json(Array[@tool.ParamDef]) -> Json
+
+pub fn handle_initialize(MCPServer, Int) -> String
 
 pub fn number_param(String, String) -> @tool.ParamDef
 
@@ -29,23 +33,64 @@ pub struct MCPServer {
   name : String
   version : String
   registry : ToolRegistry
+  resource_registry : ResourceRegistry
+  prompt_registry : PromptRegistry
 }
 pub async fn MCPServer::handle_request(Self, String) -> String
 pub fn MCPServer::new(String, String) -> Self
+pub async fn MCPServer::notify_prompts_list_changed(Self, @transport.AnyTransport) -> Unit raise @types.TransportError
+pub async fn MCPServer::notify_resources_list_changed(Self, @transport.AnyTransport) -> Unit raise @types.TransportError
+pub async fn MCPServer::notify_tools_list_changed(Self, @transport.AnyTransport) -> Unit raise @types.TransportError
+pub fn MCPServer::register_prompt(Self, String, String, Array[@types.PromptArgument], async (Json) -> Result[@types.GetPromptResult, @types.MCPError]) -> Unit
+pub fn MCPServer::register_resource(Self, String, String, String, String, async () -> Result[@resource.ResourceReadResult, @types.MCPError]) -> Unit
 pub fn MCPServer::register_tool(Self, String, String, Json, async (Json) -> Result[@tool.ToolResult, @types.MCPError]) -> Unit
+pub fn[T : @prompt.Prompt] MCPServer::register_trait_prompt(Self, T) -> Unit
+pub fn[T : @resource.Resource] MCPServer::register_trait_resource(Self, T) -> Unit
 pub fn[T : @tool.Tool] MCPServer::register_trait_tool(Self, T) -> Unit
 pub async fn MCPServer::run(Self, @transport.AnyTransport) -> Unit raise @types.TransportError
+
+type PromptEntry
+
+pub(all) struct PromptRegistry {
+  prompts : Map[String, PromptEntry]
+  mut on_change : (() -> Unit)?
+}
+pub async fn PromptRegistry::get_prompt(Self, String, Json) -> Result[@types.GetPromptResult, @types.MCPError]
+pub fn PromptRegistry::list_prompts(Self) -> Array[@prompt.PromptDefinition]
+pub fn PromptRegistry::new() -> Self
+pub fn PromptRegistry::register(Self, String, String, Array[@types.PromptArgument], async (Json) -> Result[@types.GetPromptResult, @types.MCPError]) -> Unit
+pub fn[T : @prompt.Prompt] PromptRegistry::register_trait_prompt(Self, T) -> Unit
+pub fn PromptRegistry::set_on_change(Self, () -> Unit) -> Unit
+
+type ResourceEntry
+
+pub(all) struct ResourceRegistry {
+  resources : Map[String, ResourceEntry]
+  mut subscriptions : Array[String]
+  mut on_change : (() -> Unit)?
+}
+pub fn ResourceRegistry::list_resources(Self) -> Array[@resource.ResourceDefinition]
+pub fn ResourceRegistry::new() -> Self
+pub async fn ResourceRegistry::read_resource(Self, String) -> Result[@resource.ResourceReadResult, @types.MCPError]
+pub fn ResourceRegistry::register(Self, String, String, String, String, async () -> Result[@resource.ResourceReadResult, @types.MCPError]) -> Unit
+pub fn[T : @resource.Resource] ResourceRegistry::register_trait_resource(Self, T) -> Unit
+pub fn ResourceRegistry::set_on_change(Self, () -> Unit) -> Unit
+pub fn ResourceRegistry::subscribe(Self, String) -> Result[Unit, @types.MCPError]
+pub fn ResourceRegistry::unsubscribe(Self, String) -> Result[Unit, @types.MCPError]
 
 type ToolEntry
 
 pub(all) struct ToolRegistry {
-  tools : Array[ToolEntry]
+  tools : Map[String, ToolEntry]
+  mut tools_list : Array[@types.ToolDefinition]
+  mut on_change : (() -> Unit)?
 }
 pub async fn ToolRegistry::call_tool(Self, String, Json) -> Result[@tool.ToolResult, @types.MCPError]
 pub fn ToolRegistry::list_tools(Self) -> Array[@types.ToolDefinition]
 pub fn ToolRegistry::new() -> Self
 pub fn ToolRegistry::register(Self, String, String, Json, async (Json) -> Result[@tool.ToolResult, @types.MCPError]) -> Unit
 pub fn[T : @tool.Tool] ToolRegistry::register_trait_tool(Self, T) -> Unit
+pub fn ToolRegistry::set_on_change(Self, () -> Unit) -> Unit
 
 // Type aliases
 

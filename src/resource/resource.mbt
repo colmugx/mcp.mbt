@@ -66,7 +66,7 @@ pub(open) trait Resource {
   description(Self) -> String
   uri(Self) -> String
   mime_type(Self) -> String
-  
+
   /// Read resource content (async)
   /// Returns ResourceReadResult with content
   async read(Self) -> Result[ResourceReadResult, @types.MCPError]

@@ -2,6 +2,7 @@
 pub(open) trait Transport {
   receive(Self) -> String? raise @types.TransportError
   send(Self, String) -> Unit raise @types.TransportError
+  send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
   send_event(Self, event_type~ : String, data~ : String) -> Unit
   supports_streaming(Self) -> Bool
   close(Self) -> Unit
@@ -31,6 +32,17 @@ pub async fn AnyTransport::send(
   match self {
     Stdio(t) => t.send(message)
     Http(t) => t.send(message)
+  }
+}
+
+///|
+pub async fn AnyTransport::send_notification(
+  self : AnyTransport,
+  notification : @types.Notification,
+) -> Unit raise @types.TransportError {
+  match self {
+    Stdio(t) => t.send_notification(notification)
+    Http(t) => t.send_notification(notification)
   }
 }
 
