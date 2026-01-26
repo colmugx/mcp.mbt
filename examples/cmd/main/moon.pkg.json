@@ -1,11 +1,9 @@
 {
   "is-main": true,
   "import": [
-    {
-      "path": "username/example",
-      "alias": "lib"
-    },
     "moonbitlang/async",
-    "colmugx/mcp"
+    "username/example/internal",
+    "colmugx/mcp",
+    "moonbitlang/x/sys"
   ]
 }

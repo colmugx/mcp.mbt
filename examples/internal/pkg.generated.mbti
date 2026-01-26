@@ -1,0 +1,97 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "username/example/internal"
+
+import(
+  "colmugx/mcp/prompt"
+  "colmugx/mcp/resource"
+  "colmugx/mcp/server"
+  "colmugx/mcp/tool"
+  "colmugx/mcp/types"
+)
+
+// Values
+pub fn json_array_strings(Array[String]) -> String
+
+pub fn json_string(String) -> String
+
+pub fn register_prompts(@server.MCPServer, Storage) -> Unit
+
+pub fn register_resources(@server.MCPServer, Storage) -> Unit
+
+pub fn register_tools(@server.MCPServer, Storage) -> Unit
+
+// Errors
+
+// Types and methods
+pub(all) struct CreateNoteTool {
+  storage : Storage
+}
+pub fn CreateNoteTool::new(Storage) -> Self
+pub impl @tool.Tool for CreateNoteTool
+
+pub(all) struct DeleteNoteTool {
+  storage : Storage
+}
+pub fn DeleteNoteTool::new(Storage) -> Self
+pub impl @tool.Tool for DeleteNoteTool
+
+pub(all) struct ListNotesTool {
+  storage : Storage
+}
+pub fn ListNotesTool::new(Storage) -> Self
+pub impl @tool.Tool for ListNotesTool
+
+pub(all) struct Note {
+  title : String
+  content : String
+  tags : Array[String]
+}
+pub fn Note::from_json(String) -> Result[Self, String]
+pub fn Note::to_json(Self) -> String
+pub impl Eq for Note
+pub impl Show for Note
+
+pub(all) struct NoteResource {
+  storage : Storage
+  title : String
+}
+pub fn NoteResource::new(Storage, String) -> Self
+pub impl @resource.Resource for NoteResource
+
+pub(all) struct ReadNoteTool {
+  storage : Storage
+}
+pub fn ReadNoteTool::new(Storage) -> Self
+pub impl @tool.Tool for ReadNoteTool
+
+pub(all) struct Storage {
+  base_dir : String
+}
+pub async fn Storage::delete_note(Self, String) -> Result[Unit, String]
+pub async fn Storage::init(Self) -> Result[Unit, String]
+pub async fn Storage::list_notes(Self) -> Result[Array[String], String]
+pub async fn Storage::load_note(Self, String) -> Result[Note, String]
+pub fn Storage::new(String) -> Self
+pub async fn Storage::save_note(Self, Note) -> Result[Unit, String]
+
+pub(all) struct SummarizeNotePrompt {
+  storage : Storage
+}
+pub impl @prompt.Prompt for SummarizeNotePrompt
+
+pub(all) struct SyncNotesTool {
+  storage : Storage
+}
+pub fn SyncNotesTool::new(Storage) -> Self
+pub impl @tool.Tool for SyncNotesTool
+
+pub(all) struct WeatherResource {
+  city : String
+}
+pub fn WeatherResource::new(String) -> Self
+pub impl @resource.Resource for WeatherResource
+
+// Type aliases
+
+// Traits
+
