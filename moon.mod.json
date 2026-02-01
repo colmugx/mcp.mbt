@@ -1,6 +1,5 @@
 {
   "name": "colmugx/mcp",
-  "description": "Type-safe MCP server implementation in MoonBit with dual transport support (STDIO/HTTP)",
   "version": "0.3.1",
   "deps": {
     "moonbitlang/async": "0.16.2"
@@ -8,8 +7,14 @@
   "readme": "README.mbt.md",
   "repository": "https://github.com/colmugx/mcp.mbt",
   "license": "Apache-2.0",
-  "keywords": ["mcp", "modelcontextprotocol"],
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol"
+  ],
+  "description": "Type-safe MCP server implementation in MoonBit with dual transport support (STDIO/HTTP)",
   "source": "src",
-  "preferred-target": "native",
-  "exclude": ["examples", "docs", "MIGRATION.md", "CHANGELOG.md", "CONTRIBUTING.md", "TODO.md", "AGENTS.md"]
+  "exclude": [
+    "examples"
+  ],
+  "preferred-target": "native"
 }

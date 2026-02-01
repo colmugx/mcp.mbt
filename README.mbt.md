@@ -58,7 +58,42 @@ fn main() {
 }
 ```
 
-### 3. Test with Claude Desktop
+### 3. Define a Resource
+
+```moonbit
+struct ConfigResource {
+  path : String
+}
+
+pub impl Resource for ConfigResource with uri(_self : ConfigResource) -> String {
+  "config://" + _self.path
+}
+
+pub impl Resource for ConfigResource with name(_self : ConfigResource) -> String {
+  "Configuration: " + _self.path
+}
+
+pub impl Resource for ConfigResource with description(_self : ConfigResource) -> String {
+  "Access configuration file at " + _self.path
+}
+
+pub impl Resource for ConfigResource with mime_type(_self : ConfigResource) -> String {
+  "application/json"
+}
+
+pub impl Resource for ConfigResource with async read(_self : ConfigResource) -> Result[ResourceReadResult, MCPError] {
+  // Read file and return content
+  Ok({ uri: "config://" + _self.path, content: Text("{ ... }") })
+}
+```
+
+### 4. Register Resource
+
+```moonbit
+server.register_trait_resource(ConfigResource::{ path: "app.json" })
+```
+
+### 5. Test with Claude Desktop
 
 Add to `claude_desktop_config.json`:
 
@@ -77,8 +112,8 @@ Add to `claude_desktop_config.json`:
 
 ### Core Protocol
 - [x] Tools (list, call)
-- [ ] Resources (list, read, subscribe, unsubscribe)
-- [ ] Prompts (list, get)
+- [x] Resources (list, read, subscribe, unsubscribe)
+- [x] Prompts (list, get)
 
 ### Transports
 - [x] STDIO (for Claude Desktop)
@@ -92,8 +127,8 @@ Add to `claude_desktop_config.json`:
 
 ### Notifications
 - [x] Tools list changed
-- [ ] Resources list changed
-- [ ] Prompts list changed
+- [x] Resources list changed
+- [x] Prompts list changed
 - [ ] Resources updated
 - [ ] Progress tracking
 
@@ -109,8 +144,8 @@ Add to `claude_desktop_config.json`:
 ### Testing & Examples
 - [x] Unit tests (87+ tests)
 - [ ] Integration tests
-- [ ] Resource examples
-- [ ] Prompt examples
+- [x] Resource examples
+- [x] Prompt examples
 - [ ] Production deployment examples
 
 ### Developer Tools
@@ -130,14 +165,43 @@ pub(open) trait Tool {
 }
 ```
 
+### Resource Trait
+
+```moonbit
+pub(open) trait Resource {
+  name(Self) -> String
+  description(Self) -> String
+  uri(Self) -> String
+  mime_type(Self) -> String
+  async read(Self) -> Result[ResourceReadResult, MCPError]
+}
+```
+
+Resources provide access to data like files, API responses, or database content.
+
+### Prompt Trait
+
+```moonbit
+pub(open) trait Prompt {
+  name(Self) -> String
+  description(Self) -> String
+  arguments(Self) -> Array[PromptArgument]
+  async get(Self, Json) -> Result[GetPromptResult, MCPError]
+}
+```
+
+Prompts enable reusable prompt templates with dynamic arguments.
+
 ### Server
 
 ```moonbit
 // Create server
 let server = MCPServer::new("server-name", "1.0.0")
 
-// Register tools
+// Register tools, resources, and prompts
 server.register_trait_tool(MyTool::{})
+server.register_trait_resource(MyResource::{})
+server.register_trait_prompt(MyPrompt::{})
 
 // Run server
 server.run(transport)  // Blocks until transport closes
@@ -154,8 +218,6 @@ let http = AnyTransport::Http(HttpTransport::new(port=4240))
 ```
 
 ## Examples
-
-The `@examples` package demonstrates all core SDK features with 5 example tools:
 
 - **EchoTool** - Basic echo for testing connectivity
 - **CalculateTool** - Calculator with arithmetic operations
