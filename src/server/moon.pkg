@@ -1,0 +1,13 @@
+import {
+  "colmugx/mcp/tool",
+  "colmugx/mcp/resource",
+  "colmugx/mcp/prompt",
+  "colmugx/mcp/types",
+  "colmugx/mcp/transport",
+  "colmugx/mcp/internal",
+  "moonbitlang/core/json"
+}
+
+import "test" {
+  "moonbitlang/async",
+}

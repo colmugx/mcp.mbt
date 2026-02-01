@@ -98,18 +98,18 @@ pub fn jsonrpc_error(id : Int, code : Int, message : String) -> String {
 }
 
 ///|
-pub fn jsonrpc_notification(method : String, params : Json?) -> String {
+pub fn jsonrpc_notification(method_name : String, params : Json?) -> String {
   match params {
     None =>
       json_object([
         ("jsonrpc", json_string("2.0")),
-        ("method", json_string(method)),
+        ("method", json_string(method_name)),
       ])
     Some(p) => {
       let params_json = json_to_string(p)
       json_object([
         ("jsonrpc", json_string("2.0")),
-        ("method", json_string(method)),
+        ("method", json_string(method_name)),
         ("params", params_json),
       ])
     }

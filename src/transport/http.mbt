@@ -109,7 +109,7 @@ pub async fn HttpTransport::start(
         while true {
           let notification = self.event_queue.get()
           let json = @internal.jsonrpc_notification(
-            notification.method,
+            notification.method_name,
             notification.params,
           )
           conn.write("data: " + json + "\n\n")

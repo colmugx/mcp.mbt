@@ -82,7 +82,7 @@ pub fn[T : @prompt.Prompt] MCPServer::register_trait_prompt(
 
 ///|
 pub async fn MCPServer::notify_tools_list_changed(
-  self : MCPServer,
+  _ : MCPServer,
   transport : @transport.AnyTransport,
 ) -> Unit raise @types.TransportError {
   let notification = @types.tools_list_changed_notification()
@@ -91,7 +91,7 @@ pub async fn MCPServer::notify_tools_list_changed(
 
 ///|
 pub async fn MCPServer::notify_resources_list_changed(
-  self : MCPServer,
+  _ : MCPServer,
   transport : @transport.AnyTransport,
 ) -> Unit raise @types.TransportError {
   let notification = @types.resources_list_changed_notification()
@@ -100,7 +100,7 @@ pub async fn MCPServer::notify_resources_list_changed(
 
 ///|
 pub async fn MCPServer::notify_prompts_list_changed(
-  self : MCPServer,
+  _ : MCPServer,
   transport : @transport.AnyTransport,
 ) -> Unit raise @types.TransportError {
   let notification = @types.prompts_list_changed_notification()
