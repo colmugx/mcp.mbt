@@ -50,6 +50,7 @@ pub fn[T : @prompt.Prompt] MCPServer::register_trait_prompt(Self, T) -> Unit
 pub fn[T : @resource.Resource] MCPServer::register_trait_resource(Self, T) -> Unit
 pub fn[T : @tool.Tool] MCPServer::register_trait_tool(Self, T) -> Unit
 pub async fn MCPServer::run(Self, @transport.AnyTransport) -> Unit raise @types.TransportError
+pub async fn MCPServer::run_http(Self, port? : Int, path? : String) -> Unit raise @types.TransportError
 pub async fn MCPServer::run_stdio(Self) -> Unit raise @types.TransportError
 pub fn[T : @prompt.Prompt] MCPServer::with_prompt(Self, T) -> Self
 pub fn[T : @resource.Resource] MCPServer::with_resource(Self, T) -> Self

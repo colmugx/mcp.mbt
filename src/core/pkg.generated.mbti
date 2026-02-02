@@ -39,7 +39,7 @@ pub struct JsonSchema {
 pub fn JsonSchema::to_json(Self) -> Json
 pub impl Show for JsonSchema
 
-pub enum ParamKind {
+pub(all) enum ParamKind {
   String
   Integer
   Number

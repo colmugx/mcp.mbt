@@ -442,6 +442,17 @@ pub async fn MCPServer::run_stdio(
 }
 
 ///|
+pub async fn MCPServer::run_http(
+  self : MCPServer,
+  port? : Int = 4240,
+  path? : String = "/mcp",
+) -> Unit raise @types.TransportError {
+  let http = @transport.HttpTransport::new(port~, endpoint_path=path)
+  let transport = @transport.AnyTransport::Http(http)
+  self.run(transport)
+}
+
+///|
 pub fn mcp_server(name~ : String, version~ : String) -> MCPServer {
   MCPServer::new(name, version)
 }
