@@ -446,8 +446,10 @@ pub async fn MCPServer::run_http(
   self : MCPServer,
   port? : Int = 4240,
   path? : String = "/mcp",
+  group~ : @async.TaskGroup[Unit],
 ) -> Unit raise @types.TransportError {
   let http = @transport.HttpTransport::new(port~, endpoint_path=path)
+  group.spawn_bg(async fn() { http.start() })
   let transport = @transport.AnyTransport::Http(http)
   self.run(transport)
 }

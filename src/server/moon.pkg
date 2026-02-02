@@ -6,8 +6,5 @@ import {
   "colmugx/mcp/transport",
   "colmugx/mcp/internal",
   "moonbitlang/core/json",
-}
-
-import "test" {
   "moonbitlang/async",
 }
