@@ -5,7 +5,7 @@ import {
   "colmugx/mcp/types",
   "colmugx/mcp/transport",
   "colmugx/mcp/internal",
-  "moonbitlang/core/json"
+  "moonbitlang/core/json",
 }
 
 import "test" {

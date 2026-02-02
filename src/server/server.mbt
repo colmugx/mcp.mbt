@@ -403,3 +403,45 @@ pub async fn MCPServer::run(
     }
   }
 }
+
+///|
+pub fn[T : @tool.Tool] MCPServer::with_tool(
+  self : MCPServer,
+  tool : T,
+) -> MCPServer {
+  self.register_trait_tool(tool)
+  self
+}
+
+///|
+pub fn[T : @resource.Resource] MCPServer::with_resource(
+  self : MCPServer,
+  resource : T,
+) -> MCPServer {
+  self.register_trait_resource(resource)
+  self
+}
+
+///|
+pub fn[T : @prompt.Prompt] MCPServer::with_prompt(
+  self : MCPServer,
+  prompt : T,
+) -> MCPServer {
+  self.register_trait_prompt(prompt)
+  self
+}
+
+///|
+pub async fn MCPServer::run_stdio(
+  self : MCPServer,
+) -> Unit raise @types.TransportError {
+  let transport = @transport.AnyTransport::Stdio(
+    @transport.StdioTransport::new(),
+  )
+  self.run(transport)
+}
+
+///|
+pub fn mcp_server(name~ : String, version~ : String) -> MCPServer {
+  MCPServer::new(name, version)
+}

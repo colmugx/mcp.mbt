@@ -38,7 +38,6 @@ pub fn optional_boolean_param(
 }
 
 ///|
-/// Expand array of parameter definitions to JSON schema
 pub fn expand_params_to_json(params : Array[@tool.ParamDef]) -> Json {
   let properties_map : Map[String, Json] = Map::default()
   for param in params {

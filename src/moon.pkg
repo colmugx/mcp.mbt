@@ -3,4 +3,5 @@ import {
   "colmugx/mcp/server",
   "colmugx/mcp/transport",
   "colmugx/mcp/types",
+  "colmugx/mcp/core",
 }

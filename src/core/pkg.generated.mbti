@@ -1,0 +1,83 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/mcp/core"
+
+import {
+  "colmugx/mcp/tool",
+}
+
+// Values
+pub fn arr_schema(JsonSchema, desc? : String) -> JsonSchema
+
+pub fn bool_schema(desc? : String) -> JsonSchema
+
+pub fn int_schema(desc? : String) -> JsonSchema
+
+pub fn num_schema(desc? : String) -> JsonSchema
+
+pub fn obj_schema(Map[String, JsonSchema], Array[String], desc? : String) -> JsonSchema
+
+pub fn simple_tool(String, String, (Json) -> @tool.ToolResult) -> ToolWrapper
+
+pub fn str_schema(desc? : String) -> JsonSchema
+
+pub fn[Args : Params, Ret : ToToolResult] tool_fn((Args) -> Ret, name~ : String, description~ : String) -> ToolWrapper
+
+// Errors
+pub suberror ToolError {
+  ToolError(String)
+}
+
+// Types and methods
+pub struct JsonSchema {
+  type_name : String
+  description : String
+  properties : Map[String, JsonSchema]?
+  required : Array[String]?
+  items : JsonSchema?
+  default : Json?
+}
+pub fn JsonSchema::to_json(Self) -> Json
+pub impl Show for JsonSchema
+
+pub enum ParamKind {
+  String
+  Integer
+  Number
+  Boolean
+  Array(ParamKind)
+  Object(Map[String, ParamKind])
+}
+
+pub(all) struct ToolWrapper {
+  name_impl : () -> String
+  description_impl : () -> String
+  params_impl : () -> Array[@tool.ParamDef]
+  execute_impl : (Json) -> @tool.ToolResult
+}
+pub impl @tool.Tool for ToolWrapper
+
+// Type aliases
+
+// Traits
+pub trait Params {
+  schema() -> JsonSchema
+  from_json(Json) -> Self raise ToolError
+  to_json(Self) -> Json
+}
+pub impl Params for Bool
+pub impl Params for Int
+pub impl Params for Double
+pub impl Params for String
+pub impl[T : Params] Params for T?
+pub impl[T : Params] Params for Array[T]
+
+pub trait ToToolResult {
+  to_tool_result(Self) -> @tool.ToolResult
+}
+pub impl ToToolResult for Unit
+pub impl ToToolResult for Bool
+pub impl ToToolResult for Int
+pub impl ToToolResult for Double
+pub impl ToToolResult for String
+pub impl ToToolResult for @tool.ToolResult
+

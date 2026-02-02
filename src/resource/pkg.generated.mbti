@@ -1,9 +1,9 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "colmugx/mcp/resource"
 
-import(
-  "colmugx/mcp/types"
-)
+import {
+  "colmugx/mcp/types",
+}
 
 // Values
 

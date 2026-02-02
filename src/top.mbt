@@ -10,18 +10,16 @@ pub using @tool {
 pub using @tool {trait Tool, type ToolResult, type ContentItem, type ParamDef}
 
 ///|
-pub using @server {
-  boolean_param,
-  expand_params_to_json,
-  number_param,
-  optional_boolean_param,
-  optional_number_param,
-  optional_string_param,
-  string_param,
-}
+pub using @core {trait Params, type JsonSchema, type ToolError}
 
 ///|
-pub using @server {type MCPServer, type ToolRegistry}
+pub using @core {tool_fn, simple_tool}
+
+///|
+pub using @server {mcp_server}
+
+///|
+pub using @server {type MCPServer}
 
 ///|
 pub using @transport {

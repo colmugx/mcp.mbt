@@ -5,5 +5,5 @@ import {
   "moonbitlang/async/socket",
   "moonbitlang/async",
   "colmugx/mcp/internal",
-  "moonbitlang/core/json"
+  "moonbitlang/core/json",
 }

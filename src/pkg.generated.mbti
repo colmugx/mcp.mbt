@@ -1,18 +1,15 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "colmugx/mcp"
 
-import(
-  "colmugx/mcp/server"
-  "colmugx/mcp/tool"
-  "colmugx/mcp/transport"
-  "colmugx/mcp/types"
-)
+import {
+  "colmugx/mcp/core",
+  "colmugx/mcp/server",
+  "colmugx/mcp/tool",
+  "colmugx/mcp/transport",
+  "colmugx/mcp/types",
+}
 
 // Values
-pub fn boolean_param(String, String) -> @tool.ParamDef
-
-pub fn expand_params_to_json(Array[@tool.ParamDef]) -> Json
-
 pub fn get_number(Json, String) -> Result[Double, @tool.ToolResult]
 
 pub fn get_optional_number(Json, String) -> Result[Double?, @tool.ToolResult]
@@ -21,15 +18,11 @@ pub fn get_optional_string(Json, String) -> Result[String?, @tool.ToolResult]
 
 pub fn get_string(Json, String) -> Result[String, @tool.ToolResult]
 
-pub fn number_param(String, String) -> @tool.ParamDef
+pub fn mcp_server(name~ : String, version~ : String) -> @server.MCPServer
 
-pub fn optional_boolean_param(String, String) -> @tool.ParamDef
+pub fn simple_tool(String, String, (Json) -> @tool.ToolResult) -> @core.ToolWrapper
 
-pub fn optional_number_param(String, String) -> @tool.ParamDef
-
-pub fn optional_string_param(String, String) -> @tool.ParamDef
-
-pub fn string_param(String, String) -> @tool.ParamDef
+pub fn[Args : @core.Params, Ret : @core.ToToolResult] tool_fn((Args) -> Ret, name~ : String, description~ : String) -> @core.ToolWrapper
 
 // Errors
 
@@ -46,6 +39,8 @@ pub using @types {type JsonRpcRequest}
 
 pub using @types {type JsonRpcResponse}
 
+pub using @core {type JsonSchema}
+
 pub using @types {type MCPError}
 
 pub using @server {type MCPServer}
@@ -60,11 +55,13 @@ pub using @transport {type StdioTransport}
 
 pub using @types {type ToolDefinition}
 
-pub using @server {type ToolRegistry}
+pub using @core {type ToolError}
 
 pub using @tool {type ToolResult}
 
 pub using @types {type TransportError}
+
+pub using @core {trait Params}
 
 pub using @tool {trait Tool}
 

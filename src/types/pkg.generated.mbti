@@ -1,9 +1,9 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "colmugx/mcp/types"
 
-import(
-  "colmugx/mcp/tool"
-)
+import {
+  "colmugx/mcp/tool",
+}
 
 // Values
 pub fn prompts_list_changed_notification() -> Notification
@@ -72,7 +72,7 @@ pub impl Eq for JsonRpcResponse
 pub impl Show for JsonRpcResponse
 
 pub(all) struct Notification {
-  method : String
+  method_name : String
   params : Json?
 }
 pub impl Eq for Notification

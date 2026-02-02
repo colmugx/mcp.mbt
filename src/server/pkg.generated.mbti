@@ -1,13 +1,13 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "colmugx/mcp/server"
 
-import(
-  "colmugx/mcp/prompt"
-  "colmugx/mcp/resource"
-  "colmugx/mcp/tool"
-  "colmugx/mcp/transport"
-  "colmugx/mcp/types"
-)
+import {
+  "colmugx/mcp/prompt",
+  "colmugx/mcp/resource",
+  "colmugx/mcp/tool",
+  "colmugx/mcp/transport",
+  "colmugx/mcp/types",
+}
 
 // Values
 pub fn boolean_param(String, String) -> @tool.ParamDef
@@ -15,6 +15,8 @@ pub fn boolean_param(String, String) -> @tool.ParamDef
 pub fn expand_params_to_json(Array[@tool.ParamDef]) -> Json
 
 pub fn handle_initialize(MCPServer, Int) -> String
+
+pub fn mcp_server(name~ : String, version~ : String) -> MCPServer
 
 pub fn number_param(String, String) -> @tool.ParamDef
 
@@ -48,6 +50,10 @@ pub fn[T : @prompt.Prompt] MCPServer::register_trait_prompt(Self, T) -> Unit
 pub fn[T : @resource.Resource] MCPServer::register_trait_resource(Self, T) -> Unit
 pub fn[T : @tool.Tool] MCPServer::register_trait_tool(Self, T) -> Unit
 pub async fn MCPServer::run(Self, @transport.AnyTransport) -> Unit raise @types.TransportError
+pub async fn MCPServer::run_stdio(Self) -> Unit raise @types.TransportError
+pub fn[T : @prompt.Prompt] MCPServer::with_prompt(Self, T) -> Self
+pub fn[T : @resource.Resource] MCPServer::with_resource(Self, T) -> Self
+pub fn[T : @tool.Tool] MCPServer::with_tool(Self, T) -> Self
 
 type PromptEntry
 
