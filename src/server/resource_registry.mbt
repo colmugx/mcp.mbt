@@ -11,14 +11,20 @@ struct ResourceEntry {
 
 ///|
 pub(all) struct ResourceRegistry {
-  resources : Map[String, ResourceEntry] // URI -> Entry mapping for O(1) lookup
-  mut subscriptions : Array[String] // Subscribed URIs
-  mut on_change : (() -> Unit)? // Callback for list_changed notification
+  resources : Map[String, ResourceEntry]
+  mut resources_list : Array[@resource.ResourceDefinition]
+  mut subscriptions : Array[String]
+  mut on_change : (() -> Unit)?
 }
 
 ///|
 pub fn ResourceRegistry::new() -> ResourceRegistry {
-  { resources: Map::default(), subscriptions: [], on_change: None }
+  {
+    resources: Map::default(),
+    resources_list: [],
+    subscriptions: [],
+    on_change: None,
+  }
 }
 
 ///|
@@ -41,6 +47,13 @@ pub fn ResourceRegistry::register(
   handler : async () -> Result[@resource.ResourceReadResult, @types.MCPError],
 ) -> Unit {
   self.resources.set(uri, { name, description, uri, mime_type, handler })
+  let def : @resource.ResourceDefinition = {
+    uri,
+    name,
+    description: Some(description),
+    mime_type: Some(mime_type),
+  }
+  self.resources_list.push(def)
   match self.on_change {
     Some(callback) => callback()
     None => ()
@@ -51,16 +64,7 @@ pub fn ResourceRegistry::register(
 pub fn ResourceRegistry::list_resources(
   self : ResourceRegistry,
 ) -> Array[@resource.ResourceDefinition] {
-  let result : Array[@resource.ResourceDefinition] = []
-  self.resources.each(fn(_uri, entry) {
-    result.push({
-      uri: entry.uri,
-      name: entry.name,
-      description: Some(entry.description),
-      mime_type: Some(entry.mime_type),
-    })
-  })
-  result
+  self.resources_list
 }
 
 ///|

@@ -7,6 +7,7 @@ import {
   "colmugx/mcp/tool",
   "colmugx/mcp/transport",
   "colmugx/mcp/types",
+  "moonbitlang/async",
 }
 
 // Values
@@ -50,7 +51,7 @@ pub fn[T : @prompt.Prompt] MCPServer::register_trait_prompt(Self, T) -> Unit
 pub fn[T : @resource.Resource] MCPServer::register_trait_resource(Self, T) -> Unit
 pub fn[T : @tool.Tool] MCPServer::register_trait_tool(Self, T) -> Unit
 pub async fn MCPServer::run(Self, @transport.AnyTransport) -> Unit raise @types.TransportError
-pub async fn MCPServer::run_http(Self, port? : Int, path? : String) -> Unit raise @types.TransportError
+pub async fn MCPServer::run_http(Self, port? : Int, path? : String, group~ : @async.TaskGroup[Unit]) -> Unit raise @types.TransportError
 pub async fn MCPServer::run_stdio(Self) -> Unit raise @types.TransportError
 pub fn[T : @prompt.Prompt] MCPServer::with_prompt(Self, T) -> Self
 pub fn[T : @resource.Resource] MCPServer::with_resource(Self, T) -> Self
@@ -60,6 +61,7 @@ type PromptEntry
 
 pub(all) struct PromptRegistry {
   prompts : Map[String, PromptEntry]
+  mut prompts_list : Array[@prompt.PromptDefinition]
   mut on_change : (() -> Unit)?
 }
 pub async fn PromptRegistry::get_prompt(Self, String, Json) -> Result[@types.GetPromptResult, @types.MCPError]
@@ -73,6 +75,7 @@ type ResourceEntry
 
 pub(all) struct ResourceRegistry {
   resources : Map[String, ResourceEntry]
+  mut resources_list : Array[@resource.ResourceDefinition]
   mut subscriptions : Array[String]
   mut on_change : (() -> Unit)?
 }

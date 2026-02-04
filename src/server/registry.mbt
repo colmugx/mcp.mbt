@@ -27,16 +27,8 @@ pub fn ToolRegistry::register(
   handler : async (Json) -> Result[@tool.ToolResult, @types.MCPError],
 ) -> Unit {
   self.tools.set(name, { name, description, input_schema, handler })
-  let definitions : Array[@types.ToolDefinition] = []
-  self.tools.each(fn(_name, entry) {
-    let def : @types.ToolDefinition = {
-      name: entry.name,
-      description: entry.description,
-      input_schema: entry.input_schema,
-    }
-    definitions.push(def)
-  })
-  self.tools_list = definitions
+  let def : @types.ToolDefinition = { name, description, input_schema }
+  self.tools_list.push(def)
   match self.on_change {
     Some(callback) => callback()
     None => ()
