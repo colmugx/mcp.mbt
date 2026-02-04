@@ -1,8 +1,9 @@
 ///|
-struct ToolEntry {
+pub struct ToolEntry {
   name : String
   description : String
   input_schema : Json
+  cached_schema_json : String
   handler : async (Json) -> Result[@tool.ToolResult, @types.MCPError]
 }
 
@@ -26,8 +27,20 @@ pub fn ToolRegistry::register(
   input_schema : Json,
   handler : async (Json) -> Result[@tool.ToolResult, @types.MCPError],
 ) -> Unit {
-  self.tools.set(name, { name, description, input_schema, handler })
-  let def : @types.ToolDefinition = { name, description, input_schema }
+  let cached_schema_json = input_schema.stringify()
+  self.tools.set(name, {
+    name,
+    description,
+    input_schema,
+    cached_schema_json,
+    handler,
+  })
+  let def : @types.ToolDefinition = {
+    name,
+    description,
+    input_schema,
+    cached_schema_json,
+  }
   self.tools_list.push(def)
   match self.on_change {
     Some(callback) => callback()

@@ -143,7 +143,7 @@ fn handle_tools_list(server : MCPServer, id : Int) -> String {
     @internal.json_object([
       ("name", @internal.json_string(tool.name)),
       ("description", @internal.json_string(tool.description)),
-      ("inputSchema", tool.input_schema.stringify()),
+      ("inputSchema", tool.cached_schema_json),
     ])
   })
   let result = @internal.json_object([
@@ -387,19 +387,44 @@ pub async fn MCPServer::handle_request(
 pub async fn MCPServer::run(
   self : MCPServer,
   transport : @transport.AnyTransport,
+  group : @async.TaskGroup[Unit],
 ) -> Unit raise @types.TransportError {
+  // 创建响应队列用于并发任务到发送任务的通信
+  let response_queue : @aqueue.Queue[String] = @aqueue.Queue::new(
+    kind=@aqueue.Kind::Unbounded,
+  )
+
+  // 生成发送任务：专门负责从队列取响应并发送
+  group.spawn_bg(fn() {
+    while true {
+      let response = response_queue.get() catch {
+        _ => break // 队列关闭时退出
+      }
+      transport.send(response) catch {
+        _ => () // 忽略发送错误，继续处理
+      }
+    }
+  })
+
+  // 主循环：接收请求并为每个请求生成并发任务
   while true {
     match transport.receive() {
       None => {
+        response_queue.close() // 关闭队列通知发送任务退出
         transport.close()
         break
       }
-      Some(message) => {
-        let response = self.handle_request(message) catch {
-          _ => @internal.jsonrpc_error(0, -32603, "Internal server error")
-        }
-        transport.send(response)
-      }
+      Some(message) =>
+        // 为每个请求生成独立的并发任务
+        group.spawn_bg(fn() {
+          let response = self.handle_request(message) catch {
+            _ => @internal.jsonrpc_error(0, -32603, "Internal server error")
+          }
+          // 把响应放入队列
+          response_queue.put(response) catch {
+            _ => () // 队列已关闭，忽略
+          }
+        })
     }
   }
 }
@@ -438,7 +463,9 @@ pub async fn MCPServer::run_stdio(
   let transport = @transport.AnyTransport::Stdio(
     @transport.StdioTransport::new(),
   )
-  self.run(transport)
+  @async.with_task_group(fn(group) { self.run(transport, group) }) catch {
+    e => raise @types.ReadError("TaskGroup error: " + e.to_string())
+  }
 }
 
 ///|
@@ -451,7 +478,7 @@ pub async fn MCPServer::run_http(
   let http = @transport.HttpTransport::new(port~, endpoint_path=path)
   group.spawn_bg(async fn() { http.start() })
   let transport = @transport.AnyTransport::Http(http)
-  self.run(transport)
+  self.run(transport, group)
 }
 
 ///|

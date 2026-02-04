@@ -7,4 +7,5 @@ import {
   "colmugx/mcp/internal",
   "moonbitlang/core/json",
   "moonbitlang/async",
+  "moonbitlang/async/aqueue",
 }

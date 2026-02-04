@@ -1,7 +1,7 @@
 ///| Resource Registry - Internal resource management
 
 ///|
-struct ResourceEntry {
+pub struct ResourceEntry {
   name : String
   description : String
   uri : String

@@ -32,6 +32,7 @@ pub(all) struct ToolDefinition {
   name : String
   description : String
   input_schema : Json
+  cached_schema_json : String
 } derive(Show, Eq)
 
 ///|

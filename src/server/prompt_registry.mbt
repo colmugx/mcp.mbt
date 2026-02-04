@@ -1,7 +1,7 @@
 ///| Prompt Registry - Internal prompt management
 
 ///|
-struct PromptEntry {
+pub struct PromptEntry {
   name : String
   description : String
   arguments : Array[@types.PromptArgument]

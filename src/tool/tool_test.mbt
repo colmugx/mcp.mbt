@@ -225,7 +225,14 @@ impl Tool for EchoTool with description(_self : EchoTool) -> String {
 
 ///|
 impl Tool for EchoTool with params(_self : EchoTool) -> Array[ParamDef] {
-  [@server.string_param("text", "Text to echo back")]
+  [
+    {
+      name: "text",
+      description: "Text to echo back",
+      type_: "string",
+      required: true,
+    },
+  ]
 }
 
 ///|

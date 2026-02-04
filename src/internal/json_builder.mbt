@@ -20,7 +20,11 @@ fn escape_json_string(s : String) -> String {
 
 ///|
 pub fn json_string(s : String) -> String {
-  "\"" + escape_json_string(s) + "\""
+  let builder = StringBuilder::new()
+  builder.write_string("\"")
+  builder.write_string(escape_json_string(s))
+  builder.write_string("\"")
+  builder.to_string()
 }
 
 ///|
@@ -42,17 +46,22 @@ pub fn json_object(pairs : Array[(String, String)]) -> String {
   if pairs.is_empty() {
     "{}"
   } else {
-    let mut result = "{"
+    let builder = StringBuilder::new()
+    builder.write_string("{")
     let mut first = true
     for pair in pairs {
       if not(first) {
-        result = result + ","
+        builder.write_string(",")
       }
       first = false
       let (key, value) = pair
-      result = result + "\"" + key + "\":" + value
+      builder.write_string("\"")
+      builder.write_string(key)
+      builder.write_string("\":")
+      builder.write_string(value)
     }
-    result + "}"
+    builder.write_string("}")
+    builder.to_string()
   }
 }
 
@@ -62,16 +71,18 @@ pub fn json_array(values : Array[String]) -> String {
   if values.is_empty() {
     "[]"
   } else {
-    let mut result = "["
+    let builder = StringBuilder::new()
+    builder.write_string("[")
     let mut first = true
     for value in values {
       if not(first) {
-        result = result + ","
+        builder.write_string(",")
       }
       first = false
-      result = result + value
+      builder.write_string(value)
     }
-    result + "]"
+    builder.write_string("]")
+    builder.to_string()
   }
 }
 
