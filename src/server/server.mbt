@@ -384,6 +384,19 @@ pub async fn MCPServer::handle_request(
 }
 
 ///|
+/// Determine if a request is a "fast" operation that doesn't need async spawning.
+/// Fast requests are those that:
+/// - Don't perform I/O operations
+/// - Complete in microseconds (e.g., initialize, tools/list, resources/list)
+/// - Don't benefit from concurrency
+fn is_fast_request(message : String) -> Bool {
+  message.contains("\"method\":\"initialize\"") ||
+  message.contains("\"method\":\"tools/list\"") ||
+  message.contains("\"method\":\"resources/list\"") ||
+  message.contains("\"method\":\"prompts/list\"")
+}
+
+///|
 pub async fn MCPServer::run(
   self : MCPServer,
   transport : @transport.AnyTransport,
@@ -415,16 +428,27 @@ pub async fn MCPServer::run(
         break
       }
       Some(message) =>
-        // 为每个请求生成独立的并发任务
-        group.spawn_bg(fn() {
+        // 性能优化：快速请求直接执行，避免spawn开销
+        if is_fast_request(message) {
+          // 快速路径：直接执行，不spawn新协程
           let response = self.handle_request(message) catch {
             _ => @internal.jsonrpc_error(0, -32603, "Internal server error")
           }
-          // 把响应放入队列
-          response_queue.put(response) catch {
-            _ => () // 队列已关闭，忽略
-          }
-        })
+          // try_put 是非阻塞的，对于Unbounded队列总是成功
+          let _ = response_queue.try_put(response) catch { _ => false }
+          ()
+        } else {
+          // 慢速路径：为可能的I/O密集型操作spawn协程
+          group.spawn_bg(fn() {
+            let response = self.handle_request(message) catch {
+              _ => @internal.jsonrpc_error(0, -32603, "Internal server error")
+            }
+            // 把响应放入队列
+            response_queue.put(response) catch {
+              _ => () // 队列已关闭，忽略
+            }
+          })
+        }
     }
   }
 }

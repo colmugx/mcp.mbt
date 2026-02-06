@@ -4,6 +4,7 @@ import {
   "moonbitlang/async/http",
   "moonbitlang/async/socket",
   "moonbitlang/async",
+  "moonbitlang/async/io",
   "colmugx/mcp/internal",
   "moonbitlang/core/json",
 }

@@ -1,6 +1,6 @@
 {
   "name": "colmugx/mcp",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "deps": {
     "moonbitlang/async": "0.16.2"
   },

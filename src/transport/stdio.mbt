@@ -1,11 +1,25 @@
 ///|
+/// StdioTransport with buffered I/O for improved performance.
+/// Buffering reduces the number of syscalls and context switches,
+/// which is critical for high-frequency request/response patterns.
 pub struct StdioTransport {
   mut closed : Bool
-} derive(Show)
+  // @stdio.stdin is already buffered internally, so use it directly
+  reader : @stdio.Input
+  // Buffer writes with 8KB buffer to reduce syscalls
+  // (stdout is not buffered by default, so we wrap it)
+  writer : @io.BufferedWriter[@stdio.Output]
+}
 
 ///|
 pub fn StdioTransport::new() -> StdioTransport {
-  { closed: false }
+  {
+    closed: false,
+    // stdin is already buffered internally (has ReaderBuffer)
+    reader: @stdio.stdin,
+    // Wrap stdout with BufferedWriter to batch writes (8KB buffer)
+    writer: @io.BufferedWriter::new(@stdio.stdout, size=8192),
+  }
 }
 
 ///|
@@ -15,17 +29,19 @@ pub async fn StdioTransport::receive(
   if self.closed {
     return None
   }
-  let line_result = @stdio.stdin.read_until("\n") catch {
+  // Use the Reader trait's read_until method
+  // (stdin is already buffered, so this is efficient)
+  let line_opt = self.reader.read_until("\n") catch {
     e => raise @types.ReadError("Failed to read from stdin: " + e.to_string())
   }
-  match line_result {
+  match line_opt {
     None => {
       self.closed = true
       None
     }
     Some(line_view) => {
-      let line = line_view.to_string()
-      let message = line.trim().to_string()
+      // Convert StringView to String, trim, and convert back to String
+      let message = line_view.to_string().trim().to_string()
       if message.is_empty() {
         return self.receive()
       }
@@ -47,8 +63,17 @@ pub async fn StdioTransport::send(
       raise @types.WriteError("Invalid JSON-RPC message: " + e.message())
     Ok(_) => ()
   }
-  @stdio.stdout.write(message + "\n") catch {
+  // Write to buffered writer (batches small writes)
+  self.writer.write(message) catch {
     e => raise @types.WriteError("Failed to write to stdout: " + e.to_string())
+  }
+  self.writer.write("\n") catch {
+    e => raise @types.WriteError("Failed to write newline: " + e.to_string())
+  }
+  // Flush immediately to ensure message is sent
+  // (important for request-response pattern)
+  self.writer.flush() catch {
+    e => raise @types.WriteError("Failed to flush stdout: " + e.to_string())
   }
 }
 
@@ -80,9 +105,18 @@ pub async fn StdioTransport::send_notification(
     notification.method_name,
     notification.params,
   )
-  @stdio.stdout.write(json + "\n") catch {
+  // Write to buffered writer
+  self.writer.write(json) catch {
     e =>
       raise @types.WriteError("Failed to send notification: " + e.to_string())
+  }
+  self.writer.write("\n") catch {
+    e =>
+      raise @types.WriteError("Failed to write newline: " + e.to_string())
+  }
+  self.writer.flush() catch {
+    e =>
+      raise @types.WriteError("Failed to flush notification: " + e.to_string())
   }
 }
 
