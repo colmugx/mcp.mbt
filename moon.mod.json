@@ -1,8 +1,8 @@
 {
   "name": "colmugx/mcp",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "deps": {
-    "moonbitlang/async": "0.16.2"
+    "moonbitlang/async": "0.16.5"
   },
   "readme": "README.mbt.md",
   "repository": "https://github.com/colmugx/mcp.mbt",
