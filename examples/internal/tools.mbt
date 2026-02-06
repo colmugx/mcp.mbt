@@ -37,6 +37,72 @@ fn array_param(
 }
 
 ///|
+/// NEW STYLE (0.4): struct-as-schema with tool_fn
+/// Define params struct with derive(ToJson, FromJson)
+struct CreateNoteParams {
+  title : String
+  content : String
+  tags : Array[String]?
+} derive(ToJson, FromJson)
+
+///|
+/// Implement Params trait - this is the "struct即schema" design
+pub impl @mcp_core.Params for CreateNoteParams with schema() -> @mcp_core.JsonSchema {
+  @mcp_core.schema_builder()
+  .field("title", @mcp_core.str_type(), required=true, desc="Note title")
+  .field("content", @mcp_core.str_type(), required=true, desc="Note content")
+  .field("tags", @mcp_core.arr_type(@mcp_core.str_type()), desc="Optional tags")
+  .build(desc="Create a new note")
+}
+
+///|
+pub impl @mcp_core.Params for CreateNoteParams with from_json(j : Json) -> CreateNoteParams raise @mcp_core.ToolError {
+  match j {
+    Object(obj) => {
+      let title = match obj.get("title") {
+        Some(String(s)) => s
+        _ => raise @mcp_core.tool_error("Missing or invalid 'title'")
+      }
+      let content = match obj.get("content") {
+        Some(String(s)) => s
+        _ => raise @mcp_core.tool_error("Missing or invalid 'content'")
+      }
+      let tags = match obj.get("tags") {
+        Some(Array(arr)) => {
+          let tags_arr : Array[String] = []
+          for item in arr {
+            match item {
+              String(s) => tags_arr.push(s)
+              _ => raise @mcp_core.tool_error("Invalid tag (must be string)")
+            }
+          }
+          Some(tags_arr)
+        }
+        Some(Null) | None => None
+        _ => raise @mcp_core.tool_error("Invalid 'tags' (must be array)")
+      }
+      { title, content, tags }
+    }
+    _ => raise @mcp_core.tool_error("Expected JSON object")
+  }
+}
+
+///|
+pub impl @mcp_core.Params for CreateNoteParams with to_json(
+  self : CreateNoteParams,
+) -> Json {
+  let obj : Map[String, Json] = {}
+  obj.set("title", Json::string(self.title))
+  obj.set("content", Json::string(self.content))
+  match self.tags {
+    Some(tags) =>
+      obj.set("tags", Json::array(tags.map(fn(s) { Json::string(s) })))
+    None => ()
+  }
+  Json::object(obj)
+}
+
+///|
 pub(all) struct CreateNoteTool {
   storage : Storage
 }
@@ -61,52 +127,46 @@ pub impl @tool.Tool for CreateNoteTool with params(_self : CreateNoteTool) -> Ar
   @tool.ParamDef,
 ] {
   [
-    @mcp.string_param("title", "Note title (required)"),
-    @mcp.string_param(
-      "content", "Note content in markdown or plain text (required)",
-    ),
-    array_param("tags", "Optional array of tag strings", "string"),
+    {
+      name: "title",
+      description: "Note title",
+      type_: "string",
+      required: true,
+    },
+    {
+      name: "content",
+      description: "Note content",
+      type_: "string",
+      required: true,
+    },
+    {
+      name: "tags",
+      description: "Optional tags",
+      type_: "array",
+      required: false,
+    },
   ]
 }
 
 ///|
-async fn create_note_execute(
-  _self : CreateNoteTool,
-  args : Json,
-) -> @tool.ToolResult {
-  // Extract required parameters
-  let title_param = match get_string(args, "title") {
-    Some(t) => t
-    None => return @tool.ToolResult::error("Missing required parameter 'title'")
-  }
-  let content_param = match get_string(args, "content") {
-    Some(c) => c
-    None =>
-      return @tool.ToolResult::error("Missing required parameter 'content'")
-  }
-  let tags_result = get_array(args, "tags")
-  let tags = match tags_result {
-    Ok(arr) =>
-      // Convert Json array to Array[String]
-      arr.map(fn(j) {
-        match j {
-          String(s) => s
-          _ => ""
-        }
-      })
-    Err(_) => []
-  }
-  let note : Note = Note::{ title: title_param, content: content_param, tags }
-  match _self.storage.save_note(note) {
-    Ok(_) =>
-      @tool.ToolResult::text("✅ Note created successfully: \{title_param}")
-    Err(msg) => @tool.ToolResult::error("Failed to create note: \{msg}")
-  }
-}
-
-///|
 pub impl @tool.Tool for CreateNoteTool with execute(_self, args) {
-  create_note_execute(_self, args)
+  try {
+    // Explicit call to Params trait
+    let params : CreateNoteParams = @mcp_core.Params::from_json(args)
+    let note : Note = {
+      title: params.title,
+      content: params.content,
+      tags: params.tags.unwrap_or(([] : Array[String])),
+    }
+    match _self.storage.save_note(note) {
+      Ok(_) => @tool.ToolResult::text("✅ Note created: \{params.title}")
+      Err(msg) => @tool.ToolResult::text("Failed: \{msg}")
+    }
+  } catch {
+    @mcp_core.ToolError(msg) =>
+      @tool.ToolResult::error("Parameter error: " + msg)
+    _ => @tool.ToolResult::error("Unknown error")
+  }
 }
 
 ///|
@@ -133,7 +193,14 @@ pub impl @tool.Tool for ReadNoteTool with description(_self : ReadNoteTool) -> S
 pub impl @tool.Tool for ReadNoteTool with params(_self : ReadNoteTool) -> Array[
   @tool.ParamDef,
 ] {
-  [@mcp.string_param("title", "Note title to read (required)")]
+  [
+    {
+      name: "title",
+      description: "Note title to read (required)",
+      type_: "string",
+      required: true,
+    },
+  ]
 }
 
 ///|
@@ -239,7 +306,14 @@ pub impl @tool.Tool for DeleteNoteTool with description(_self : DeleteNoteTool) 
 pub impl @tool.Tool for DeleteNoteTool with params(_self : DeleteNoteTool) -> Array[
   @tool.ParamDef,
 ] {
-  [@mcp.string_param("title", "Note title to delete (required)")]
+  [
+    {
+      name: "title",
+      description: "Note title to delete (required)",
+      type_: "string",
+      required: true,
+    },
+  ]
 }
 
 ///|
@@ -369,10 +443,14 @@ pub impl @tool.Tool for SyncNotesTool with execute(_self, args) {
 }
 
 ///|
-pub fn register_tools(server : @mcp.MCPServer, storage : Storage) -> Unit {
-  server.register_trait_tool(CreateNoteTool::new(storage))
-  server.register_trait_tool(ReadNoteTool::new(storage))
-  server.register_trait_tool(ListNotesTool::new(storage))
-  server.register_trait_tool(DeleteNoteTool::new(storage))
-  server.register_trait_tool(SyncNotesTool::new(storage))
+pub fn register_tools(
+  server : @mcp.MCPServer,
+  storage : Storage,
+) -> @mcp.MCPServer {
+  server
+  |> @mcp.MCPServer::with_tool(CreateNoteTool::new(storage))
+  |> @mcp.MCPServer::with_tool(ReadNoteTool::new(storage))
+  |> @mcp.MCPServer::with_tool(ListNotesTool::new(storage))
+  |> @mcp.MCPServer::with_tool(DeleteNoteTool::new(storage))
+  |> @mcp.MCPServer::with_tool(SyncNotesTool::new(storage))
 }

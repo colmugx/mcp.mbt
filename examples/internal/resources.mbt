@@ -129,8 +129,12 @@ pub impl @resource.Resource for WeatherResource with read(_self) {
 }
 
 ///|
-pub fn register_resources(server : @mcp.MCPServer, _storage : Storage) -> Unit {
-  server.register_trait_resource(WeatherResource::new("New York"))
-  server.register_trait_resource(WeatherResource::new("London"))
-  server.register_trait_resource(WeatherResource::new("Tokyo"))
+pub fn register_resources(
+  server : @mcp.MCPServer,
+  _storage : Storage,
+) -> @mcp.MCPServer {
+  server
+  |> s => { s.with_resource(WeatherResource::new("New York")) }
+  |> s => { s.with_resource(WeatherResource::new("London")) }
+  |> s => { s.with_resource(WeatherResource::new("Tokyo")) }
 }

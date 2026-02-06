@@ -9,12 +9,9 @@ async fn main {
       @sys.exit(1)
     }
   }
-  let server = @mcp.MCPServer::new("moon-notes", "1.0.0")
-  @internal.register_tools(server, storage)
-  @internal.register_resources(server, storage)
-  @internal.register_prompts(server, storage)
-  let transport = @mcp.AnyTransport::Stdio(@mcp.StdioTransport::new())
-  server.run(transport) catch {
-    e => println("\n❌ Server error: \{e}")
-  }
+  let server = @mcp.mcp_server(name="moon-notes", version="1.0.0")
+    |> @internal.register_tools(storage)
+    |> @internal.register_resources(storage)
+    |> @internal.register_prompts(storage)
+  @async.with_task_group(async fn(group) { server.run_http(port=4042, group~) })
 }

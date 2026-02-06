@@ -75,6 +75,9 @@ pub impl @prompt.Prompt for SummarizeNotePrompt with get(_self, args) {
 }
 
 ///|
-pub fn register_prompts(server : @mcp.MCPServer, storage : Storage) -> Unit {
-  server.register_trait_prompt(SummarizeNotePrompt::{ storage, })
+pub fn register_prompts(
+  server : @mcp.MCPServer,
+  storage : Storage,
+) -> @mcp.MCPServer {
+  server.with_prompt(SummarizeNotePrompt::{ storage, })
 }

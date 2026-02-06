@@ -1,0 +1,13 @@
+import {
+  "colmugx/mcp/core" as @mcp_core,
+  "colmugx/mcp/tool",
+  "colmugx/mcp/server",
+  "colmugx/mcp/resource",
+  "colmugx/mcp/prompt",
+  "colmugx/mcp",
+  "colmugx/mcp/types",
+  "moonbitlang/core/json",
+  "moonbitlang/async/http",
+  "moonbitlang/async/fs",
+  "moonbitlang/x/sys",
+}

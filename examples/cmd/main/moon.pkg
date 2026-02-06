@@ -1,0 +1,10 @@
+import {
+  "moonbitlang/async",
+  "username/example/internal",
+  "colmugx/mcp",
+  "moonbitlang/x/sys",
+}
+
+options(
+  "is-main": true,
+)

@@ -6,11 +6,13 @@
       "path": ".."
     },
     "moonbitlang/async": "0.16.2",
-    "moonbitlang/x": "0.4.38"
+    "moonbitlang/x": "0.4.38",
+    "gmlewis/sha256": "0.17.22"
   },
   "readme": "README.mbt.md",
   "repository": "",
   "license": "Apache-2.0",
   "keywords": [],
-  "description": ""
+  "description": "",
+  "preferred-target": "native"
 }

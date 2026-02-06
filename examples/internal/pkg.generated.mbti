@@ -1,28 +1,35 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "username/example/internal"
 
-import(
-  "colmugx/mcp/prompt"
-  "colmugx/mcp/resource"
-  "colmugx/mcp/server"
-  "colmugx/mcp/tool"
-  "colmugx/mcp/types"
-)
+import {
+  "colmugx/mcp/core",
+  "colmugx/mcp/prompt",
+  "colmugx/mcp/resource",
+  "colmugx/mcp/server",
+  "colmugx/mcp/tool",
+  "colmugx/mcp/types",
+  "moonbitlang/core/json",
+}
 
 // Values
 pub fn json_array_strings(Array[String]) -> String
 
 pub fn json_string(String) -> String
 
-pub fn register_prompts(@server.MCPServer, Storage) -> Unit
+pub fn register_prompts(@server.MCPServer, Storage) -> @server.MCPServer
 
-pub fn register_resources(@server.MCPServer, Storage) -> Unit
+pub fn register_resources(@server.MCPServer, Storage) -> @server.MCPServer
 
-pub fn register_tools(@server.MCPServer, Storage) -> Unit
+pub fn register_tools(@server.MCPServer, Storage) -> @server.MCPServer
 
 // Errors
 
 // Types and methods
+type CreateNoteParams
+pub impl @core.Params for CreateNoteParams
+pub impl ToJson for CreateNoteParams
+pub impl @json.FromJson for CreateNoteParams
+
 pub(all) struct CreateNoteTool {
   storage : Storage
 }

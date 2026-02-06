@@ -1,5 +1,5 @@
 ///|
-pub trait Params {
+pub(open) trait Params {
   schema() -> JsonSchema
   from_json(Json) -> Self raise ToolError
   to_json(Self) -> Json
@@ -18,6 +18,11 @@ pub struct JsonSchema {
 ///|
 pub suberror ToolError {
   ToolError(String)
+}
+
+///|
+pub fn tool_error(msg : String) -> ToolError {
+  ToolError(msg)
 }
 
 ///|
