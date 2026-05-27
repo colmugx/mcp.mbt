@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "colmugx/mcp/internal"
+package "colmugx/mcp/server/internal"
 
 // Values
 pub fn extract_int_from_json(Json, String) -> Int?

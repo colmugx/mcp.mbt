@@ -2,12 +2,12 @@
 package "username/example/internal"
 
 import {
-  "colmugx/mcp/core",
-  "colmugx/mcp/prompt",
-  "colmugx/mcp/resource",
-  "colmugx/mcp/server",
-  "colmugx/mcp/tool",
-  "colmugx/mcp/types",
+  "colmugx/mcp/server/core",
+  "colmugx/mcp/server/prompt",
+  "colmugx/mcp/server/resource",
+  "colmugx/mcp/server/server",
+  "colmugx/mcp/server/tool",
+  "colmugx/mcp/server/types",
   "moonbitlang/core/json",
 }
 

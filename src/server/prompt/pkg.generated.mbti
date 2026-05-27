@@ -1,8 +1,8 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "colmugx/mcp/prompt"
+package "colmugx/mcp/server/prompt"
 
 import {
-  "colmugx/mcp/types",
+  "colmugx/mcp/server/types",
 }
 
 // Values
@@ -14,9 +14,7 @@ pub(all) struct PromptDefinition {
   name : String
   description : String?
   arguments : Array[@types.PromptArgument]?
-}
-pub impl Eq for PromptDefinition
-pub impl Show for PromptDefinition
+} derive(Eq, Show)
 
 // Type aliases
 

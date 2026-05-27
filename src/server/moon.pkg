@@ -1,11 +1,7 @@
 import {
-  "colmugx/mcp/tool",
-  "colmugx/mcp/resource",
-  "colmugx/mcp/prompt",
-  "colmugx/mcp/types",
-  "colmugx/mcp/transport",
-  "colmugx/mcp/internal",
-  "moonbitlang/core/json",
-  "moonbitlang/async",
-  "moonbitlang/async/aqueue",
+  "colmugx/mcp/server/tool",
+  "colmugx/mcp/server/server",
+  "colmugx/mcp/server/transport",
+  "colmugx/mcp/server/types",
+  "colmugx/mcp/server/core",
 }
