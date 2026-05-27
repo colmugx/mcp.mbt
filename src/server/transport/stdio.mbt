@@ -111,8 +111,7 @@ pub async fn StdioTransport::send_notification(
       raise @types.WriteError("Failed to send notification: " + e.to_string())
   }
   self.writer.write("\n") catch {
-    e =>
-      raise @types.WriteError("Failed to write newline: " + e.to_string())
+    e => raise @types.WriteError("Failed to write newline: " + e.to_string())
   }
   self.writer.flush() catch {
     e =>

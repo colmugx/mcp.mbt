@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "colmugx/mcp/tool"
+package "colmugx/mcp/server/tool"
 
 // Values
 pub fn get_number(Json, String) -> Result[Double, ToolResult]
@@ -17,29 +17,23 @@ pub(all) enum ContentItem {
   Text(String)
   Image(String, mime_type~ : String)
   Resource(String)
-}
-pub impl Eq for ContentItem
-pub impl Show for ContentItem
+} derive(Eq, Show)
 
 pub(all) struct ParamDef {
   name : String
   description : String
   type_ : String
   required : Bool
-}
-pub impl Eq for ParamDef
-pub impl Show for ParamDef
+} derive(Eq, Show)
 
 pub struct ToolResult {
   content : Array[ContentItem]
   is_error : Bool
-}
+} derive(Eq, Show)
 pub fn ToolResult::error(String) -> Self
 pub fn ToolResult::success(Array[ContentItem]) -> Self
 pub fn ToolResult::text(String) -> Self
 pub impl ToToolResult for ToolResult
-pub impl Eq for ToolResult
-pub impl Show for ToolResult
 
 // Type aliases
 

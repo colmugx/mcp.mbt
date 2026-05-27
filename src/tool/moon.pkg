@@ -1,7 +1,0 @@
-import {
-}
-
-import "test" {
-  "moonbitlang/async",
-  "colmugx/mcp/server",
-}

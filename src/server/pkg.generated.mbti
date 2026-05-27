@@ -2,107 +2,67 @@
 package "colmugx/mcp/server"
 
 import {
-  "colmugx/mcp/prompt",
-  "colmugx/mcp/resource",
-  "colmugx/mcp/tool",
-  "colmugx/mcp/transport",
-  "colmugx/mcp/types",
-  "moonbitlang/async",
+  "colmugx/mcp/server/core",
+  "colmugx/mcp/server/tool",
+  "colmugx/mcp/server/transport",
+  "colmugx/mcp/server/types",
 }
 
 // Values
-pub fn boolean_param(String, String) -> @tool.ParamDef
+pub fn get_number(Json, String) -> Result[Double, @tool.ToolResult]
 
-pub fn expand_params_to_json(Array[@tool.ParamDef]) -> Json
+pub fn get_optional_number(Json, String) -> Result[Double?, @tool.ToolResult]
 
-pub fn handle_initialize(MCPServer, Int) -> String
+pub fn get_optional_string(Json, String) -> Result[String?, @tool.ToolResult]
 
-pub fn mcp_server(name~ : String, version~ : String) -> MCPServer
+pub fn get_string(Json, String) -> Result[String, @tool.ToolResult]
 
-pub fn number_param(String, String) -> @tool.ParamDef
+pub fn mcp_server(name~ : String, version~ : String) -> @colmugx/mcp/server/server.MCPServer
 
-pub fn optional_boolean_param(String, String) -> @tool.ParamDef
+pub fn simple_tool(String, String, (Json) -> @tool.ToolResult) -> @core.ToolWrapper
 
-pub fn optional_number_param(String, String) -> @tool.ParamDef
-
-pub fn optional_string_param(String, String) -> @tool.ParamDef
-
-pub fn string_param(String, String) -> @tool.ParamDef
+pub fn[Args : @core.Params, Ret : @core.ToToolResult] tool_fn((Args) -> Ret, name~ : String, description~ : String) -> @core.ToolWrapper
 
 // Errors
 
 // Types and methods
-pub struct MCPServer {
-  name : String
-  version : String
-  registry : ToolRegistry
-  resource_registry : ResourceRegistry
-  prompt_registry : PromptRegistry
-}
-pub async fn MCPServer::handle_request(Self, String) -> String
-pub fn MCPServer::new(String, String) -> Self
-pub async fn MCPServer::notify_prompts_list_changed(Self, @transport.AnyTransport) -> Unit raise @types.TransportError
-pub async fn MCPServer::notify_resources_list_changed(Self, @transport.AnyTransport) -> Unit raise @types.TransportError
-pub async fn MCPServer::notify_tools_list_changed(Self, @transport.AnyTransport) -> Unit raise @types.TransportError
-pub fn MCPServer::register_prompt(Self, String, String, Array[@types.PromptArgument], async (Json) -> Result[@types.GetPromptResult, @types.MCPError]) -> Unit
-pub fn MCPServer::register_resource(Self, String, String, String, String, async () -> Result[@resource.ResourceReadResult, @types.MCPError]) -> Unit
-pub fn MCPServer::register_tool(Self, String, String, Json, async (Json) -> Result[@tool.ToolResult, @types.MCPError]) -> Unit
-pub fn[T : @prompt.Prompt] MCPServer::register_trait_prompt(Self, T) -> Unit
-pub fn[T : @resource.Resource] MCPServer::register_trait_resource(Self, T) -> Unit
-pub fn[T : @tool.Tool] MCPServer::register_trait_tool(Self, T) -> Unit
-pub async fn MCPServer::run(Self, @transport.AnyTransport) -> Unit raise @types.TransportError
-pub async fn MCPServer::run_http(Self, port? : Int, path? : String, group~ : @async.TaskGroup[Unit]) -> Unit raise @types.TransportError
-pub async fn MCPServer::run_stdio(Self) -> Unit raise @types.TransportError
-pub fn[T : @prompt.Prompt] MCPServer::with_prompt(Self, T) -> Self
-pub fn[T : @resource.Resource] MCPServer::with_resource(Self, T) -> Self
-pub fn[T : @tool.Tool] MCPServer::with_tool(Self, T) -> Self
-
-type PromptEntry
-
-pub(all) struct PromptRegistry {
-  prompts : Map[String, PromptEntry]
-  mut prompts_list : Array[@prompt.PromptDefinition]
-  mut on_change : (() -> Unit)?
-}
-pub async fn PromptRegistry::get_prompt(Self, String, Json) -> Result[@types.GetPromptResult, @types.MCPError]
-pub fn PromptRegistry::list_prompts(Self) -> Array[@prompt.PromptDefinition]
-pub fn PromptRegistry::new() -> Self
-pub fn PromptRegistry::register(Self, String, String, Array[@types.PromptArgument], async (Json) -> Result[@types.GetPromptResult, @types.MCPError]) -> Unit
-pub fn[T : @prompt.Prompt] PromptRegistry::register_trait_prompt(Self, T) -> Unit
-pub fn PromptRegistry::set_on_change(Self, () -> Unit) -> Unit
-
-type ResourceEntry
-
-pub(all) struct ResourceRegistry {
-  resources : Map[String, ResourceEntry]
-  mut resources_list : Array[@resource.ResourceDefinition]
-  mut subscriptions : Array[String]
-  mut on_change : (() -> Unit)?
-}
-pub fn ResourceRegistry::list_resources(Self) -> Array[@resource.ResourceDefinition]
-pub fn ResourceRegistry::new() -> Self
-pub async fn ResourceRegistry::read_resource(Self, String) -> Result[@resource.ResourceReadResult, @types.MCPError]
-pub fn ResourceRegistry::register(Self, String, String, String, String, async () -> Result[@resource.ResourceReadResult, @types.MCPError]) -> Unit
-pub fn[T : @resource.Resource] ResourceRegistry::register_trait_resource(Self, T) -> Unit
-pub fn ResourceRegistry::set_on_change(Self, () -> Unit) -> Unit
-pub fn ResourceRegistry::subscribe(Self, String) -> Result[Unit, @types.MCPError]
-pub fn ResourceRegistry::unsubscribe(Self, String) -> Result[Unit, @types.MCPError]
-
-type ToolEntry
-
-pub(all) struct ToolRegistry {
-  tools : Map[String, ToolEntry]
-  mut tools_list : Array[@types.ToolDefinition]
-  mut on_change : (() -> Unit)?
-}
-pub async fn ToolRegistry::call_tool(Self, String, Json) -> Result[@tool.ToolResult, @types.MCPError]
-pub fn ToolRegistry::list_tools(Self) -> Array[@types.ToolDefinition]
-pub fn ToolRegistry::new() -> Self
-pub fn ToolRegistry::register(Self, String, String, Json, async (Json) -> Result[@tool.ToolResult, @types.MCPError]) -> Unit
-pub fn[T : @tool.Tool] ToolRegistry::register_trait_tool(Self, T) -> Unit
-pub fn ToolRegistry::set_on_change(Self, () -> Unit) -> Unit
 
 // Type aliases
+pub using @transport {type AnyTransport}
+
+pub using @tool {type ContentItem}
+
+pub using @transport {type HttpTransport}
+
+pub using @types {type JsonRpcRequest}
+
+pub using @types {type JsonRpcResponse}
+
+pub using @core {type JsonSchema}
+
+pub using @types {type MCPError}
+
+pub using @colmugx/mcp/server/server {type MCPServer}
+
+pub using @tool {type ParamDef}
+
+pub using @types {type ServerCapabilities}
+
+pub using @types {type ServerInfo}
+
+pub using @transport {type StdioTransport}
+
+pub using @types {type ToolDefinition}
+
+pub using @core {type ToolError}
+
+pub using @tool {type ToolResult}
+
+pub using @types {type TransportError}
+
+pub using @core {trait Params}
+
+pub using @tool {trait Tool}
 
 // Traits
 
