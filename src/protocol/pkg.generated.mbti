@@ -1,0 +1,57 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/mcp/protocol"
+
+import {
+  "colmugx/mcp/protocol/core",
+  "colmugx/mcp/protocol/tool",
+  "colmugx/mcp/protocol/types",
+}
+
+// Values
+pub fn get_number(Json, String) -> Result[Double, @tool.ToolResult]
+
+pub fn get_optional_number(Json, String) -> Result[Double?, @tool.ToolResult]
+
+pub fn get_optional_string(Json, String) -> Result[String?, @tool.ToolResult]
+
+pub fn get_string(Json, String) -> Result[String, @tool.ToolResult]
+
+pub fn simple_tool(String, String, (Json) -> @tool.ToolResult) -> @core.ToolWrapper
+
+pub fn[Args : @core.Params, Ret : @core.ToToolResult] tool_fn((Args) -> Ret, name~ : String, description~ : String) -> @core.ToolWrapper
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+pub using @types {type ContentItem}
+
+pub using @types {type JsonRpcRequest}
+
+pub using @types {type JsonRpcResponse}
+
+pub using @core {type JsonSchema}
+
+pub using @types {type MCPError}
+
+pub using @tool {type ParamDef}
+
+pub using @types {type ServerCapabilities}
+
+pub using @types {type ServerInfo}
+
+pub using @types {type ToolDefinition}
+
+pub using @core {type ToolError}
+
+pub using @tool {type ToolResult}
+
+pub using @types {type TransportError}
+
+pub using @core {trait Params}
+
+pub using @tool {trait Tool}
+
+// Traits
+

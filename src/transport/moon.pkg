@@ -1,0 +1,23 @@
+import {
+  "colmugx/mcp/protocol/types",
+  "colmugx/mcp/jsonutil",
+  "moonbitlang/core/json",
+  "moonbitlang/async/stdio",
+  "moonbitlang/async/http",
+  "moonbitlang/async/socket",
+  "moonbitlang/async",
+  "moonbitlang/async/io",
+}
+
+import {
+  "moonbitlang/async",
+} for "test"
+
+options(
+  targets: {
+    "stdio.mbt": [ "native" ],
+    "http_server.mbt": [ "native" ],
+    "http_compliance_test.mbt": [ "native" ],
+    "unimplemented.mbt": [ "wasm-gc" ],
+  },
+)

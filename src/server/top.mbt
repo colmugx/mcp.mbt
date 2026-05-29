@@ -7,19 +7,13 @@ pub using @tool {
 }
 
 ///|
-pub using @tool {trait Tool, type ToolResult, type ContentItem, type ParamDef}
+pub using @tool {trait Tool, type ToolResult, type ParamDef}
 
 ///|
 pub using @core {trait Params, type JsonSchema, type ToolError}
 
 ///|
 pub using @core {tool_fn, simple_tool}
-
-///|
-pub using @server {mcp_server}
-
-///|
-pub using @server {type MCPServer}
 
 ///|
 pub using @transport {
@@ -32,9 +26,11 @@ pub using @transport {
 pub using @types {
   type MCPError,
   type TransportError,
+  type RequestId,
   type JsonRpcRequest,
   type JsonRpcResponse,
   type ServerInfo,
   type ServerCapabilities,
   type ToolDefinition,
+  type ContentItem,
 }

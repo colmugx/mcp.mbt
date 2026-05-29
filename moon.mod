@@ -1,6 +1,6 @@
 name = "colmugx/mcp"
 
-version = "0.5.2"
+version = "1.0.0"
 
 import {
   "moonbitlang/async@0.16.5",
@@ -11,7 +11,7 @@ options(
   repository: "https://github.com/colmugx/mcp.mbt",
   license: "Apache-2.0",
   keywords: [ "mcp", "modelcontextprotocol" ],
-  description: "Type-safe MCP server implementation in MoonBit with dual transport support (STDIO/HTTP)",
+  description: "Type-safe MCP SDK in MoonBit with server/client support and dual transport (STDIO/HTTP)",
   source: "src",
   exclude: [ "examples" ],
   "preferred-target": "native",
