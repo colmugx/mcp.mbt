@@ -1,0 +1,163 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/mcp/protocol/types"
+
+// Values
+pub fn cancelled_notification(String, reason? : String) -> Notification
+
+pub fn progress_notification(String, Double, total? : Double) -> Notification
+
+pub fn prompts_list_changed_notification() -> Notification
+
+pub fn resources_list_changed_notification() -> Notification
+
+pub fn resources_updated_notification(String) -> Notification
+
+pub fn tools_list_changed_notification() -> Notification
+
+// Errors
+pub(all) suberror MCPError {
+  ParseError(String)
+  InvalidRequest(String)
+  MethodNotFound(String)
+  InvalidParams(String)
+  InternalError(String)
+  TransportError(TransportError)
+  ToolError(String)
+} derive(Eq, Show)
+pub fn MCPError::message(Self) -> String
+pub fn MCPError::to_error_code(Self) -> Int
+
+pub(all) suberror TransportError {
+  ConnectionClosed
+  ReadError(String)
+  WriteError(String)
+  Timeout
+  InvalidState(String)
+} derive(Eq, Show)
+
+// Types and methods
+pub(all) struct ClientCapabilities {
+  roots : RootCapabilities?
+  sampling : Bool
+  elicitation : Bool
+} derive(Eq, Show)
+
+pub(all) struct ClientInfo {
+  name : String
+  title : String?
+  version : String
+} derive(Eq, Show)
+
+pub(all) enum ContentItem {
+  Text(String)
+  Image(String, mime_type~ : String)
+  ResourceLink(String)
+  EmbeddedResource(EmbeddedResourceContent)
+} derive(Eq, Show)
+
+pub(all) enum EmbeddedResourceContent {
+  Text(String, uri~ : String, mime_type~ : String?)
+  Blob(String, uri~ : String, mime_type~ : String)
+} derive(Eq, Show)
+
+pub(all) struct GetPromptResult {
+  description : String?
+  messages : Array[PromptMessage]
+} derive(Eq, Show)
+
+pub(all) struct JsonRpcError {
+  code : Int
+  message : String
+  data : Json?
+} derive(Eq, Show)
+
+pub(all) struct JsonRpcRequest {
+  jsonrpc : String
+  id : RequestId
+  method_name : String
+  params : Json
+} derive(Eq, Show)
+pub fn JsonRpcRequest::from_json(Json) -> Result[Self, MCPError]
+
+pub(all) struct JsonRpcResponse {
+  jsonrpc : String
+  id : RequestId
+  result : Result[Json, JsonRpcError]
+} derive(Eq, Show)
+
+pub(all) struct Notification {
+  method_name : String
+  params : Json?
+} derive(Eq, Show)
+
+pub(all) struct NotificationCapabilities {
+  tools_list_changed : Bool
+  resources_list_changed : Bool
+  resources_updated : Bool
+  prompts_list_changed : Bool
+} derive(Eq, Show)
+
+pub(all) struct Prompt {
+  name : String
+  description : String?
+  arguments : Array[PromptArgument]?
+} derive(Eq, Show)
+
+pub(all) struct PromptArgument {
+  name : String
+  description : String?
+  required : Bool?
+} derive(Eq, Show)
+
+pub(all) struct PromptCapabilities {
+  list_changed : Bool
+} derive(Eq, Show)
+
+pub(all) struct PromptMessage {
+  role : String
+  content : ContentItem
+} derive(Eq, Show)
+
+pub(all) enum RequestId {
+  Int(Int)
+  Str(String)
+} derive(Eq, Show)
+
+pub(all) struct ResourceCapabilities {
+  subscribe : Bool
+  list_changed : Bool
+} derive(Eq, Show)
+
+pub(all) struct RootCapabilities {
+  list_changed : Bool
+} derive(Eq, Show)
+
+pub(all) struct ServerCapabilities {
+  tools : ToolCapabilities?
+  resources : ResourceCapabilities?
+  prompts : PromptCapabilities?
+} derive(Eq, Show)
+
+pub(all) struct ServerInfo {
+  name : String
+  title : String?
+  version : String
+  description : String?
+} derive(Eq, Show)
+
+pub(all) struct ToolCapabilities {
+  list_changed : Bool
+} derive(Eq, Show)
+
+pub(all) struct ToolDefinition {
+  name : String
+  description : String
+  input_schema : Json
+  cached_schema_json : String
+  icon : String?
+} derive(Eq, Show)
+
+// Type aliases
+
+// Traits
+

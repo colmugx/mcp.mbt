@@ -2,10 +2,13 @@
 package "colmugx/mcp/server"
 
 import {
-  "colmugx/mcp/server/core",
-  "colmugx/mcp/server/tool",
-  "colmugx/mcp/server/transport",
-  "colmugx/mcp/server/types",
+  "colmugx/mcp/protocol/core",
+  "colmugx/mcp/protocol/prompt",
+  "colmugx/mcp/protocol/resource",
+  "colmugx/mcp/protocol/tool",
+  "colmugx/mcp/protocol/types",
+  "colmugx/mcp/transport",
+  "moonbitlang/async",
 }
 
 // Values
@@ -17,7 +20,7 @@ pub fn get_optional_string(Json, String) -> Result[String?, @tool.ToolResult]
 
 pub fn get_string(Json, String) -> Result[String, @tool.ToolResult]
 
-pub fn mcp_server(name~ : String, version~ : String) -> @colmugx/mcp/server/server.MCPServer
+pub fn mcp_server(name~ : String, version~ : String) -> MCPServer
 
 pub fn simple_tool(String, String, (Json) -> @tool.ToolResult) -> @core.ToolWrapper
 
@@ -26,11 +29,104 @@ pub fn[Args : @core.Params, Ret : @core.ToToolResult] tool_fn((Args) -> Ret, nam
 // Errors
 
 // Types and methods
+pub struct MCPServer {
+  name : String
+  version : String
+  mut title : String?
+  mut description : String?
+  mut instructions : String?
+  mut log_level : String?
+  registry : ToolRegistry
+  resource_registry : ResourceRegistry
+  prompt_registry : PromptRegistry
+}
+pub async fn MCPServer::handle_request(Self, String) -> String
+pub fn MCPServer::new(String, String) -> Self
+pub async fn MCPServer::notify_prompts_list_changed(Self, @transport.AnyTransport) -> Unit raise @types.TransportError
+pub async fn MCPServer::notify_resources_list_changed(Self, @transport.AnyTransport) -> Unit raise @types.TransportError
+pub async fn MCPServer::notify_tools_list_changed(Self, @transport.AnyTransport) -> Unit raise @types.TransportError
+pub fn MCPServer::register_prompt(Self, String, String, Array[@types.PromptArgument], async (Json) -> Result[@types.GetPromptResult, @types.MCPError]) -> Unit
+pub fn MCPServer::register_resource(Self, String, String, String, String, async () -> Result[@resource.ResourceReadResult, @types.MCPError]) -> Unit
+pub fn MCPServer::register_tool(Self, String, String, Json, async (Json) -> Result[@tool.ToolResult, @types.MCPError]) -> Unit
+pub fn[T : @prompt.Prompt] MCPServer::register_trait_prompt(Self, T) -> Unit
+pub fn[T : @resource.Resource] MCPServer::register_trait_resource(Self, T) -> Unit
+pub fn[T : @tool.Tool] MCPServer::register_trait_tool(Self, T) -> Unit
+pub async fn MCPServer::run(Self, @transport.AnyTransport, @async.TaskGroup[Unit]) -> Unit raise @types.TransportError
+pub async fn MCPServer::run_http(Self, port? : Int, path? : String, group~ : @async.TaskGroup[Unit]) -> Unit raise @types.TransportError
+pub async fn MCPServer::run_stdio(Self) -> Unit raise @types.TransportError
+pub fn MCPServer::with_description(Self, String) -> Self
+pub fn MCPServer::with_instructions(Self, String) -> Self
+pub fn[T : @prompt.Prompt] MCPServer::with_prompt(Self, T) -> Self
+pub fn[T : @resource.Resource] MCPServer::with_resource(Self, T) -> Self
+pub fn MCPServer::with_title(Self, String) -> Self
+pub fn[T : @tool.Tool] MCPServer::with_tool(Self, T) -> Self
+
+pub struct PromptEntry {
+  name : String
+  description : String
+  arguments : Array[@types.PromptArgument]
+  handler : async (Json) -> Result[@types.GetPromptResult, @types.MCPError]
+}
+
+pub(all) struct PromptRegistry {
+  prompts : Map[String, PromptEntry]
+  mut prompts_list : Array[@prompt.PromptDefinition]
+  mut on_change : (() -> Unit)?
+}
+pub async fn PromptRegistry::get_prompt(Self, String, Json) -> Result[@types.GetPromptResult, @types.MCPError]
+pub fn PromptRegistry::list_prompts(Self) -> Array[@prompt.PromptDefinition]
+pub fn PromptRegistry::new() -> Self
+pub fn PromptRegistry::register(Self, String, String, Array[@types.PromptArgument], async (Json) -> Result[@types.GetPromptResult, @types.MCPError]) -> Unit
+pub fn[T : @prompt.Prompt] PromptRegistry::register_trait_prompt(Self, T) -> Unit
+pub fn PromptRegistry::set_on_change(Self, () -> Unit) -> Unit
+
+pub struct ResourceEntry {
+  name : String
+  description : String
+  uri : String
+  mime_type : String
+  handler : async () -> Result[@resource.ResourceReadResult, @types.MCPError]
+}
+
+pub(all) struct ResourceRegistry {
+  resources : Map[String, ResourceEntry]
+  mut resources_list : Array[@resource.ResourceDefinition]
+  mut subscriptions : Array[String]
+  mut on_change : (() -> Unit)?
+}
+pub fn ResourceRegistry::list_resources(Self) -> Array[@resource.ResourceDefinition]
+pub fn ResourceRegistry::new() -> Self
+pub async fn ResourceRegistry::read_resource(Self, String) -> Result[@resource.ResourceReadResult, @types.MCPError]
+pub fn ResourceRegistry::register(Self, String, String, String, String, async () -> Result[@resource.ResourceReadResult, @types.MCPError]) -> Unit
+pub fn[T : @resource.Resource] ResourceRegistry::register_trait_resource(Self, T) -> Unit
+pub fn ResourceRegistry::set_on_change(Self, () -> Unit) -> Unit
+pub fn ResourceRegistry::subscribe(Self, String) -> Result[Unit, @types.MCPError]
+pub fn ResourceRegistry::unsubscribe(Self, String) -> Result[Unit, @types.MCPError]
+
+pub struct ToolEntry {
+  name : String
+  description : String
+  input_schema : Json
+  cached_schema_json : String
+  handler : async (Json) -> Result[@tool.ToolResult, @types.MCPError]
+}
+
+pub(all) struct ToolRegistry {
+  tools : Map[String, ToolEntry]
+  mut tools_list : Array[@types.ToolDefinition]
+  mut on_change : (() -> Unit)?
+}
+pub async fn ToolRegistry::call_tool(Self, String, Json) -> Result[@tool.ToolResult, @types.MCPError]
+pub fn ToolRegistry::list_tools(Self) -> Array[@types.ToolDefinition]
+pub fn ToolRegistry::new() -> Self
+pub fn ToolRegistry::register(Self, String, String, Json, async (Json) -> Result[@tool.ToolResult, @types.MCPError]) -> Unit
+pub fn[T : @tool.Tool] ToolRegistry::register_trait_tool(Self, T) -> Unit
+pub fn ToolRegistry::set_on_change(Self, () -> Unit) -> Unit
 
 // Type aliases
 pub using @transport {type AnyTransport}
 
-pub using @tool {type ContentItem}
+pub using @types {type ContentItem}
 
 pub using @transport {type HttpTransport}
 
@@ -42,9 +138,9 @@ pub using @core {type JsonSchema}
 
 pub using @types {type MCPError}
 
-pub using @colmugx/mcp/server/server {type MCPServer}
-
 pub using @tool {type ParamDef}
+
+pub using @types {type RequestId}
 
 pub using @types {type ServerCapabilities}
 

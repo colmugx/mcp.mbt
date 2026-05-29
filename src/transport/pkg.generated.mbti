@@ -1,0 +1,88 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/mcp/transport"
+
+import {
+  "colmugx/mcp/protocol/types",
+  "moonbitlang/async/aqueue",
+  "moonbitlang/async/io",
+  "moonbitlang/async/stdio",
+}
+
+// Values
+pub fn validate_jsonrpc_message(String) -> Result[Unit, @types.MCPError]
+
+// Errors
+
+// Types and methods
+pub(all) enum AnyTransport {
+  Stdio(StdioTransport)
+  Http(HttpTransport)
+  HttpClient(HttpClientTransport)
+}
+pub fn AnyTransport::close(Self) -> Unit
+pub async fn AnyTransport::receive(Self) -> String? raise @types.TransportError
+pub async fn AnyTransport::send(Self, String) -> Unit raise @types.TransportError
+pub fn AnyTransport::send_event(Self, event_type~ : String, data~ : String) -> Unit
+pub async fn AnyTransport::send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
+pub fn AnyTransport::supports_streaming(Self) -> Bool
+
+pub struct HttpClientTransport {
+  base_url : String
+  mut session_id : String?
+  mut closed : Bool
+}
+pub fn HttpClientTransport::close(Self) -> Unit
+pub fn HttpClientTransport::new(String) -> Self
+pub async fn HttpClientTransport::receive(Self) -> String? raise @types.TransportError
+pub async fn HttpClientTransport::send(Self, String) -> Unit raise @types.TransportError
+pub fn HttpClientTransport::send_event(Self, event_type~ : String, data~ : String) -> Unit
+pub async fn HttpClientTransport::send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
+pub fn HttpClientTransport::supports_streaming(Self) -> Bool
+
+type HttpPendingRequest
+
+type HttpResponse
+
+pub struct HttpTransport {
+  port : Int
+  endpoint_path : String
+  pending_requests : @aqueue.Queue[HttpPendingRequest]
+  mut current_reply_queue : @aqueue.Queue[HttpResponse]?
+  mut session_id : String?
+  mut sse_active : Bool
+  event_queue : @aqueue.Queue[@types.Notification]
+}
+pub fn HttpTransport::close(Self) -> Unit
+pub fn HttpTransport::new(port? : Int, endpoint_path? : String) -> Self
+pub async fn HttpTransport::receive(Self) -> String? raise @types.TransportError
+pub async fn HttpTransport::send(Self, String) -> Unit raise @types.TransportError
+pub fn HttpTransport::send_event(Self, event_type~ : String, data~ : String) -> Unit
+pub async fn HttpTransport::send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
+pub async fn HttpTransport::start(Self) -> Unit raise @types.TransportError
+pub fn HttpTransport::supports_streaming(Self) -> Bool
+
+pub struct StdioTransport {
+  mut closed : Bool
+  reader : @stdio.Input
+  writer : @io.BufferedWriter[@stdio.Output]
+}
+pub fn StdioTransport::close(Self) -> Unit
+pub fn StdioTransport::new() -> Self
+pub async fn StdioTransport::receive(Self) -> String? raise @types.TransportError
+pub async fn StdioTransport::send(Self, String) -> Unit raise @types.TransportError
+pub fn StdioTransport::send_event(Self, event_type~ : String, data~ : String) -> Unit
+pub async fn StdioTransport::send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
+pub fn StdioTransport::supports_streaming(Self) -> Bool
+
+// Type aliases
+
+// Traits
+pub(open) trait Transport {
+  receive(Self) -> String? raise @types.TransportError
+  send(Self, String) -> Unit raise @types.TransportError
+  send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
+  send_event(Self, event_type~ : String, data~ : String) -> Unit
+  supports_streaming(Self) -> Bool
+  close(Self) -> Unit
+}
+
