@@ -11,13 +11,12 @@ pub struct PromptEntry {
 ///|
 pub(all) struct PromptRegistry {
   prompts : Map[String, PromptEntry]
-  mut prompts_list : Array[@prompt.PromptDefinition]
   mut on_change : (() -> Unit)?
 }
 
 ///|
 pub fn PromptRegistry::new() -> PromptRegistry {
-  { prompts: Map::default(), prompts_list: [], on_change: None }
+  { prompts: Map::default(), on_change: None }
 }
 
 ///|
@@ -39,12 +38,6 @@ pub fn PromptRegistry::register(
   handler : async (Json) -> Result[@types.GetPromptResult, @types.MCPError],
 ) -> Unit {
   self.prompts.set(name, { name, description, arguments, handler })
-  let def : @prompt.PromptDefinition = {
-    name,
-    description: Some(description),
-    arguments: Some(arguments),
-  }
-  self.prompts_list.push(def)
   match self.on_change {
     Some(callback) => callback()
     None => ()
@@ -55,7 +48,17 @@ pub fn PromptRegistry::register(
 pub fn PromptRegistry::list_prompts(
   self : PromptRegistry,
 ) -> Array[@prompt.PromptDefinition] {
-  self.prompts_list
+  Array::from_iter(
+    self.prompts
+    .values()
+    .map(fn(entry) {
+      {
+        name: entry.name,
+        description: Some(entry.description),
+        arguments: Some(entry.arguments),
+      }
+    }),
+  )
 }
 
 ///|

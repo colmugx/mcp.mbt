@@ -214,17 +214,17 @@ test "get_optional_string returns error for wrong type" {
 struct EchoTool {}
 
 ///|
-impl Tool for EchoTool with name(_self : EchoTool) -> String {
+impl Tool for EchoTool with fn name(_self : EchoTool) -> String {
   "echo"
 }
 
 ///|
-impl Tool for EchoTool with description(_self : EchoTool) -> String {
+impl Tool for EchoTool with fn description(_self : EchoTool) -> String {
   "Echo back the input text"
 }
 
 ///|
-impl Tool for EchoTool with params(_self : EchoTool) -> Array[ParamDef] {
+impl Tool for EchoTool with fn params(_self : EchoTool) -> Array[ParamDef] {
   [
     {
       name: "text",
@@ -236,7 +236,7 @@ impl Tool for EchoTool with params(_self : EchoTool) -> Array[ParamDef] {
 }
 
 ///|
-impl Tool for EchoTool with execute(_self : EchoTool, args : Json) -> ToolResult {
+impl Tool for EchoTool with fn execute(_self : EchoTool, args : Json) -> ToolResult {
   let text = match get_string(args, "text") {
     Ok(t) => t
     Err(err) => return err

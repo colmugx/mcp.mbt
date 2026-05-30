@@ -6,9 +6,9 @@
 pub struct MCPServer {
   name : String
   version : String
-  mut title : String?
-  mut description : String?
-  mut instructions : String?
+  title : String?
+  description : String?
+  instructions : String?
   mut log_level : String?
   registry : ToolRegistry
   resource_registry : ResourceRegistry
@@ -271,8 +271,7 @@ pub fn[T : @prompt.Prompt] MCPServer::with_prompt(
 
 ///|
 pub fn MCPServer::with_title(self : MCPServer, title : String) -> MCPServer {
-  self.title = Some(title)
-  self
+  { ..self, title: Some(title) }
 }
 
 ///|
@@ -280,8 +279,7 @@ pub fn MCPServer::with_description(
   self : MCPServer,
   description : String,
 ) -> MCPServer {
-  self.description = Some(description)
-  self
+  { ..self, description: Some(description) }
 }
 
 ///|
@@ -289,8 +287,7 @@ pub fn MCPServer::with_instructions(
   self : MCPServer,
   instructions : String,
 ) -> MCPServer {
-  self.instructions = Some(instructions)
-  self
+  { ..self, instructions: Some(instructions) }
 }
 
 ///|

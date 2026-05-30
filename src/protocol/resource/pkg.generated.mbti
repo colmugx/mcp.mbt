@@ -31,10 +31,10 @@ pub(all) struct ResourceReadResult {
 
 // Traits
 pub(open) trait Resource {
-  name(Self) -> String
-  description(Self) -> String
-  uri(Self) -> String
-  mime_type(Self) -> String
-  async read(Self) -> Result[ResourceReadResult, @types.MCPError]
+  fn name(Self) -> String
+  fn description(Self) -> String
+  fn uri(Self) -> String
+  fn mime_type(Self) -> String
+  async fn read(Self) -> Result[ResourceReadResult, @types.MCPError]
 }
 

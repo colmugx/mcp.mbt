@@ -37,7 +37,7 @@ pub impl ToToolResult for ToolResult
 
 // Traits
 pub trait ToToolResult {
-  to_tool_result(Self) -> ToolResult
+  fn to_tool_result(Self) -> ToolResult
 }
 pub impl ToToolResult for Bool
 pub impl ToToolResult for Int
@@ -45,9 +45,9 @@ pub impl ToToolResult for Double
 pub impl ToToolResult for String
 
 pub(open) trait Tool {
-  name(Self) -> String
-  description(Self) -> String
-  params(Self) -> Array[ParamDef]
-  async execute(Self, Json) -> ToolResult
+  fn name(Self) -> String
+  fn description(Self) -> String
+  fn params(Self) -> Array[ParamDef]
+  async fn execute(Self, Json) -> ToolResult
 }
 

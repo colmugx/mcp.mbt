@@ -1,11 +1,11 @@
 ///|
 pub(open) trait Transport {
-  receive(Self) -> String? raise @types.TransportError
-  send(Self, String) -> Unit raise @types.TransportError
-  send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
-  send_event(Self, event_type~ : String, data~ : String) -> Unit
-  supports_streaming(Self) -> Bool
-  close(Self) -> Unit
+  fn receive(Self) -> String? raise @types.TransportError
+  fn send(Self, String) -> Unit raise @types.TransportError
+  fn send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
+  fn send_event(Self, event_type~ : String, data~ : String) -> Unit
+  fn supports_streaming(Self) -> Bool
+  fn close(Self) -> Unit
 }
 
 ///|

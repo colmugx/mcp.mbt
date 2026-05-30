@@ -1,37 +1,37 @@
 ///|
 pub trait ToToolResult {
-  to_tool_result(Self) -> @tool.ToolResult
+  fn to_tool_result(Self) -> @tool.ToolResult
 }
 
 ///|
-pub impl ToToolResult for String with to_tool_result(self : String) -> @tool.ToolResult {
+pub impl ToToolResult for String with fn to_tool_result(self : String) -> @tool.ToolResult {
   @tool.ToolResult::text(self)
 }
 
 ///|
-pub impl ToToolResult for Int with to_tool_result(self : Int) -> @tool.ToolResult {
+pub impl ToToolResult for Int with fn to_tool_result(self : Int) -> @tool.ToolResult {
   @tool.ToolResult::text(self.to_string())
 }
 
 ///|
-pub impl ToToolResult for Bool with to_tool_result(self : Bool) -> @tool.ToolResult {
+pub impl ToToolResult for Bool with fn to_tool_result(self : Bool) -> @tool.ToolResult {
   @tool.ToolResult::text(self.to_string())
 }
 
 ///|
-pub impl ToToolResult for Double with to_tool_result(self : Double) -> @tool.ToolResult {
+pub impl ToToolResult for Double with fn to_tool_result(self : Double) -> @tool.ToolResult {
   @tool.ToolResult::text(self.to_string())
 }
 
 ///|
-pub impl ToToolResult for @tool.ToolResult with to_tool_result(
+pub impl ToToolResult for @tool.ToolResult with fn to_tool_result(
   self : @tool.ToolResult,
 ) -> @tool.ToolResult {
   self
 }
 
 ///|
-pub impl ToToolResult for Unit with to_tool_result(_self : Unit) -> @tool.ToolResult {
+pub impl ToToolResult for Unit with fn to_tool_result(_self : Unit) -> @tool.ToolResult {
   @tool.ToolResult::text("ok")
 }
 
@@ -44,22 +44,24 @@ pub(all) struct ToolWrapper {
 }
 
 ///|
-pub impl @tool.Tool for ToolWrapper with name(self) -> String {
+pub impl @tool.Tool for ToolWrapper with fn name(self) -> String {
   (self.name_impl)()
 }
 
 ///|
-pub impl @tool.Tool for ToolWrapper with description(self) -> String {
+pub impl @tool.Tool for ToolWrapper with fn description(self) -> String {
   (self.description_impl)()
 }
 
 ///|
-pub impl @tool.Tool for ToolWrapper with params(self) -> Array[@tool.ParamDef] {
+pub impl @tool.Tool for ToolWrapper with fn params(self) -> Array[
+  @tool.ParamDef,
+] {
   (self.params_impl)()
 }
 
 ///|
-pub impl @tool.Tool for ToolWrapper with execute(self, json) -> @tool.ToolResult {
+pub impl @tool.Tool for ToolWrapper with fn execute(self, json) -> @tool.ToolResult {
   (self.execute_impl)(json)
 }
 

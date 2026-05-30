@@ -32,11 +32,11 @@ pub(all) struct PromptDefinition {
 /// - arguments: Array of argument definitions (@types.PromptArgument)
 /// - get: Async operation that returns prompt messages based on provided arguments
 pub(open) trait Prompt {
-  name(Self) -> String
-  description(Self) -> String
-  arguments(Self) -> Array[@types.PromptArgument]
+  fn name(Self) -> String
+  fn description(Self) -> String
+  fn arguments(Self) -> Array[@types.PromptArgument]
 
   /// Get prompt messages with provided arguments
   /// Returns GetPromptResult with messages
-  async get(Self, Json) -> Result[@types.GetPromptResult, @types.MCPError]
+  async fn get(Self, Json) -> Result[@types.GetPromptResult, @types.MCPError]
 }
