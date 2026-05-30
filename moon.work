@@ -1,0 +1,5 @@
+members = [
+  ".",
+  "./examples/client",
+  "./examples/server",
+]
