@@ -9,12 +9,23 @@ import { "colmugx/mcp/protocol/types" }
 
 ## 2.1 JSON-RPC 消息
 
+### RequestId
+
+```moonbit
+pub(all) enum RequestId {
+  Int(Int)     // 数字 ID
+  Str(String)  // 字符串 ID
+} derive(Eq, Show)
+```
+
+`RequestId` 支持 JSON-RPC 2.0 规范中的数字和字符串两种 ID 格式。
+
 ### JsonRpcRequest
 
 ```moonbit
 pub(all) struct JsonRpcRequest {
   jsonrpc : String      // 始终为 "2.0"
-  id : Int              // 请求 ID
+  id : RequestId        // 请求 ID（Int 或 String）
   method_name : String  // 方法名，如 "tools/list"
   params : Json         // 参数对象
 } derive(Eq, Show)
@@ -35,7 +46,7 @@ match JsonRpcRequest::from_json(json) {
 ```moonbit
 pub(all) struct JsonRpcResponse {
   jsonrpc : String
-  id : Int
+  id : RequestId
   result : Result[Json, JsonRpcError]
 } derive(Eq, Show)
 ```
@@ -110,11 +121,23 @@ pub suberror ToolError {
 pub(all) enum ContentItem {
   Text(String)                            // 文本内容
   Image(String, mime_type~ : String)      // Base64 图片
-  Resource(String)                        // 资源 URI 引用
+  ResourceLink(String)                    // 资源 URI 引用（type: "resource_link"）
+  EmbeddedResource(EmbeddedResourceContent) // 内嵌资源内容（type: "resource"）
 } derive(Eq, Show)
 ```
 
 `ContentItem` 是 Tool、Resource、Prompt 之间共享的内容类型，定义在 `protocol/types` 中。
+
+### EmbeddedResourceContent
+
+```moonbit
+pub(all) enum EmbeddedResourceContent {
+  Text(String, uri~ : String, mime_type~ : String?)   // 内嵌文本资源
+  Blob(String, uri~ : String, mime_type~ : String)    // 内嵌二进制资源
+} derive(Eq, Show)
+```
+
+`EmbeddedResourceContent` 表示内嵌在消息中的资源内容，包含 URI 和可选的 MIME 类型。
 
 ## 2.4 通知类型
 
@@ -130,9 +153,12 @@ pub(all) struct Notification {
 ### 工厂方法
 
 ```moonbit
-tools_list_changed_notification()     -> Notification
-resources_list_changed_notification() -> Notification
-prompts_list_changed_notification()   -> Notification
+tools_list_changed_notification()                -> Notification
+resources_list_changed_notification()            -> Notification
+prompts_list_changed_notification()              -> Notification
+resources_updated_notification(uri : String)     -> Notification
+progress_notification(token : String, progress : Double, total? : Double) -> Notification
+cancelled_notification(request_id : String, reason? : String) -> Notification
 ```
 
 ### NotificationCapabilities
@@ -153,9 +179,9 @@ pub(all) struct NotificationCapabilities {
 ```moonbit
 pub(all) struct ServerInfo {
   name : String
-  title : String?        // 可选标题（2025-11-25 新增）
+  title : String?        // 可选标题
   version : String
-  description : String?  // 可选描述（2025-11-25 新增）
+  description : String?  // 可选描述
 } derive(Eq, Show)
 ```
 
@@ -177,11 +203,11 @@ pub(all) struct ToolDefinition {
   description : String
   input_schema : Json
   cached_schema_json : String
-  icon : String?  // 可选图标（2025-11-25 新增）
+  icon : String?  // 可选图标
 } derive(Eq, Show)
 ```
 
-## 2.6 Client 类型（2025-11-25 新增）
+## 2.6 Client 类型
 
 ### ClientInfo
 
@@ -218,6 +244,12 @@ pub(all) struct PromptArgument {
   name : String
   description : String?
   required : Bool?
+} derive(Eq, Show)
+
+pub(all) struct Prompt {
+  name : String
+  description : String?
+  arguments : Array[PromptArgument]?
 } derive(Eq, Show)
 
 pub(all) struct PromptMessage {

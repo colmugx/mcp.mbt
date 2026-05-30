@@ -16,6 +16,7 @@
 │  ┌────────────────────────────────────────────┐  │
 │  │  Transport trait + Stdio/Http/HttpClient   │  │
 │  │  native: 完整实现  wasm-gc: stub           │  │
+│  │  HttpClient: SSE + session management      │  │
 │  └────────────────────────────────────────────┘  │
 ├──────────────────────────────────────────────────┤
 │  Protocol Layer  (platform-agnostic)              │
@@ -23,6 +24,7 @@
 │  │  types/  │ │ core/ │ │ tool/ │ │prompt/│       │
 │  │  error   │ │params │ │ trait │ │trait  │       │
 │  │  types   │ │schema │ │result │ │def    │       │
+│  │  reqid   │ │builder│ │toTool │ │       │       │
 │  └─────────┘ └──────┘ └──────┘ └──────┘        │
 └──────────────────────────────────────────────────┘
 ```
@@ -45,9 +47,9 @@ protocol/resource ←── protocol/types
 protocol/core  ←── protocol/tool
 protocol/      ←── 所有 protocol/* 子包
 
-transport/     ←── protocol/types, protocol/internal(jsonutil)
+transport/     ←── protocol/types, protocol/internal(jsonutil), moonbitlang/async/*
 server/        ←── protocol/*, transport/, jsonutil
-client/        ←── protocol/types, transport/, jsonutil
+client/        ←── protocol/types, protocol/resource, protocol/prompt, transport/, jsonutil
 
 (顶层)        ←── server, client, transport, protocol
 ```
@@ -80,6 +82,7 @@ options(
     "stdio.mbt": ["native"],
     "http_server.mbt": ["native"],
     "http_client.mbt": ["native"],
+    "http_compliance_test.mbt": ["native"],
     "unimplemented.mbt": ["wasm-gc"],
   },
 )
@@ -116,9 +119,10 @@ TransportError          MCPError
 
 错误传播规则：
 - Transport 方法 `raise TransportError`
-- Server/Client 方法 `raise MCPError`
+- Server/Client 方法 `raise MCPError`（或返回 `Result[_, MCPError]`）
 - `MCPError::TransportError(te)` 用于在协议层包装传输错误
-- Tool handler 返回 `Result[ToolResult, MCPError]`
+- Tool handler 直接返回 `ToolResult`（使用 `ToolResult::error()` 表示错误）
+- Resource/Prompt handler 返回 `Result[_, MCPError]`
 
 ## 6.4 请求处理流程（Server）
 
@@ -159,13 +163,14 @@ Server 的 `run()` 循环区分两类请求：
 
 ## 6.5 协议版本
 
-当前实现的协议版本：**2025-11-25**
+当前实现的协议版本：**2025-11-25**（代码基于 2025-06-18 规范）
 
 | 版本 | 支持的方法 |
 |------|-----------|
 | 2025-11-25 | initialize, tools/*, resources/*, prompts/*, ping, logging/setLevel |
-| 2025-11-25 新增类型 | ClientInfo, ClientCapabilities, RootCapabilities |
-| 2025-11-25 字段更新 | ServerInfo +title/description, ToolDefinition +icon |
+| 新增类型 | ClientInfo, ClientCapabilities, RootCapabilities, RequestId, EmbeddedResourceContent |
+| 字段更新 | ServerInfo +title/description, ToolDefinition +icon |
+| ContentItem 扩展 | ResourceLink, EmbeddedResource (Text/Blob) |
 
 ### 尚未实现的 2025-11-25 特性
 
@@ -192,6 +197,8 @@ Server 的 `run()` 循环区分两类请求：
 2. 在 `src/server/server.mbt` 的 `handle_request` match 中添加分支
 3. 按需在 `src/protocol/types/` 中添加新类型
 4. 如需 Client 支持，在 `src/client/request_builder.mbt` 添加构建函数
+5. 在 `src/client/client.mbt` 中添加类型化的 `parse_xxx()` 函数和对应的 Client 方法
+6. 如有新的结果类型，在 `src/client/client_types.mbt` 中定义
 
 ### 添加新的 Transport
 

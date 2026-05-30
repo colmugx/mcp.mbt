@@ -9,7 +9,7 @@ MCP SDK for MoonBit 是一个类型安全的 Model Context Protocol 实现，支
 ```json
 {
   "deps": {
-    "colmugx/mcp": "0.6.0"
+    "colmugx/mcp": "0.11.0"
   },
   "preferred-target": "native"
 }
@@ -51,31 +51,70 @@ async fn main {
 // import { "colmugx/mcp/client" }
 
 async fn main {
+  let transport = @transport.AnyTransport::Stdio(@transport.StdioTransport::new())
   let client = MCPClient::new(
     name="my-client",
     version="1.0.0",
+    transport~,
   )
-  // 注：connect_stdio / connect_http 需要先设置 transport
-  // 详见第 5 章 Client 开发指南
+  match client.initialize() {
+    Ok(server_info) => println("Connected to \{server_info.name}")
+    Err(e) => println("Init failed: \{e.message()}")
+  }
   client.close()
 }
 ```
 
-## 1.4 项目结构概览
+## 1.4 多 Server 连接（Host 模式）
+
+一个 `MCPClient` 与一个 Server 保持 1:1 连接。连接多个 Server 需要创建多个 Client 实例：
+
+```moonbit
+async fn main {
+  // 连接 1：本地 stdio server
+  let client_a = MCPClient::new(
+    name="host",
+    version="1.0.0",
+    transport~: @transport.AnyTransport::Stdio(@transport.StdioTransport::new()),
+  )
+
+  // 连接 2：远程 HTTP server
+  let client_b = MCPClient::new(
+    name="host",
+    version="1.0.0",
+    transport~: @transport.AnyTransport::HttpClient(
+      @transport.HttpClientTransport::new("http://remote:4240/mcp"),
+    ),
+  )
+
+  // 分别初始化和使用
+  match client_a.initialize() {
+    Ok(info) => println("[local] \{info.name}")
+    Err(e) => println("[local] failed")
+  }
+
+  client_a.close()
+  client_b.close()
+}
+```
+
+详见 [第 7 章 Host 开发指南](07-host-guide.md)。
+
+## 1.5 项目结构概览
 
 ```
 src/
   protocol/       纯协议层 — 无 async 依赖，wasm-gc 兼容
-    types/        JSON-RPC 类型、MCP 错误、通知、ContentItem
+    types/        JSON-RPC 类型、MCP 错误、通知、ContentItem、RequestId
     core/         Params trait、JsonSchema、SchemaBuilder、tool_fn
-    tool/         Tool trait、ToolResult、ParamDef
-    prompt/       Prompt trait
-    resource/     Resource trait
+    tool/         Tool trait、ToolResult、ParamDef、ToToolResult
+    prompt/       Prompt trait、PromptDefinition
+    resource/     Resource trait、ResourceContent
     internal/     内部 JSON 构建工具
   jsonutil/       公共 JSON builder 函数
-  transport/      传输层 — native: stdio/http, wasm-gc: stub
-  server/         Server 应用层
-  client/         Client 应用层
+  transport/      传输层 — native: stdio/http/http-client, wasm-gc: stub
+  server/         Server 应用层（handler、registry、bridge）
+  client/         Client 应用层（client、request_builder、notification_handler、client_types）
 ```
 
 **包引用关系：**
@@ -90,7 +129,7 @@ src/
 | `using @ptool` | `colmugx/mcp/protocol/tool` | Tool 类型（wasm-gc 可用） |
 | `using @pcore` | `colmugx/mcp/protocol/core` | Params/Schema（wasm-gc 可用） |
 
-## 1.5 目标平台
+## 1.6 目标平台
 
 | 平台 | Protocol 层 | Transport 层 | Server/Client |
 |------|------------|-------------|---------------|
