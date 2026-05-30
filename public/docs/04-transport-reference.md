@@ -11,9 +11,9 @@ import { "colmugx/mcp/transport" }
 
 ```moonbit
 pub(open) trait Transport {
-  receive(Self) -> String? raise TransportError
-  send(Self, String) -> Unit raise TransportError
-  send_notification(Self, Notification) -> Unit raise TransportError
+  receive(Self) -> String? raise @types.TransportError
+  send(Self, String) -> Unit raise @types.TransportError
+  send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
   send_event(Self, event_type~ : String, data~ : String) -> Unit
   supports_streaming(Self) -> Bool
   close(Self) -> Unit
@@ -108,19 +108,69 @@ async fn main {
 
 ## 4.5 HttpClientTransport（Client 端）
 
-HTTP client 端 transport，用于连接到远程 MCP server。
+HTTP client 端 transport，用于连接到远程 MCP server。实现 Streamable HTTP 传输协议：POST 用于请求-响应，GET SSE 用于 server→client 通知。
 
 ```moonbit
 let transport = HttpClientTransport::new("http://localhost:4240/mcp")
 ```
 
-> ⚠️ **当前状态**：`send()` 和 `send_notification()` 尚未实现（`abort`），因为 `moonbitlang/async` 的 http 子包暂未提供 HTTP client。后续版本将补全。
+### 结构体
+
+```moonbit
+pub struct HttpClientTransport {
+  base_url : String            // MCP server 的 HTTP 端点 URL
+  mut session_id : String?     // 会话 ID（从 server 响应头中获取）
+  mut last_response : String?  // 上次 POST 响应缓存
+  mut last_response_status : Int
+  mut sse_client : @http.Client?  // SSE 流式连接
+  mut sse_connected : Bool
+  mut closed : Bool
+}
+```
+
+### 工作流程
+
+1. **首次 `send()`** 时自动建立 SSE 连接（lazy SSE establishment）
+2. `send()` 通过 `POST` 发送 JSON-RPC 请求，自动携带 `Mcp-Session-Id` 和 `Content-Type` 头
+3. `receive()` 优先返回上次 POST 的响应，否则从 SSE 流读取
+4. Server 响应头中的 `mcp-session-id` 会被自动提取并用于后续请求
 
 | 特性 | 说明 |
 |------|------|
-| `base_url` | MCP server 的 HTTP 端点 URL |
-| `session_id` | 会话 ID（从 server 响应中获取） |
+| `send()` | POST JSON-RPC 请求，自动管理 session 和 SSE |
+| `receive()` | 返回 POST 响应或 SSE 事件 |
+| `send_notification()` | POST 通知（无 id，fire-and-forget） |
 | `supports_streaming()` | 返回 `true` |
+| 会话管理 | 自动从响应头获取 `Mcp-Session-Id` |
+| SSE | lazy 建立，自动解析 `data:` 行 |
+
+### 使用示例
+
+```moonbit
+async fn main {
+  let transport = AnyTransport::HttpClient(
+    HttpClientTransport::new("http://localhost:4240/mcp"),
+  )
+  let client = MCPClient::new(
+    name="my-client",
+    version="1.0.0",
+    transport~,
+  )
+
+  match client.initialize() {
+    Ok(server_info) => {
+      println("Connected to \{server_info.name}")
+      // 使用 client API
+      match client.list_tools() {
+        Ok(tools) => println("Tools: \{tools}")
+        Err(e) => println("Error: \{e.message()}")
+      }
+    }
+    Err(e) => println("Init failed: \{e.message()}")
+  }
+  client.close()
+}
+```
 
 ## 4.6 消息验证
 
@@ -139,16 +189,16 @@ struct MyTransport {
   // 自定义字段
 }
 
-impl Transport for MyTransport with receive(self) -> String? raise TransportError {
+impl Transport for MyTransport with receive(self) -> String? raise @types.TransportError {
   // 从自定义源读取消息
   Some("...")
 }
 
-impl Transport for MyTransport with send(self, msg : String) -> Unit raise TransportError {
+impl Transport for MyTransport with send(self, msg : String) -> Unit raise @types.TransportError {
   // 发送消息到自定义目标
 }
 
-impl Transport for MyTransport with send_notification(self, n : Notification) -> Unit raise TransportError {
+impl Transport for MyTransport with send_notification(self, n : @types.Notification) -> Unit raise @types.TransportError {
   let json = @jsonutil.jsonrpc_notification(n.method_name, n.params)
   self.send(json)
 }
@@ -178,6 +228,7 @@ Transport 包通过 MoonBit 的 `targets` 机制支持条件编译：
 | `stdio.mbt` | ✅ | — |
 | `http_server.mbt` | ✅ | — |
 | `http_client.mbt` | ✅ | — |
+| `http_compliance_test.mbt` | ✅ | — |
 | `unimplemented.mbt` | — | ✅（stub） |
 
 在 wasm-gc 上，`StdioTransport::new()` 和 `HttpTransport::new()` 会 abort。`Transport` trait 和 `AnyTransport` 类型定义在 wasm-gc 上可用，但无法实际进行 I/O。

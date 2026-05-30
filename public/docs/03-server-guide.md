@@ -86,10 +86,10 @@ impl Tool for WeatherTool with description(_) -> String {
 }
 impl Tool for WeatherTool with params(_) -> Array[ParamDef] {
   [
-    { name: "city", description: "City name", type_: "string", required: true },
+    ParamDef::{ name: "city", description: "City name", type_: "string", required: true },
   ]
 }
-impl Tool for WeatherTool with execute(_, args : Json) -> ToolResult {
+impl Tool for WeatherTool with async execute(_, args : Json) -> ToolResult {
   match get_string(args, "city") {
     Ok(city) => ToolResult::text("Weather in \{city}: Sunny, 22°C")
     Err(result) => result
@@ -165,12 +165,26 @@ ToolResult::text("Hello")
 ToolResult::success([
   Text("Here is the result:"),
   Image(base64_data, mime_type="image/png"),
-  Resource("file:///path/to/data.json"),
+  ResourceLink("file:///path/to/data.json"),
 ])
 
 // 错误结果
 ToolResult::error("Something went wrong")
 ```
+
+### ToToolResult trait
+
+`ToToolResult` trait 提供自动类型转换，以下类型已内置实现：
+
+| 类型 | 转换行为 |
+|------|----------|
+| `String` | `ToolResult::text(self)` |
+| `Int` | `ToolResult::text(self.to_string())` |
+| `Bool` | `ToolResult::text(self.to_string())` |
+| `Double` | `ToolResult::text(self.to_string())` |
+| `ToolResult` | 直接返回（identity） |
+
+在 `tool_fn` 中可以利用此 trait 让返回值自动转换为 `ToolResult`。
 
 ## 3.4 注册 Resource
 
@@ -204,7 +218,7 @@ impl Resource for ConfigResource with uri(_) -> String {
 impl Resource for ConfigResource with mime_type(_) -> String {
   "application/json"
 }
-impl Resource for ConfigResource with read(_) -> Result[ResourceReadResult, MCPError] {
+impl Resource for ConfigResource with async read(_) -> Result[ResourceReadResult, MCPError] {
   Ok({
     uri: "file:///config.json",
     content: Text("{ \"theme\": \"dark\" }"),
@@ -257,12 +271,12 @@ impl Prompt for CodeReviewPrompt with name(_) -> String { "code_review" }
 impl Prompt for CodeReviewPrompt with description(_) -> String {
   "Generate code review feedback"
 }
-impl Prompt for CodeReviewPrompt with arguments(_) -> Array[PromptArgument] {
+impl Prompt for CodeReviewPrompt with arguments(_) -> Array[@types.PromptArgument] {
   [
     { name: "code", description: Some("Code to review"), required: Some(true) },
   ]
 }
-impl Prompt for CodeReviewPrompt with get(_, args : Json) -> Result[GetPromptResult, MCPError] {
+impl Prompt for CodeReviewPrompt with async get(_, args : Json) -> Result[GetPromptResult, MCPError] {
   // ...
 }
 ```
