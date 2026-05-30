@@ -10,13 +10,12 @@ pub struct ToolEntry {
 ///|
 pub(all) struct ToolRegistry {
   tools : Map[String, ToolEntry]
-  mut tools_list : Array[@types.ToolDefinition]
   mut on_change : (() -> Unit)?
 }
 
 ///|
 pub fn ToolRegistry::new() -> ToolRegistry {
-  { tools: Map::default(), tools_list: [], on_change: None }
+  { tools: Map::default(), on_change: None }
 }
 
 ///|
@@ -35,14 +34,6 @@ pub fn ToolRegistry::register(
     cached_schema_json,
     handler,
   })
-  let def : @types.ToolDefinition = {
-    name,
-    description,
-    input_schema,
-    cached_schema_json,
-    icon: None,
-  }
-  self.tools_list.push(def)
   match self.on_change {
     Some(callback) => callback()
     None => ()
@@ -53,7 +44,19 @@ pub fn ToolRegistry::register(
 pub fn ToolRegistry::list_tools(
   self : ToolRegistry,
 ) -> Array[@types.ToolDefinition] {
-  self.tools_list
+  Array::from_iter(
+    self.tools
+    .values()
+    .map(fn(entry) {
+      {
+        name: entry.name,
+        description: entry.description,
+        input_schema: entry.input_schema,
+        cached_schema_json: entry.cached_schema_json,
+        icon: None,
+      }
+    }),
+  )
 }
 
 ///|

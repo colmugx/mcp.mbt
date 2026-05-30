@@ -2,6 +2,8 @@
 package "colmugx/mcp/client"
 
 import {
+  "colmugx/mcp/protocol/prompt",
+  "colmugx/mcp/protocol/resource",
   "colmugx/mcp/protocol/types",
   "colmugx/mcp/transport",
 }
@@ -27,38 +29,63 @@ pub fn build_tools_call_request(Int, String, arguments? : String) -> String
 
 pub fn build_tools_list_request(Int) -> String
 
-pub fn handle_server_notification(MCPClient, @types.Notification) -> Unit
+pub fn handle_server_notification(NotificationHandlers, @types.Notification) -> Unit
 
 // Errors
 
 // Types and methods
+pub(all) struct CallToolResult {
+  content : Array[@types.ContentItem]
+  is_error : Bool
+} derive(Eq, Show)
+
+pub(all) struct ListPromptsResult {
+  prompts : Array[@prompt.PromptDefinition]
+} derive(Eq, Show)
+
+pub(all) struct ListResourcesResult {
+  resources : Array[@resource.ResourceDefinition]
+} derive(Eq, Show)
+
+pub(all) struct ListToolsResult {
+  tools : Array[@types.ToolDefinition]
+} derive(Eq, Show)
+
 pub struct MCPClient {
   client_name : String
   client_version : String
-  mut transport : @transport.AnyTransport?
-  mut server_info : @types.ServerInfo?
-  mut initialized : Bool
-  mut next_id : Int
-  mut on_tools_changed : (() -> Unit)?
-  mut on_resources_changed : (() -> Unit)?
-  mut on_prompts_changed : (() -> Unit)?
+  transport : @transport.AnyTransport
+  id_counter : RequestIdCounter
 }
-pub async fn MCPClient::call_tool(Self, String, arguments? : String) -> Result[String, @types.MCPError]
+pub async fn MCPClient::call_tool(Self, String, arguments? : String) -> Result[CallToolResult, @types.MCPError]
 pub fn MCPClient::close(Self) -> Unit
-pub async fn MCPClient::get_prompt(Self, String, arguments? : String) -> Result[String, @types.MCPError]
-pub async fn MCPClient::initialize(Self) -> Result[Unit, @types.MCPError]
-pub async fn MCPClient::list_prompts(Self) -> Result[String, @types.MCPError]
-pub async fn MCPClient::list_resources(Self) -> Result[String, @types.MCPError]
-pub async fn MCPClient::list_tools(Self) -> Result[String, @types.MCPError]
-pub fn MCPClient::new(name~ : String, version~ : String) -> Self
+pub async fn MCPClient::get_prompt(Self, String, arguments? : String) -> Result[@types.GetPromptResult, @types.MCPError]
+pub async fn MCPClient::initialize(Self) -> Result[@types.ServerInfo, @types.MCPError]
+pub async fn MCPClient::list_prompts(Self) -> Result[ListPromptsResult, @types.MCPError]
+pub async fn MCPClient::list_resources(Self) -> Result[ListResourcesResult, @types.MCPError]
+pub async fn MCPClient::list_tools(Self) -> Result[ListToolsResult, @types.MCPError]
+pub fn MCPClient::new(name~ : String, version~ : String, transport~ : @transport.AnyTransport) -> Self
 pub fn MCPClient::next_request_id(Self) -> Int
-pub fn MCPClient::on_prompts_changed(Self, () -> Unit) -> Unit
-pub fn MCPClient::on_resources_changed(Self, () -> Unit) -> Unit
-pub fn MCPClient::on_tools_changed(Self, () -> Unit) -> Unit
 pub async fn MCPClient::ping(Self) -> Result[Unit, @types.MCPError]
-pub async fn MCPClient::read_resource(Self, String) -> Result[String, @types.MCPError]
+pub async fn MCPClient::read_resource(Self, String) -> Result[ReadResourceResult, @types.MCPError]
 pub async fn MCPClient::set_log_level(Self, String) -> Result[Unit, @types.MCPError]
-pub fn MCPClient::set_transport(Self, @transport.AnyTransport) -> Unit
+
+pub(all) struct NotificationHandlers {
+  on_tools_changed : (() -> Unit)?
+  on_resources_changed : (() -> Unit)?
+  on_prompts_changed : (() -> Unit)?
+}
+pub fn NotificationHandlers::empty() -> Self
+
+pub(all) struct ReadResourceResult {
+  contents : Array[@resource.ResourceReadResult]
+} derive(Eq, Show)
+
+pub(all) struct RequestIdCounter {
+  mut next_id : Int
+}
+pub fn RequestIdCounter::new() -> Self
+pub fn RequestIdCounter::next(Self) -> Int
 
 // Type aliases
 

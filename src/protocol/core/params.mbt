@@ -1,8 +1,8 @@
 ///|
 pub(open) trait Params {
-  schema() -> JsonSchema
-  from_json(Json) -> Self raise ToolError
-  to_json(Self) -> Json
+  fn schema() -> JsonSchema
+  fn from_json(Json) -> Self raise ToolError
+  fn to_json(Self) -> Json
 }
 
 ///|
@@ -145,12 +145,12 @@ pub fn JsonSchema::to_json(self : JsonSchema) -> Json {
 }
 
 ///|
-pub impl Params for String with schema() -> JsonSchema {
+pub impl Params for String with fn schema() -> JsonSchema {
   str_schema(desc="String value")
 }
 
 ///|
-pub impl Params for String with from_json(j : Json) -> String raise ToolError {
+pub impl Params for String with fn from_json(j : Json) -> String raise ToolError {
   match j {
     String(s) => s
     _ => raise ToolError("Expected string")
@@ -158,17 +158,17 @@ pub impl Params for String with from_json(j : Json) -> String raise ToolError {
 }
 
 ///|
-pub impl Params for String with to_json(self : String) -> Json {
+pub impl Params for String with fn to_json(self : String) -> Json {
   Json::string(self)
 }
 
 ///|
-pub impl Params for Int with schema() -> JsonSchema {
+pub impl Params for Int with fn schema() -> JsonSchema {
   int_schema(desc="Integer value")
 }
 
 ///|
-pub impl Params for Int with from_json(j : Json) -> Int raise ToolError {
+pub impl Params for Int with fn from_json(j : Json) -> Int raise ToolError {
   match j {
     Number(n, ..) => n.to_int()
     _ => raise ToolError("Expected integer")
@@ -176,17 +176,17 @@ pub impl Params for Int with from_json(j : Json) -> Int raise ToolError {
 }
 
 ///|
-pub impl Params for Int with to_json(self : Int) -> Json {
+pub impl Params for Int with fn to_json(self : Int) -> Json {
   Json::number(self.to_double())
 }
 
 ///|
-pub impl Params for Double with schema() -> JsonSchema {
+pub impl Params for Double with fn schema() -> JsonSchema {
   num_schema(desc="Number value")
 }
 
 ///|
-pub impl Params for Double with from_json(j : Json) -> Double raise ToolError {
+pub impl Params for Double with fn from_json(j : Json) -> Double raise ToolError {
   match j {
     Number(n, ..) => n
     _ => raise ToolError("Expected number")
@@ -194,17 +194,17 @@ pub impl Params for Double with from_json(j : Json) -> Double raise ToolError {
 }
 
 ///|
-pub impl Params for Double with to_json(self : Double) -> Json {
+pub impl Params for Double with fn to_json(self : Double) -> Json {
   Json::number(self)
 }
 
 ///|
-pub impl Params for Bool with schema() -> JsonSchema {
+pub impl Params for Bool with fn schema() -> JsonSchema {
   bool_schema(desc="Boolean value")
 }
 
 ///|
-pub impl Params for Bool with from_json(j : Json) -> Bool raise ToolError {
+pub impl Params for Bool with fn from_json(j : Json) -> Bool raise ToolError {
   match j {
     True => true
     False => false
@@ -213,17 +213,17 @@ pub impl Params for Bool with from_json(j : Json) -> Bool raise ToolError {
 }
 
 ///|
-pub impl Params for Bool with to_json(self : Bool) -> Json {
+pub impl Params for Bool with fn to_json(self : Bool) -> Json {
   Json::boolean(self)
 }
 
 ///|
-pub impl[T : Params] Params for Array[T] with schema() -> JsonSchema {
+pub impl[T : Params] Params for Array[T] with fn schema() -> JsonSchema {
   arr_schema(T::schema(), desc="Array of items")
 }
 
 ///|
-pub impl[T : Params] Params for Array[T] with from_json(j : Json) -> Array[T] raise ToolError {
+pub impl[T : Params] Params for Array[T] with fn from_json(j : Json) -> Array[T] raise ToolError {
   match j {
     Array(arr) => arr.map(fn(item) { T::from_json(item) })
     _ => raise ToolError("Expected array")
@@ -231,17 +231,17 @@ pub impl[T : Params] Params for Array[T] with from_json(j : Json) -> Array[T] ra
 }
 
 ///|
-pub impl[T : Params] Params for Array[T] with to_json(self : Array[T]) -> Json {
+pub impl[T : Params] Params for Array[T] with fn to_json(self : Array[T]) -> Json {
   Json::array(self.map(fn(item) { item.to_json() }))
 }
 
 ///|
-pub impl[T : Params] Params for T? with schema() -> JsonSchema {
+pub impl[T : Params] Params for T? with fn schema() -> JsonSchema {
   T::schema()
 }
 
 ///|
-pub impl[T : Params] Params for T? with from_json(j : Json) -> T? raise ToolError {
+pub impl[T : Params] Params for T? with fn from_json(j : Json) -> T? raise ToolError {
   match j {
     Null => None
     _ => Some(T::from_json(j))
@@ -249,7 +249,7 @@ pub impl[T : Params] Params for T? with from_json(j : Json) -> T? raise ToolErro
 }
 
 ///|
-pub impl[T : Params] Params for T? with to_json(self : T?) -> Json {
+pub impl[T : Params] Params for T? with fn to_json(self : T?) -> Json {
   match self {
     Some(v) => v.to_json()
     None => Json::null()

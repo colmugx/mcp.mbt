@@ -17,6 +17,7 @@ options(
   targets: {
     "stdio.mbt": [ "native" ],
     "http_server.mbt": [ "native" ],
+    "http_client.mbt": [ "native" ],
     "http_compliance_test.mbt": [ "native" ],
     "unimplemented.mbt": [ "wasm-gc" ],
   },

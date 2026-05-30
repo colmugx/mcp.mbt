@@ -62,12 +62,12 @@ pub(all) struct ResourceReadResult {
 /// - mime_type: MIME type of the resource content
 /// - read: Async read operation returning resource content
 pub(open) trait Resource {
-  name(Self) -> String
-  description(Self) -> String
-  uri(Self) -> String
-  mime_type(Self) -> String
+  fn name(Self) -> String
+  fn description(Self) -> String
+  fn uri(Self) -> String
+  fn mime_type(Self) -> String
 
   /// Read resource content (async)
   /// Returns ResourceReadResult with content
-  async read(Self) -> Result[ResourceReadResult, @types.MCPError]
+  async fn read(Self) -> Result[ResourceReadResult, @types.MCPError]
 }

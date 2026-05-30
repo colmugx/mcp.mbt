@@ -92,9 +92,9 @@ pub impl @tool.Tool for ToolWrapper
 
 // Traits
 pub(open) trait Params {
-  schema() -> JsonSchema
-  from_json(Json) -> Self raise ToolError
-  to_json(Self) -> Json
+  fn schema() -> JsonSchema
+  fn from_json(Json) -> Self raise ToolError
+  fn to_json(Self) -> Json
 }
 pub impl Params for Bool
 pub impl Params for Int
@@ -104,7 +104,7 @@ pub impl[T : Params] Params for T?
 pub impl[T : Params] Params for Array[T]
 
 pub trait ToToolResult {
-  to_tool_result(Self) -> @tool.ToolResult
+  fn to_tool_result(Self) -> @tool.ToolResult
 }
 pub impl ToToolResult for Unit
 pub impl ToToolResult for Bool

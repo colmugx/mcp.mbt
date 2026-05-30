@@ -28,36 +28,36 @@ pub fn ToolResult::error(message : String) -> ToolResult {
 ///|
 /// Trait for types that can be converted to ToolResult
 pub trait ToToolResult {
-  to_tool_result(Self) -> ToolResult
+  fn to_tool_result(Self) -> ToolResult
 }
 
 ///|
 /// Built-in conversion from String
-pub impl ToToolResult for String with to_tool_result(self : String) -> ToolResult {
+pub impl ToToolResult for String with fn to_tool_result(self : String) -> ToolResult {
   ToolResult::text(self)
 }
 
 ///|
 /// Built-in conversion from Int
-pub impl ToToolResult for Int with to_tool_result(self : Int) -> ToolResult {
+pub impl ToToolResult for Int with fn to_tool_result(self : Int) -> ToolResult {
   ToolResult::text(self.to_string())
 }
 
 ///|
 /// Built-in conversion from Bool
-pub impl ToToolResult for Bool with to_tool_result(self : Bool) -> ToolResult {
+pub impl ToToolResult for Bool with fn to_tool_result(self : Bool) -> ToolResult {
   ToolResult::text(self.to_string())
 }
 
 ///|
 /// Built-in conversion from Double (number)
-pub impl ToToolResult for Double with to_tool_result(self : Double) -> ToolResult {
+pub impl ToToolResult for Double with fn to_tool_result(self : Double) -> ToolResult {
   ToolResult::text(self.to_string())
 }
 
 ///|
 /// Built-in conversion from ToolResult (identity)
-pub impl ToToolResult for ToolResult with to_tool_result(self : ToolResult) -> ToolResult {
+pub impl ToToolResult for ToolResult with fn to_tool_result(self : ToolResult) -> ToolResult {
   self
 }
 
@@ -73,10 +73,10 @@ pub(all) struct ParamDef {
 ///|
 /// Core Tool trait following MCP protocol
 pub(open) trait Tool {
-  name(Self) -> String
-  description(Self) -> String
-  params(Self) -> Array[ParamDef]
-  async execute(Self, Json) -> ToolResult
+  fn name(Self) -> String
+  fn description(Self) -> String
+  fn params(Self) -> Array[ParamDef]
+  async fn execute(Self, Json) -> ToolResult
 }
 
 ///|

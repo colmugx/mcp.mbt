@@ -1,14 +1,19 @@
 ///|
 test "MCPClient::new creates client with info" {
-  let client = MCPClient::new(name="test-client", version="1.0.0")
+  let transport = @transport.AnyTransport::Stdio(
+    @transport.StdioTransport::new(),
+  )
+  let client = MCPClient::new(name="test-client", version="1.0.0", transport~)
   assert_eq(client.client_name, "test-client")
   assert_eq(client.client_version, "1.0.0")
-  assert_eq(client.initialized, false)
 }
 
 ///|
 test "MCPClient next_id increments" {
-  let client = MCPClient::new(name="test", version="1.0")
+  let transport = @transport.AnyTransport::Stdio(
+    @transport.StdioTransport::new(),
+  )
+  let client = MCPClient::new(name="test", version="1.0", transport~)
   let id1 = client.next_request_id()
   let id2 = client.next_request_id()
   assert_eq(id1, 1)
@@ -92,49 +97,50 @@ test "build_set_log_level_request format" {
 }
 
 ///|
-test "MCPClient::close clears state" {
-  let client = MCPClient::new(name="test", version="1.0")
-  client.close()
-  assert_eq(client.transport.is_some(), false)
-  assert_eq(client.initialized, false)
-}
-
-///|
 test "handle_server_notification dispatches tools changed" {
-  let client = MCPClient::new(name="test", version="1.0")
   let mut called = false
-  client.on_tools_changed(fn() { called = true })
+  let handlers : NotificationHandlers = {
+    on_tools_changed: Some(fn() { called = true }),
+    on_resources_changed: None,
+    on_prompts_changed: None,
+  }
   let notification = @types.tools_list_changed_notification()
-  handle_server_notification(client, notification)
+  handle_server_notification(handlers, notification)
   assert_eq(called, true)
 }
 
 ///|
 test "handle_server_notification dispatches resources changed" {
-  let client = MCPClient::new(name="test", version="1.0")
   let mut called = false
-  client.on_resources_changed(fn() { called = true })
+  let handlers : NotificationHandlers = {
+    on_tools_changed: None,
+    on_resources_changed: Some(fn() { called = true }),
+    on_prompts_changed: None,
+  }
   let notification = @types.resources_list_changed_notification()
-  handle_server_notification(client, notification)
+  handle_server_notification(handlers, notification)
   assert_eq(called, true)
 }
 
 ///|
 test "handle_server_notification dispatches prompts changed" {
-  let client = MCPClient::new(name="test", version="1.0")
   let mut called = false
-  client.on_prompts_changed(fn() { called = true })
+  let handlers : NotificationHandlers = {
+    on_tools_changed: None,
+    on_resources_changed: None,
+    on_prompts_changed: Some(fn() { called = true }),
+  }
   let notification = @types.prompts_list_changed_notification()
-  handle_server_notification(client, notification)
+  handle_server_notification(handlers, notification)
   assert_eq(called, true)
 }
 
 ///|
 test "handle_server_notification ignores unknown notification" {
-  let client = MCPClient::new(name="test", version="1.0")
+  let handlers = NotificationHandlers::empty()
   let notification : @types.Notification = {
     method_name: "notifications/unknown",
     params: None,
   }
-  handle_server_notification(client, notification)
+  handle_server_notification(handlers, notification)
 }
