@@ -1,0 +1,14 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/mcp-example-client/cmd/main"
+
+// Values
+
+// Errors
+
+// Types and methods
+type HostConnection
+
+// Type aliases
+
+// Traits
+

@@ -1,0 +1,10 @@
+import {
+  "colmugx/mcp/client",
+  "colmugx/mcp/transport",
+  "colmugx/mcp/protocol/types",
+  "moonbitlang/async",
+}
+
+options(
+  "is-main": true,
+)

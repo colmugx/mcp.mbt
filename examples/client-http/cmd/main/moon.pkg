@@ -1,9 +1,0 @@
-import {
-  "colmugx/mcp/client" @client,
-  "colmugx/mcp/transport" @transport,
-  "moonbitlang/async",
-}
-
-options(
-  "is-main": true,
-)

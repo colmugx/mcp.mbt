@@ -1,5 +1,5 @@
 import {
-  "colmugx/mcp" @mcp,
+  "colmugx/mcp",
   "moonbitlang/async",
   "moonbitlang/core/json",
 }
