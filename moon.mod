@@ -1,9 +1,9 @@
 name = "colmugx/mcp"
 
-version = "0.12.0"
+version = "0.13.0"
 
 import {
-  "moonbitlang/async@0.16.5",
+  "moonbitlang/async@0.19.1",
 }
 
 readme = "README.mbt.md"

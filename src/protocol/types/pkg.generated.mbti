@@ -36,10 +36,15 @@ pub(all) suberror TransportError {
 } derive(Eq, Show)
 
 // Types and methods
+pub(all) struct CancelledNotification {
+  request_id : RequestId
+  reason : String?
+} derive(Eq, Show)
+
 pub(all) struct ClientCapabilities {
   roots : RootCapabilities?
-  sampling : Bool
-  elicitation : Bool
+  sampling : SamplingCapabilities?
+  elicitation : ElicitationCapabilities?
 } derive(Eq, Show)
 
 pub(all) struct ClientInfo {
@@ -53,6 +58,37 @@ pub(all) enum ContentItem {
   Image(String, mime_type~ : String)
   ResourceLink(String)
   EmbeddedResource(EmbeddedResourceContent)
+} derive(Eq, Show)
+
+pub(all) struct CreateMessageRequest {
+  messages : Array[SamplingMessage]
+  max_tokens : Int
+  system_prompt : String?
+  include_context : String?
+  temperature : Double?
+  stop_sequences : Array[String]?
+  metadata : Json?
+} derive(Eq, Show)
+
+pub(all) struct CreateMessageResult {
+  role : String
+  model : String
+  content : ContentItem
+  stop_reason : String?
+} derive(Eq, Show)
+
+pub(all) struct ElicitationCapabilities {
+  form : Bool
+} derive(Eq, Show)
+
+pub(all) struct ElicitationRequest {
+  message : String
+  requested_schema : Json
+} derive(Eq, Show)
+
+pub(all) struct ElicitationResult {
+  action : String
+  content : Json?
 } derive(Eq, Show)
 
 pub(all) enum EmbeddedResourceContent {
@@ -97,6 +133,13 @@ pub(all) struct NotificationCapabilities {
   prompts_list_changed : Bool
 } derive(Eq, Show)
 
+pub(all) struct ProgressNotification {
+  progress_token : String
+  progress : Double
+  total : Double?
+  message : String?
+} derive(Eq, Show)
+
 pub(all) struct Prompt {
   name : String
   description : String?
@@ -122,14 +165,32 @@ pub(all) enum RequestId {
   Int(Int)
   Str(String)
 } derive(Eq, Show)
+pub fn RequestId::to_json_string(Self) -> String
 
 pub(all) struct ResourceCapabilities {
   subscribe : Bool
   list_changed : Bool
 } derive(Eq, Show)
 
+pub(all) struct ResourceUpdatedNotification {
+  uri : String
+} derive(Eq, Show)
+
+pub(all) struct Root {
+  uri : String
+  name : String?
+} derive(Eq, Show)
+
 pub(all) struct RootCapabilities {
   list_changed : Bool
+} derive(Eq, Show)
+
+pub(all) struct SamplingCapabilities {
+} derive(Eq, Show)
+
+pub(all) struct SamplingMessage {
+  role : String
+  content : ContentItem
 } derive(Eq, Show)
 
 pub(all) struct ServerCapabilities {

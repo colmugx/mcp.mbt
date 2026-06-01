@@ -22,9 +22,19 @@ test "MCPClient next_id increments" {
 
 ///|
 test "build_initialize_request format" {
-  let req = build_initialize_request(1, "test-client", "1.0.0")
+  let caps : @types.ClientCapabilities = {
+    roots: Some({ list_changed: true }),
+    sampling: Some(@types.SamplingCapabilities::{  }),
+    elicitation: None,
+  }
+  let req = build_initialize_request(
+    1,
+    "test-client",
+    "1.0.0",
+    capabilities=caps,
+  )
   assert_eq(
-    req, "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-11-25\",\"capabilities\":{},\"clientInfo\":{\"name\":\"test-client\",\"version\":\"1.0.0\"}}}",
+    req, "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-11-25\",\"capabilities\":{\"roots\":{\"listChanged\":true},\"sampling\":{}},\"clientInfo\":{\"name\":\"test-client\",\"version\":\"1.0.0\"}}}",
   )
 }
 
@@ -100,9 +110,8 @@ test "build_set_log_level_request format" {
 test "handle_server_notification dispatches tools changed" {
   let mut called = false
   let handlers : NotificationHandlers = {
+    ..NotificationHandlers::empty(),
     on_tools_changed: Some(fn() { called = true }),
-    on_resources_changed: None,
-    on_prompts_changed: None,
   }
   let notification = @types.tools_list_changed_notification()
   handle_server_notification(handlers, notification)
@@ -113,9 +122,8 @@ test "handle_server_notification dispatches tools changed" {
 test "handle_server_notification dispatches resources changed" {
   let mut called = false
   let handlers : NotificationHandlers = {
-    on_tools_changed: None,
+    ..NotificationHandlers::empty(),
     on_resources_changed: Some(fn() { called = true }),
-    on_prompts_changed: None,
   }
   let notification = @types.resources_list_changed_notification()
   handle_server_notification(handlers, notification)
@@ -126,8 +134,7 @@ test "handle_server_notification dispatches resources changed" {
 test "handle_server_notification dispatches prompts changed" {
   let mut called = false
   let handlers : NotificationHandlers = {
-    on_tools_changed: None,
-    on_resources_changed: None,
+    ..NotificationHandlers::empty(),
     on_prompts_changed: Some(fn() { called = true }),
   }
   let notification = @types.prompts_list_changed_notification()

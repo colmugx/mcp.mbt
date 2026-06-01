@@ -38,8 +38,13 @@ pub struct HttpClientTransport {
   mut sse_client : @http.Client?
   mut sse_connected : Bool
   mut closed : Bool
+  mut last_event_id : String?
+  mut sse_pending_responses : Array[String]?
+  mut sse_pending_index : Int
+  protocol_version : String
 }
 pub fn HttpClientTransport::close(Self) -> Unit
+pub async fn HttpClientTransport::close_session(Self) -> Unit
 pub fn HttpClientTransport::new(String) -> Self
 pub async fn HttpClientTransport::receive(Self) -> String? raise @types.TransportError
 pub async fn HttpClientTransport::send(Self, String) -> Unit raise @types.TransportError

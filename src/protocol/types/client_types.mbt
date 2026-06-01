@@ -10,12 +10,93 @@ pub(all) struct ClientInfo {
 /// Client Capabilities — declared during initialization
 pub(all) struct ClientCapabilities {
   roots : RootCapabilities?
-  sampling : Bool
-  elicitation : Bool
+  sampling : SamplingCapabilities?
+  elicitation : ElicitationCapabilities?
 } derive(Show, Eq)
 
 ///|
 /// Root Capabilities — client can provide filesystem roots
 pub(all) struct RootCapabilities {
   list_changed : Bool
+} derive(Show, Eq)
+
+///|
+/// Sampling Capabilities — client supports LLM sampling requests
+pub(all) struct SamplingCapabilities {} derive(Show, Eq)
+
+///|
+/// Elicitation Capabilities — client supports user interaction requests
+pub(all) struct ElicitationCapabilities {
+  form : Bool
+} derive(Show, Eq)
+
+///|
+/// Root — a filesystem root exposed by the client for `roots/list`
+pub(all) struct Root {
+  uri : String
+  name : String?
+} derive(Show, Eq)
+
+///|
+/// SamplingMessage — a message within a sampling/createMessage request
+pub(all) struct SamplingMessage {
+  role : String
+  content : ContentItem
+} derive(Show, Eq)
+
+///|
+/// CreateMessageRequest — server asks client to sample an LLM
+pub(all) struct CreateMessageRequest {
+  messages : Array[SamplingMessage]
+  max_tokens : Int
+  system_prompt : String?
+  include_context : String?
+  temperature : Double?
+  stop_sequences : Array[String]?
+  metadata : Json?
+} derive(Show, Eq)
+
+///|
+/// CreateMessageResult — client's response to a sampling request
+pub(all) struct CreateMessageResult {
+  role : String
+  model : String
+  content : ContentItem
+  stop_reason : String?
+} derive(Show, Eq)
+
+///|
+/// ElicitationRequest — server asks client to interact with the user
+pub(all) struct ElicitationRequest {
+  message : String
+  requested_schema : Json
+} derive(Show, Eq)
+
+///|
+/// ElicitationResult — client's response to an elicitation request
+pub(all) struct ElicitationResult {
+  action : String
+  content : Json?
+} derive(Show, Eq)
+
+///|
+/// ProgressNotification — params for `notifications/progress`
+pub(all) struct ProgressNotification {
+  progress_token : String
+  progress : Double
+  total : Double?
+  message : String?
+} derive(Show, Eq)
+
+///|
+/// CancelledNotification — params for `notifications/cancelled`
+pub(all) struct CancelledNotification {
+  request_id : RequestId
+  reason : String?
+} derive(Show, Eq)
+
+///|
+/// ResourceUpdatedNotification — params for `notifications/resources/updated`
+pub(all) struct ResourceUpdatedNotification {
+  uri : String
 } derive(Show, Eq)

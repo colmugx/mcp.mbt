@@ -46,6 +46,24 @@ pub(all) enum RequestId {
 } derive(Eq, Show)
 
 ///|
+/// Convert RequestId to its JSON string representation
+pub fn RequestId::to_json_string(self : RequestId) -> String {
+  match self {
+    Int(n) => n.to_string()
+    Str(s) => {
+      // Produce a JSON-quoted string: "escaped_content"
+      let escaped = s
+        .replace(old="\\", new="\\\\")
+        .replace(old="\"", new="\\\"")
+        .replace(old="\n", new="\\n")
+        .replace(old="\r", new="\\r")
+        .replace(old="\t", new="\\t")
+      "\"" + escaped + "\""
+    }
+  }
+}
+
+///|
 pub(all) struct JsonRpcRequest {
   jsonrpc : String
   id : RequestId
