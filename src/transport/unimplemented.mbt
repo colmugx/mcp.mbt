@@ -114,3 +114,126 @@ pub fn HttpTransport::supports_streaming(_self : HttpTransport) -> Bool {
 pub fn HttpTransport::close(self : HttpTransport) -> Unit {
   abort("HttpTransport is not available on wasm-gc target")
 }
+
+///|
+pub struct StdioClientTransport {
+  closed : Bool
+}
+
+///|
+pub fn StdioClientTransport::new(
+  cmd~ : String,
+  args? : Array[String] = [],
+  extra_env? : Map[String, String] = {},
+) -> StdioClientTransport {
+  abort("StdioClientTransport is not available on wasm-gc target")
+}
+
+///|
+pub async fn StdioClientTransport::start(
+  self : StdioClientTransport,
+  group : @async.TaskGroup[Unit],
+) -> Unit raise @types.TransportError {
+  abort("StdioClientTransport is not available on wasm-gc target")
+}
+
+///|
+pub async fn StdioClientTransport::receive(
+  self : StdioClientTransport,
+) -> String? raise @types.TransportError {
+  abort("StdioClientTransport is not available on wasm-gc target")
+}
+
+///|
+pub async fn StdioClientTransport::send(
+  self : StdioClientTransport,
+  _message : String,
+) -> Unit raise @types.TransportError {
+  abort("StdioClientTransport is not available on wasm-gc target")
+}
+
+///|
+pub async fn StdioClientTransport::send_notification(
+  self : StdioClientTransport,
+  _notification : @types.Notification,
+) -> Unit raise @types.TransportError {
+  abort("StdioClientTransport is not available on wasm-gc target")
+}
+
+///|
+pub fn StdioClientTransport::send_event(
+  _self : StdioClientTransport,
+  event_type~ : String,
+  data~ : String,
+) -> Unit {
+  abort("StdioClientTransport is not available on wasm-gc target")
+}
+
+///|
+pub fn StdioClientTransport::supports_streaming(
+  _self : StdioClientTransport,
+) -> Bool {
+  abort("StdioClientTransport is not available on wasm-gc target")
+}
+
+///|
+pub fn StdioClientTransport::close(self : StdioClientTransport) -> Unit {
+  abort("StdioClientTransport is not available on wasm-gc target")
+}
+
+///| wasm-gc stub — HttpClientTransport not available on this target
+
+///|
+pub struct HttpClientTransport {
+  base_url : String
+  closed : Bool
+}
+
+///|
+pub fn HttpClientTransport::new(base_url~ : String) -> HttpClientTransport {
+  abort("HttpClientTransport is not available on wasm-gc target")
+}
+
+///|
+pub async fn HttpClientTransport::receive(
+  self : HttpClientTransport,
+) -> String? raise @types.TransportError {
+  abort("HttpClientTransport is not available on wasm-gc target")
+}
+
+///|
+pub async fn HttpClientTransport::send(
+  self : HttpClientTransport,
+  _message : String,
+) -> Unit raise @types.TransportError {
+  abort("HttpClientTransport is not available on wasm-gc target")
+}
+
+///|
+pub async fn HttpClientTransport::send_notification(
+  self : HttpClientTransport,
+  _notification : @types.Notification,
+) -> Unit raise @types.TransportError {
+  abort("HttpClientTransport is not available on wasm-gc target")
+}
+
+///|
+pub fn HttpClientTransport::send_event(
+  _self : HttpClientTransport,
+  event_type~ : String,
+  data~ : String,
+) -> Unit {
+  abort("HttpClientTransport is not available on wasm-gc target")
+}
+
+///|
+pub fn HttpClientTransport::supports_streaming(
+  _self : HttpClientTransport,
+) -> Bool {
+  abort("HttpClientTransport is not available on wasm-gc target")
+}
+
+///|
+pub fn HttpClientTransport::close(self : HttpClientTransport) -> Unit {
+  abort("HttpClientTransport is not available on wasm-gc target")
+}

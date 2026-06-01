@@ -51,6 +51,8 @@ pub using @types {type ServerCapabilities}
 
 pub using @types {type ServerInfo}
 
+pub using @transport {type StdioClientTransport}
+
 pub using @transport {type StdioTransport}
 
 pub using @types {type ToolDefinition}

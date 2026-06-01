@@ -42,5 +42,6 @@ pub using @server {mcp_server, type MCPServer}
 pub using @transport {
   type AnyTransport,
   type StdioTransport,
+  type StdioClientTransport,
   type HttpTransport,
 }

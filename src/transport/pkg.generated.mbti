@@ -3,9 +3,11 @@ package "colmugx/mcp/transport"
 
 import {
   "colmugx/mcp/protocol/types",
+  "moonbitlang/async",
   "moonbitlang/async/aqueue",
   "moonbitlang/async/http",
   "moonbitlang/async/io",
+  "moonbitlang/async/process",
   "moonbitlang/async/stdio",
 }
 
@@ -17,6 +19,7 @@ pub fn validate_jsonrpc_message(String) -> Result[Unit, @types.MCPError]
 // Types and methods
 pub(all) enum AnyTransport {
   Stdio(StdioTransport)
+  StdioClient(StdioClientTransport)
   Http(HttpTransport)
   HttpClient(HttpClientTransport)
 }
@@ -65,6 +68,24 @@ pub fn HttpTransport::send_event(Self, event_type~ : String, data~ : String) -> 
 pub async fn HttpTransport::send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
 pub async fn HttpTransport::start(Self) -> Unit raise @types.TransportError
 pub fn HttpTransport::supports_streaming(Self) -> Bool
+
+pub struct StdioClientTransport {
+  cmd : String
+  args : Array[String]
+  extra_env : Map[String, String]
+  mut closed : Bool
+  mut reader : @process.ReadFromProcess?
+  mut raw_writer : @process.WriteToProcess?
+  mut writer : @io.BufferedWriter[@process.WriteToProcess]?
+}
+pub fn StdioClientTransport::close(Self) -> Unit
+pub fn StdioClientTransport::new(cmd~ : String, args? : Array[String], extra_env? : Map[String, String]) -> Self
+pub async fn StdioClientTransport::receive(Self) -> String? raise @types.TransportError
+pub async fn StdioClientTransport::send(Self, String) -> Unit raise @types.TransportError
+pub fn StdioClientTransport::send_event(Self, event_type~ : String, data~ : String) -> Unit
+pub async fn StdioClientTransport::send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
+pub async fn StdioClientTransport::start(Self, @async.TaskGroup[Unit]) -> Unit raise @types.TransportError
+pub fn StdioClientTransport::supports_streaming(Self) -> Bool
 
 pub struct StdioTransport {
   mut closed : Bool

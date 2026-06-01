@@ -11,7 +11,7 @@ MCP 架构中，**Host** 是管理多个 Client 连接的应用程序。每个 `
 │          │                  │               │
 ├──────────┼──────────────────┼───────────────┤
 │          │ Transport        │ Transport     │
-│    StdioTransport    HttpClientTransport    │
+│    StdioClientTransport    HttpClientTransport    │
 │          │                  │               │
 ├──────────┼──────────────────┼───────────────┤
 │  ┌───────▼───────┐  ┌──────▼────────┐      │
@@ -42,43 +42,48 @@ let client_b = MCPClient::new(name="host", version="1.0", transport~: transport_
 
 ```moonbit
 async fn main {
-  // 连接 1：本地 stdio server
-  let stdio_transport = @transport.AnyTransport::Stdio(
-    @transport.StdioTransport::new(),
-  )
-  let local_client = MCPClient::new(
-    name="my-host",
-    version="1.0.0",
-    transport~: stdio_transport,
-  )
+  @async.with_task_group(fn(group) {
+    // 连接 1：本地 stdio server（spawn 子进程）
+    let stdio_client = @transport.StdioClientTransport::new(
+      cmd="moon",
+      args=["run", "path/to/server"],
+    )
+    stdio_client.start(group)
+    let stdio_transport = @transport.AnyTransport::StdioClient(stdio_client)
+    let local_client = MCPClient::new(
+      name="my-host",
+      version="1.0.0",
+      transport~: stdio_transport,
+    )
 
-  // 连接 2：远程 HTTP server
-  let http_transport = @transport.AnyTransport::HttpClient(
-    @transport.HttpClientTransport::new("http://remote-server:4240/mcp"),
-  )
-  let remote_client = MCPClient::new(
-    name="my-host",
-    version="1.0.0",
-    transport~: http_transport,
-  )
+    // 连接 2：远程 HTTP server
+    let http_transport = @transport.AnyTransport::HttpClient(
+      @transport.HttpClientTransport::new(base_url="http://remote-server:4240/mcp"),
+    )
+    let remote_client = MCPClient::new(
+      name="my-host",
+      version="1.0.0",
+      transport~: http_transport,
+    )
 
-  // 分别初始化
-  match local_client.initialize() {
-    Ok(info) => println("[local] Connected to \{info.name}")
-    Err(e) => println("[local] Failed: \{e.message()}")
-  }
-  match remote_client.initialize() {
-    Ok(info) => println("[remote] Connected to \{info.name}")
-    Err(e) => println("[remote] Failed: \{e.message()}")
-  }
+    // 分别初始化
+    match local_client.initialize() {
+      Ok(info) => println("[local] Connected to \{info.name}")
+      Err(e) => println("[local] Failed: \{e}")
+    }
+    match remote_client.initialize() {
+      Ok(info) => println("[remote] Connected to \{info.name}")
+      Err(e) => println("[remote] Failed: \{e}")
+    }
 
-  // 分别使用
-  let local_tools = local_client.list_tools()
-  let remote_tools = remote_client.list_tools()
+    // 分别使用
+    let local_tools = local_client.list_tools()
+    let remote_tools = remote_client.list_tools()
 
-  // 清理
-  local_client.close()
-  remote_client.close()
+    // 清理
+    local_client.close()
+    remote_client.close()
+  })
 }
 ```
 
@@ -191,9 +196,11 @@ fn MCPHost::close_all(self : MCPHost) -> Unit {
 
 | 场景 | Transport | 说明 |
 |------|-----------|------|
-| 本地子进程 server | `StdioTransport` | Host 启动 server 作为子进程，通过 stdin/stdout 通信 |
+| 本地子进程 server | `StdioClientTransport` | Host spawn server 作为子进程，通过 stdin/stdout 管道通信 |
 | 远程 HTTP server | `HttpClientTransport` | 连接到远程 MCP server 的 HTTP 端点 |
 | 自定义通信 | 实现 `Transport` trait | WebSocket、IPC、内存等 |
+
+> **注意：** `StdioTransport` 绑定当前进程的 stdin/stdout，仅用于 MCP **server** 端。Host 连接本地 server 应使用 `StdioClientTransport`。
 
 ### 子进程模式（Claude Desktop 模式）
 
@@ -202,14 +209,14 @@ Claude Desktop 等 MCP host 通过启动子进程来运行 stdio server：
 ```
 Host (Claude Desktop)
   │
-  ├── spawn("moon", ["run", "path/to/server"])
-  │     └── stdin/stdout ←→ StdioTransport ←→ MCPClient
+  ├── StdioClientTransport(cmd="moon", args=["run", "path/to/server"])
+  │     └── stdin/stdout pipe ←→ MCPClient
   │
-  ├── spawn("npx", ["@modelcontextprotocol/server-filesystem"])
-  │     └── stdin/stdout ←→ StdioTransport ←→ MCPClient
+  ├── StdioClientTransport(cmd="npx", args=["@modelcontextprotocol/server-filesystem"])
+  │     └── stdin/stdout pipe ←→ MCPClient
   │
-  └── connect("https://remote-mcp.example.com/mcp")
-        └── HTTP POST/SSE ←→ HttpClientTransport ←→ MCPClient
+  └── HttpClientTransport(base_url="https://remote-mcp.example.com/mcp")
+        └── HTTP POST/SSE ←→ MCPClient
 ```
 
 ### HTTP 模式
@@ -232,42 +239,49 @@ Host
 
 ```moonbit
 async fn main {
-  let host = MCPHost::new(name="my-host", version="1.0.0")
+  @async.with_task_group(fn(group) {
+    let host = MCPHost::new(name="my-host", version="1.0.0")
 
-  // 连接本地 stdio server
-  match host.connect(
-    "local",
-    @transport.AnyTransport::Stdio(@transport.StdioTransport::new()),
-  ) {
-    Ok(info) => println("[local] Connected to \{info.name}")
-    Err(e) => println("[local] Failed: \{e.message()}")
-  }
+    // 连接本地 stdio server（spawn 子进程）
+    let stdio_client = @transport.StdioClientTransport::new(
+      cmd="moon",
+      args=["run", "path/to/server"],
+    )
+    stdio_client.start(group)
+    match host.connect(
+      "local",
+      @transport.AnyTransport::StdioClient(stdio_client),
+    ) {
+      Ok(info) => println("[local] Connected to \{info.name}")
+      Err(e) => println("[local] Failed: \{e}")
+    }
 
-  // 连接远程 HTTP server
-  match host.connect(
-    "remote",
-    @transport.AnyTransport::HttpClient(
-      @transport.HttpClientTransport::new("http://localhost:4240/mcp"),
-    ),
-  ) {
-    Ok(info) => println("[remote] Connected to \{info.name}")
-    Err(e) => println("[remote] Failed: \{e.message()}")
-  }
+    // 连接远程 HTTP server
+    match host.connect(
+      "remote",
+      @transport.AnyTransport::HttpClient(
+        @transport.HttpClientTransport::new(base_url="http://localhost:4240/mcp"),
+      ),
+    ) {
+      Ok(info) => println("[remote] Connected to \{info.name}")
+      Err(e) => println("[remote] Failed: \{e}")
+    }
 
-  // 聚合所有 server 的 tools
-  let all_tools = host.list_all_tools()
-  for entry in all_tools {
-    let (name, result) = entry
-    println("[\{name}] \{result.tools.length()} tools available")
-  }
+    // 聚合所有 server 的 tools
+    let all_tools = host.list_all_tools()
+    for entry in all_tools {
+      let (name, result) = entry
+      println("[\{name}] \{result.tools.length()} tools available")
+    }
 
-  // 调用 tool（自动路由到拥有该 tool 的 server）
-  match host.call_tool("echo", arguments="{\"text\":\"Hello!\"}") {
-    Ok(result) => println("[call] \{result}")
-    Err(e) => println("[error] \{e.message()}")
-  }
+    // 调用 tool（自动路由到拥有该 tool 的 server）
+    match host.call_tool("echo", arguments="{\"text\":\"Hello!\"}") {
+      Ok(result) => println("[call] \{result}")
+      Err(e) => println("[error] \{e}")
+    }
 
-  host.close_all()
+    host.close_all()
+  })
 }
 ```
 

@@ -34,6 +34,7 @@ pub(open) trait Transport {
 ```moonbit
 pub(all) enum AnyTransport {
   Stdio(StdioTransport)
+  StdioClient(StdioClientTransport)
   Http(HttpTransport)
   HttpClient(HttpClientTransport)
 }
@@ -172,7 +173,89 @@ async fn main {
 }
 ```
 
-## 4.6 消息验证
+## 4.6 StdioClientTransport（Client/Host 端）
+
+Stdio client 端 transport，用于 MCP host 连接本地 MCP server。按照 MCP 规范：host 启动 server 作为子进程，通过 stdin/stdout 管道进行 JSON-RPC 通信。
+
+**与 `StdioTransport` 的区别：**
+- `StdioTransport`：Server 端，绑定当前进程的 stdin/stdout
+- `StdioClientTransport`：Client/Host 端，spawn 子进程并 pipe 其 stdin/stdout
+
+### 两阶段初始化
+
+```moonbit
+// 1. 创建 transport（仅存储配置，不启动进程）
+let transport = StdioClientTransport::new(
+  cmd="moon",
+  args=["run", "path/to/server"],
+)
+// 2. 在 TaskGroup 中启动子进程
+transport.start(group)
+```
+
+### 结构体
+
+```moonbit
+pub struct StdioClientTransport {
+  cmd : String              // 子进程命令
+  args : Array[String]      // 子进程参数
+  extra_env : Map[String, String]  // 额外环境变量
+  mut closed : Bool
+  mut reader : @process.ReadFromProcess?   // 子进程 stdout 管道
+  mut raw_writer : @process.WriteToProcess?  // 子进程 stdin 管道
+  mut writer : @io.BufferedWriter[@process.WriteToProcess]?  // 带缓冲的写入器
+}
+```
+
+### 方法
+
+| 方法 | 说明 |
+|------|------|
+| `new(cmd, args, extra_env?)` | 创建 transport，存储配置（不启动进程） |
+| `start(group)` | 在 TaskGroup 中 spawn 子进程，创建 pipe |
+| `receive()` | 从子进程 stdout 读取 JSON-RPC 消息 |
+| `send(message)` | 向子进程 stdin 写入 JSON-RPC 消息（带缓冲 + flush） |
+| `send_notification(notification)` | 发送通知到子进程 stdin |
+| `supports_streaming()` | 返回 `false` |
+| `close()` | 优雅关闭（关闭 stdin → 信号 EOF → 关闭 stdout） |
+
+### 优雅关闭流程（符合 MCP 规范）
+
+1. `close()` 关闭 stdin writer → 子进程 stdin 收到 EOF
+2. 子进程检测到 EOF 并退出
+3. 若子进程未退出，TaskGroup 的 `cancel_handler` 会先 SIGTERM，5 秒后 SIGKILL
+4. `close()` 关闭 stdout reader，标记 `closed = true`
+
+### 使用示例
+
+```moonbit
+async fn main {
+  @async.with_task_group(fn(group) {
+    let stdio_client = StdioClientTransport::new(
+      cmd="moon",
+      args=["run", "path/to/server"],
+    )
+    stdio_client.start(group)
+    let transport = AnyTransport::StdioClient(stdio_client)
+    let client = MCPClient::new(
+      name="my-host",
+      version="1.0.0",
+      transport~,
+    )
+
+    match client.initialize() {
+      Ok(server_info) => {
+        println("Connected to \{server_info.name}")
+        // 使用 client API...
+      }
+      Err(e) => println("Init failed: \{e}")
+    }
+    client.close()
+  })
+}
+```
+
+## 4.7 消息验证
 
 ```moonbit
 pub fn validate_jsonrpc_message(message : String) -> Result[Unit, MCPError]
@@ -180,7 +263,7 @@ pub fn validate_jsonrpc_message(message : String) -> Result[Unit, MCPError]
 
 验证一个字符串是否为合法的 JSON-RPC 2.0 消息（必须包含 `jsonrpc: "2.0"` 和 `method`/`result`/`error` 之一）。`StdioTransport::send()` 内部自动调用此函数验证发出的消息。
 
-## 4.7 自定义 Transport
+## 4.8 自定义 Transport
 
 实现 `Transport` trait 可以创建自定义传输层：
 
@@ -218,7 +301,7 @@ impl Transport for MyTransport with close(self) -> Unit {
 
 使用时包装到 `AnyTransport` 或直接传递给 `MCPServer::run()`。
 
-## 4.8 跨平台支持
+## 4.9 跨平台支持
 
 Transport 包通过 MoonBit 的 `targets` 机制支持条件编译：
 
@@ -226,9 +309,10 @@ Transport 包通过 MoonBit 的 `targets` 机制支持条件编译：
 |------|--------|---------|
 | `transport.mbt` | ✅ | ✅ |
 | `stdio.mbt` | ✅ | — |
+| `stdio_client.mbt` | ✅ | — |
 | `http_server.mbt` | ✅ | — |
 | `http_client.mbt` | ✅ | — |
 | `http_compliance_test.mbt` | ✅ | — |
 | `unimplemented.mbt` | — | ✅（stub） |
 
-在 wasm-gc 上，`StdioTransport::new()` 和 `HttpTransport::new()` 会 abort。`Transport` trait 和 `AnyTransport` 类型定义在 wasm-gc 上可用，但无法实际进行 I/O。
+在 wasm-gc 上，`StdioTransport::new()`、`StdioClientTransport::new()`、`HttpTransport::new()` 和 `HttpClientTransport::new()` 会 abort。`Transport` trait 和 `AnyTransport` 类型定义在 wasm-gc 上可用，但无法实际进行 I/O。
