@@ -11,6 +11,7 @@ pub(open) trait Transport {
 ///|
 pub(all) enum AnyTransport {
   Stdio(StdioTransport)
+  StdioClient(StdioClientTransport)
   Http(HttpTransport)
   HttpClient(HttpClientTransport)
 }
@@ -21,6 +22,7 @@ pub async fn AnyTransport::receive(
 ) -> String? raise @types.TransportError {
   match self {
     Stdio(t) => t.receive()
+    StdioClient(t) => t.receive()
     Http(t) => t.receive()
     HttpClient(t) => t.receive()
   }
@@ -33,6 +35,7 @@ pub async fn AnyTransport::send(
 ) -> Unit raise @types.TransportError {
   match self {
     Stdio(t) => t.send(message)
+    StdioClient(t) => t.send(message)
     Http(t) => t.send(message)
     HttpClient(t) => t.send(message)
   }
@@ -45,6 +48,7 @@ pub async fn AnyTransport::send_notification(
 ) -> Unit raise @types.TransportError {
   match self {
     Stdio(t) => t.send_notification(notification)
+    StdioClient(t) => t.send_notification(notification)
     Http(t) => t.send_notification(notification)
     HttpClient(t) => t.send_notification(notification)
   }
@@ -58,6 +62,7 @@ pub fn AnyTransport::send_event(
 ) -> Unit {
   match self {
     Stdio(t) => t.send_event(event_type~, data~)
+    StdioClient(t) => t.send_event(event_type~, data~)
     Http(t) => t.send_event(event_type~, data~)
     HttpClient(t) => t.send_event(event_type~, data~)
   }
@@ -67,6 +72,7 @@ pub fn AnyTransport::send_event(
 pub fn AnyTransport::supports_streaming(self : AnyTransport) -> Bool {
   match self {
     Stdio(t) => t.supports_streaming()
+    StdioClient(t) => t.supports_streaming()
     Http(t) => t.supports_streaming()
     HttpClient(t) => t.supports_streaming()
   }
@@ -76,6 +82,7 @@ pub fn AnyTransport::supports_streaming(self : AnyTransport) -> Bool {
 pub fn AnyTransport::close(self : AnyTransport) -> Unit {
   match self {
     Stdio(t) => t.close()
+    StdioClient(t) => t.close()
     Http(t) => t.close()
     HttpClient(t) => t.close()
   }
