@@ -16,7 +16,7 @@ test "ResourceRegistry::register adds resource entry" {
     "test_resource",
     "Test resource description",
     "text/plain",
-    async fn() {
+    fn() {
       Ok({ uri: "file:///test.txt", content: @resource.Text("test content") })
     },
   )
@@ -33,7 +33,7 @@ test "ResourceRegistry::list_resources returns resource definitions" {
     "resource1",
     "First resource",
     "text/plain",
-    async fn() {
+    fn() {
       Ok({ uri: "file:///test1.txt", content: @resource.Text("content1") })
     },
   )
@@ -42,7 +42,7 @@ test "ResourceRegistry::list_resources returns resource definitions" {
     "resource2",
     "Second resource",
     "text/plain",
-    async fn() {
+    fn() {
       Ok({ uri: "file:///test2.txt", content: @resource.Text("content2") })
     },
   )
@@ -58,9 +58,7 @@ test "ResourceRegistry::list_resources includes optional fields" {
     "test",
     "Test description",
     "text/plain",
-    async fn() {
-      Ok({ uri: "file:///test.txt", content: @resource.Text("test") })
-    },
+    fn() { Ok({ uri: "file:///test.txt", content: @resource.Text("test") }) },
   )
   let resource = registry.list_resources()[0]
   assert_eq(resource.description, Some("Test description"))
@@ -70,7 +68,7 @@ test "ResourceRegistry::list_resources includes optional fields" {
 ///|
 test "ResourceRegistry::subscribe adds to subscriptions" {
   let registry = ResourceRegistry::new()
-  registry.register("file:///test.txt", "test", "Test", "text/plain", async fn() {
+  registry.register("file:///test.txt", "test", "Test", "text/plain", fn() {
     Ok({ uri: "file:///test.txt", content: @resource.Text("test") })
   })
   let result = registry.subscribe("file:///test.txt")
@@ -92,7 +90,7 @@ test "ResourceRegistry::subscribe returns error for non-existent resource" {
 ///|
 test "ResourceRegistry::subscribe prevents duplicates" {
   let registry = ResourceRegistry::new()
-  registry.register("file:///test.txt", "test", "Test", "text/plain", async fn() {
+  registry.register("file:///test.txt", "test", "Test", "text/plain", fn() {
     Ok({ uri: "file:///test.txt", content: @resource.Text("test") })
   })
   registry.subscribe("file:///test.txt") |> ignore
@@ -106,7 +104,7 @@ test "ResourceRegistry::subscribe prevents duplicates" {
 ///|
 test "ResourceRegistry::unsubscribe removes subscription" {
   let registry = ResourceRegistry::new()
-  registry.register("file:///test.txt", "test", "Test", "text/plain", async fn() {
+  registry.register("file:///test.txt", "test", "Test", "text/plain", fn() {
     Ok({ uri: "file:///test.txt", content: @resource.Text("test") })
   })
   registry.subscribe("file:///test.txt") |> ignore

@@ -37,7 +37,7 @@ fn jhas(json : Json, field : String) -> Bool {
 
 ///|
 /// Helper: get field as Json
-fn jget(json : Json, field : String) -> Json {
+fn _jget(json : Json, field : String) -> Json {
   if json is Object(obj) {
     match obj.get(field) {
       Some(v) => v

@@ -276,3 +276,119 @@ test "example: transport configuration builder pattern" {
   assert_eq(transport.endpoint_path, "/mcp/endpoint")
   assert_eq(transport.supports_streaming(), true)
 }
+
+///| =====================================================
+
+///| AuthConfig Tests
+
+///|
+/// =====================================================
+test "AuthConfig::new stores verify_token" {
+  let config = AuthConfig::new(
+    verify_token=fn(token) { token == "valid" },
+    resource_metadata_url="http://localhost:4240/mcp",
+  )
+  assert_true((config.verify_token)("valid"))
+  assert_true(!(config.verify_token)("invalid"))
+}
+
+///|
+test "AuthConfig::new defaults optional fields to None" {
+  let config = AuthConfig::new(
+    verify_token=fn(_) { true },
+    resource_metadata_url="http://localhost:4240/mcp",
+  )
+  assert_eq(config.required_scopes, None)
+  assert_eq(config.allowed_origins, None)
+  assert_eq(config.authorization_servers.length(), 0)
+}
+
+///|
+test "AuthConfig::new with all fields" {
+  let config = AuthConfig::new(
+    verify_token=fn(_) { true },
+    resource_metadata_url="http://localhost:4240/mcp",
+    authorization_servers=["https://auth.example.com"],
+    required_scopes="mcp:read",
+    allowed_origins=["http://localhost:3000"],
+  )
+  assert_eq(config.resource_metadata_url, "http://localhost:4240/mcp")
+  assert_eq(config.required_scopes, Some("mcp:read"))
+  match config.allowed_origins {
+    Some(origins) => assert_eq(origins.length(), 1)
+    None => panic()
+  }
+  assert_eq(config.authorization_servers.length(), 1)
+}
+
+///|
+test "AuthConfig::new empty string scopes → None" {
+  let config = AuthConfig::new(
+    verify_token=fn(_) { true },
+    resource_metadata_url="http://localhost:4240/mcp",
+    required_scopes="",
+  )
+  assert_eq(config.required_scopes, None)
+}
+
+///|
+test "HttpTransport::with_auth sets auth config" {
+  let transport = HttpTransport::new(port=4240)
+  match transport.auth {
+    None => ()
+    Some(_) => panic()
+  }
+  let authed = transport.with_auth(
+    AuthConfig::new(
+      verify_token=fn(_) { true },
+      resource_metadata_url="http://localhost:4240/mcp",
+    ),
+  )
+  match authed.auth {
+    Some(config) =>
+      assert_eq(config.resource_metadata_url, "http://localhost:4240/mcp")
+    None => panic()
+  }
+}
+
+///|
+test "HttpTransport::with_auth preserves other fields" {
+  let transport = HttpTransport::new(port=8080, endpoint_path="/api")
+  let authed = transport.with_auth(
+    AuthConfig::new(
+      verify_token=fn(_) { true },
+      resource_metadata_url="http://localhost:8080/api",
+    ),
+  )
+  assert_eq(authed.port, 8080)
+  assert_eq(authed.endpoint_path, "/api")
+}
+
+///| =====================================================
+
+///| HttpClientTransport Auth Tests
+
+///|
+/// =====================================================
+test "HttpClientTransport::new without auth_token" {
+  let transport = HttpClientTransport::new("http://localhost:4240/mcp")
+  assert_eq(transport.auth_token, None)
+}
+
+///|
+test "HttpClientTransport::new with auth_token" {
+  let transport = HttpClientTransport::new(
+    "http://localhost:4240/mcp",
+    auth_token="my-secret",
+  )
+  assert_eq(transport.auth_token, Some("my-secret"))
+}
+
+///|
+test "HttpClientTransport::new empty auth_token → None" {
+  let transport = HttpClientTransport::new(
+    "http://localhost:4240/mcp",
+    auth_token="",
+  )
+  assert_eq(transport.auth_token, None)
+}

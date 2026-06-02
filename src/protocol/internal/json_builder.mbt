@@ -50,7 +50,7 @@ pub fn json_object(pairs : Array[(String, String)]) -> String {
     builder.write_string("{")
     let mut first = true
     for pair in pairs {
-      if not(first) {
+      if !first {
         builder.write_string(",")
       }
       first = false
@@ -75,7 +75,7 @@ pub fn json_array(values : Array[String]) -> String {
     builder.write_string("[")
     let mut first = true
     for value in values {
-      if not(first) {
+      if !first {
         builder.write_string(",")
       }
       first = false

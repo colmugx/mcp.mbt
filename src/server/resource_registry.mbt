@@ -87,7 +87,7 @@ pub fn ResourceRegistry::subscribe(
   match self.resources.get(uri) {
     Some(_) => {
       let found = self.subscriptions.iter().any(fn(u) { u == uri })
-      if not(found) {
+      if !found {
         self.subscriptions.push(uri)
       }
       Ok(())

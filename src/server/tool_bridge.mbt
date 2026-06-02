@@ -4,7 +4,7 @@ fn expand_params_to_json(params : Array[@tool.ParamDef]) -> Json {
   for param in params {
     let prop_map : Map[String, Json] = Map::default()
     prop_map.set("type", Json::string(param.type_))
-    if not(param.description.is_empty()) {
+    if !param.description.is_empty() {
       prop_map.set("description", Json::string(param.description))
     }
     properties_map.set(param.name, Json::object(prop_map))

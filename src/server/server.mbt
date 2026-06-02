@@ -184,7 +184,7 @@ pub async fn MCPServer::run(
   group : @async.TaskGroup[Unit],
 ) -> Unit raise @types.TransportError {
   // 创建响应队列用于并发任务到发送任务的通信
-  let response_queue : @aqueue.Queue[String] = @aqueue.Queue::new(
+  let response_queue : @aqueue.Queue[String] = @aqueue.Queue(
     kind=@aqueue.Kind::Unbounded,
   )
 

@@ -89,7 +89,7 @@ test "compliance: response has jsonrpc 2.0" {
 
 ///|
 test "compliance: response id matches request id" {
-  let server = MCPServer::new("test", "1.0.0")
+  let _ = MCPServer::new("test", "1.0.0")
   let response = handle_ping(@types.RequestId::Int(42))
   let json = @json.parse(response) catch { _ => panic() }
   match json {
@@ -202,7 +202,7 @@ test "compliance: tools/list returns array with name/description/inputSchema" {
     "echo",
     "Echo tool",
     Json::object({ "type": Json::string("object") }),
-    async fn(_args) { Ok(@tool.ToolResult::text("ok")) },
+    fn(_args) { Ok(@tool.ToolResult::text("ok")) },
   )
   let result = parse_result(handle_tools_list(server, @types.RequestId::Int(1)))
   let tools = json_get(result, "tools")
@@ -224,7 +224,7 @@ test "compliance: tools/list preserves tool name" {
     "my_tool",
     "My tool",
     Json::object({ "type": Json::string("object") }),
-    async fn(_args) { Ok(@tool.ToolResult::text("ok")) },
+    fn(_args) { Ok(@tool.ToolResult::text("ok")) },
   )
   let result = parse_result(handle_tools_list(server, @types.RequestId::Int(1)))
   if json_get(result, "tools") is Array(arr) {
@@ -248,9 +248,7 @@ test "compliance: resources/list returns array with uri and name" {
     "Test File",
     "A test file",
     "text/plain",
-    async fn() {
-      Ok({ uri: "file:///test.txt", content: @resource.Text("hello") })
-    },
+    fn() { Ok({ uri: "file:///test.txt", content: @resource.Text("hello") }) },
   )
   let result = parse_result(
     handle_resources_list(server, @types.RequestId::Int(1)),
@@ -274,9 +272,7 @@ test "compliance: resources/list includes mimeType" {
     "Data",
     "JSON data",
     "application/json",
-    async fn() {
-      Ok({ uri: "file:///data.json", content: @resource.Text("{}") })
-    },
+    fn() { Ok({ uri: "file:///data.json", content: @resource.Text("{}") }) },
   )
   let result = parse_result(
     handle_resources_list(server, @types.RequestId::Int(1)),
@@ -298,9 +294,7 @@ test "compliance: resources/list includes description when present" {
     "Test",
     "A test resource",
     "text/plain",
-    async fn() {
-      Ok({ uri: "file:///test.txt", content: @resource.Text("hello") })
-    },
+    fn() { Ok({ uri: "file:///test.txt", content: @resource.Text("hello") }) },
   )
   let result = parse_result(
     handle_resources_list(server, @types.RequestId::Int(1)),
@@ -321,7 +315,7 @@ test "compliance: resources/list includes description when present" {
 /// =====================================================
 test "compliance: resources/subscribe returns empty result" {
   let server = MCPServer::new("test", "1.0.0")
-  server.register_resource("file:///test.txt", "Test", "desc", "text/plain", async fn() {
+  server.register_resource("file:///test.txt", "Test", "desc", "text/plain", fn() {
     Ok({ uri: "file:///test.txt", content: @resource.Text("hello") })
   })
   let response = handle_resources_subscribe(
@@ -367,7 +361,7 @@ test "compliance: resources/unsubscribe missing uri returns error" {
 /// =====================================================
 test "compliance: prompts/list returns array with name" {
   let server = MCPServer::new("test", "1.0.0")
-  server.register_prompt("greet", "Greeting prompt", [], async fn(_args) {
+  server.register_prompt("greet", "Greeting prompt", [], fn(_args) {
     Ok({
       description: Some("A greeting"),
       messages: [{ role: "user", content: @types.Text("Hello") }],
@@ -395,7 +389,7 @@ test "compliance: prompts/list includes arguments" {
     description: Some("Name to greet"),
     required: Some(true),
   }
-  server.register_prompt("greet", "Greeting", [arg], async fn(_args) {
+  server.register_prompt("greet", "Greeting", [arg], fn(_args) {
     Ok({
       description: Some("Greeting"),
       messages: [{ role: "user", content: @types.Text("Hello") }],
@@ -424,7 +418,7 @@ test "compliance: prompts/list includes arguments" {
 ///|
 test "compliance: prompts/list includes description" {
   let server = MCPServer::new("test", "1.0.0")
-  server.register_prompt("greet", "A greeting prompt", [], async fn(_args) {
+  server.register_prompt("greet", "A greeting prompt", [], fn(_args) {
     Ok({
       description: Some("Greeting"),
       messages: [{ role: "user", content: @types.Text("Hello") }],

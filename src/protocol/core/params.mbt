@@ -225,7 +225,7 @@ pub impl[T : Params] Params for Array[T] with fn schema() -> JsonSchema {
 ///|
 pub impl[T : Params] Params for Array[T] with fn from_json(j : Json) -> Array[T] raise ToolError {
   match j {
-    Array(arr) => arr.map(fn(item) { T::from_json(item) })
+    Array(arr) => arr.map(item => T::from_json(item))
     _ => raise ToolError("Expected array")
   }
 }

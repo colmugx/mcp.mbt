@@ -40,8 +40,7 @@ pub async fn StdioTransport::receive(
       None
     }
     Some(line_view) => {
-      // Convert StringView to String, trim, and convert back to String
-      let message = line_view.to_string().trim().to_string()
+      let message = line_view.trim().to_owned()
       if message.is_empty() {
         return self.receive()
       }
@@ -121,7 +120,7 @@ pub async fn StdioTransport::send_notification(
 
 ///|
 pub fn StdioTransport::close(self : StdioTransport) -> Unit {
-  if not(self.closed) {
+  if !self.closed {
     self.closed = true
   }
 }

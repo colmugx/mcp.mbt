@@ -104,7 +104,7 @@ pub fn validate_jsonrpc_message(
     let has_method = obj.get("method") is Some(_)
     let has_result = obj.get("result") is Some(_)
     let has_error = obj.get("error") is Some(_)
-    if not(has_method || has_result || has_error) {
+    if !(has_method || has_result || has_error) {
       return Err(
         @types.InvalidRequest("Must have 'method', 'result', or 'error' field"),
       )

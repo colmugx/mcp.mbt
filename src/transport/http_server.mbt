@@ -73,11 +73,11 @@ pub fn HttpTransport::new(
     port,
     endpoint_path,
     auth: None,
-    pending_requests: @async.Queue::new(kind=Unbounded),
+    pending_requests: @async.Queue(kind=Unbounded),
     current_reply_queue: None,
     session_id: None,
     sse_active: false,
-    event_queue: @async.Queue::new(kind=Unbounded),
+    event_queue: @async.Queue(kind=Unbounded),
   }
 }
 
@@ -99,7 +99,7 @@ pub async fn HttpTransport::start(
   ) catch {
     _ => ()
   }
-  let server = @http.Server::new(@socket.Addr::parse(addr), reuse_addr=true) catch {
+  let server = @http.Server(@socket.Addr::parse(addr), reuse_addr=true) catch {
     e => raise @types.WriteError("Failed to create server: " + e.to_string())
   }
   let _ = @stdio.stderr.write("[HttpTransport] Streamable HTTP server ready\n") catch {
@@ -215,7 +215,7 @@ pub async fn HttpTransport::start(
               return
             }
           }
-        let reply_queue = @async.Queue::new(kind=Blocking(1))
+        let reply_queue = @async.Queue(kind=Blocking(1))
         try {
           self.pending_requests.put({ message, reply_queue })
           let response = reply_queue.get()

@@ -129,13 +129,19 @@ pub async fn HttpClientTransport::send(
   if self.closed {
     raise @types.InvalidState("Cannot send on closed transport")
   }
-  // Lazy SSE establishment
+  // Lazy SSE establishment (best-effort — many servers don't support GET SSE)
   if !self.sse_connected {
-    self.establish_sse()
+    try {
+      self.establish_sse()
+    } catch {
+      _ => self.sse_connected = true // mark as attempted, don't retry
+    }
   }
+  let body_bytes = message.to_bytes()
   let headers : Map[String, String] = {}
   headers["Content-Type"] = "application/json"
   headers["Accept"] = "application/json, text/event-stream"
+  headers["Content-Length"] = body_bytes.length().to_string()
   headers["MCP-Protocol-Version"] = self.protocol_version
   match self.session_id {
     Some(id) => headers["Mcp-Session-Id"] = id
@@ -150,7 +156,7 @@ pub async fn HttpClientTransport::send(
     e => raise @types.WriteError("HTTP POST failed: \{e}")
   }
   // Write request body
-  client.write(message.to_bytes()) catch {
+  client.write(body_bytes) catch {
     e => {
       client.close()
       raise @types.WriteError("Failed to write body: \{e}")
@@ -209,7 +215,7 @@ pub async fn HttpClientTransport::send(
     // SSE response: read events from streaming body
     let accumulated : Array[String] = []
     while true {
-      let (data_opt, id_opt) = read_sse_event(client) catch { _ => break }
+      let (data_opt, id_opt) = read_sse_event(client)
       match id_opt {
         Some(id) => self.last_event_id = Some(id)
         None => ()
@@ -219,9 +225,7 @@ pub async fn HttpClientTransport::send(
         None => break
       }
     }
-    client.close() catch {
-      _ => ()
-    }
+    client.close()
     if !accumulated.is_empty() {
       self.sse_pending_responses = Some(accumulated)
       self.sse_pending_index = 0
@@ -234,9 +238,7 @@ pub async fn HttpClientTransport::send(
         raise @types.ReadError("Failed to read response body: \{e}")
       }
     }
-    client.close() catch {
-      _ => ()
-    }
+    client.close()
     let body_str = body.text() catch {
       e => raise @types.ReadError("Failed to read response body: \{e}")
     }
@@ -310,8 +312,10 @@ pub async fn HttpClientTransport::send_notification(
     notification.method_name,
     notification.params,
   )
+  let body_bytes = json_body.to_bytes()
   let headers : Map[String, String] = {}
   headers["Content-Type"] = "application/json"
+  headers["Content-Length"] = body_bytes.length().to_string()
   headers["MCP-Protocol-Version"] = self.protocol_version
   match self.session_id {
     Some(id) => headers["Mcp-Session-Id"] = id
@@ -327,15 +331,13 @@ pub async fn HttpClientTransport::send_notification(
   }
   // Fire-and-forget: write body, end request, close
   try {
-    client.write(json_body.to_bytes())
+    client.write(body_bytes)
     client.flush()
     let _ = client.end_request()
   } catch {
     _ => ()
   }
-  client.close() catch {
-    _ => ()
-  }
+  client.close()
 }
 
 ///|

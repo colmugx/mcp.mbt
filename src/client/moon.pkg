@@ -1,16 +1,11 @@
 import {
   "colmugx/mcp/protocol/types",
-  "colmugx/mcp/protocol/tool",
   "colmugx/mcp/protocol/resource",
   "colmugx/mcp/protocol/prompt",
-  "colmugx/mcp/protocol/core",
   "colmugx/mcp/jsonutil",
   "colmugx/mcp/transport",
   "moonbitlang/core/json",
+  "moonbitlang/core/env",
   "moonbitlang/async",
   "moonbitlang/async/aqueue",
 }
-
-import {
-  "moonbitlang/async",
-} for "test"

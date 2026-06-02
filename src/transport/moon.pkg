@@ -10,10 +10,6 @@ import {
   "moonbitlang/async/io",
 }
 
-import {
-  "moonbitlang/async",
-} for "test"
-
 options(
   targets: {
     "stdio.mbt": [ "native" ],

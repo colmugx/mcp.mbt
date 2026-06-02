@@ -11,9 +11,7 @@ test "PromptRegistry::new creates empty registry" {
 ///|
 test "PromptRegistry::register adds prompt entry" {
   let registry = PromptRegistry::new()
-  registry.register("test_prompt", "Test prompt description", [], async fn(
-    _args,
-  ) {
+  registry.register("test_prompt", "Test prompt description", [], fn(_args) {
     Ok({ description: Some("Test"), messages: [] })
   })
   assert_eq(registry.list_prompts().length(), 1)
@@ -23,10 +21,10 @@ test "PromptRegistry::register adds prompt entry" {
 ///|
 test "PromptRegistry::list_prompts returns prompt definitions" {
   let registry = PromptRegistry::new()
-  registry.register("prompt1", "First prompt", [], async fn(_args) {
+  registry.register("prompt1", "First prompt", [], fn(_args) {
     Ok({ description: Some("Test1"), messages: [] })
   })
-  registry.register("prompt2", "Second prompt", [], async fn(_args) {
+  registry.register("prompt2", "Second prompt", [], fn(_args) {
     Ok({ description: Some("Test2"), messages: [] })
   })
   let prompts = registry.list_prompts()
@@ -36,7 +34,7 @@ test "PromptRegistry::list_prompts returns prompt definitions" {
 ///|
 test "PromptRegistry::list_prompts includes description" {
   let registry = PromptRegistry::new()
-  registry.register("test", "Test description", [], async fn(_args) {
+  registry.register("test", "Test description", [], fn(_args) {
     Ok({ description: Some("Test"), messages: [] })
   })
   let prompt = registry.list_prompts()[0]
@@ -50,7 +48,7 @@ test "PromptRegistry::list_prompts includes arguments" {
     "test",
     "Test",
     [{ name: "arg1", description: Some("First arg"), required: Some(true) }],
-    async fn(_args) { Ok({ description: Some("Test"), messages: [] }) },
+    fn(_args) { Ok({ description: Some("Test"), messages: [] }) },
   )
   let prompts = registry.list_prompts()
   match prompts[0].arguments {
