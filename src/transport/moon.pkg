@@ -1,7 +1,7 @@
 import {
   "colmugx/mcp/protocol/types",
-  "colmugx/mcp/jsonutil",
   "moonbitlang/core/json",
+  "moonbitlang/core/encoding/utf8",
   "moonbitlang/async/stdio",
   "moonbitlang/async/http",
   "moonbitlang/async/socket",

@@ -261,10 +261,7 @@ pub async fn HttpTransport::start(
         // Push notification events
         while true {
           let notification = self.event_queue.get()
-          let json = @jsonutil.jsonrpc_notification(
-            notification.method_name,
-            notification.params,
-          )
+          let json = notification.to_jsonrpc_string()
           conn.write("data: " + json + "\n\n")
           conn.flush()
         }

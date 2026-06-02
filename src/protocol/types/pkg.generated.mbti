@@ -127,6 +127,7 @@ pub(all) struct Notification {
   method_name : String
   params : Json?
 } derive(Eq, Show)
+pub fn Notification::to_jsonrpc_string(Self) -> String
 
 pub(all) struct NotificationCapabilities {
   tools_list_changed : Bool

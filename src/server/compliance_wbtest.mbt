@@ -443,7 +443,7 @@ test "compliance: prompts/list includes description" {
 /// =====================================================
 test "compliance: invalid JSON returns -32700 parse error" {
   let json = @json.parse(
-    @jsonutil.jsonrpc_error(@types.RequestId::Int(0), -32700, "Parse error"),
+    jsonrpc_error_str(@types.RequestId::Int(0), -32700, "Parse error"),
   ) catch {
     _ => panic()
   }
@@ -460,7 +460,7 @@ test "compliance: invalid JSON returns -32700 parse error" {
 
 ///|
 test "compliance: jsonrpc_error format has code and message" {
-  let response = @jsonutil.jsonrpc_error(
+  let response = jsonrpc_error_str(
     @types.RequestId::Int(1),
     -32601,
     "Method not found",
@@ -474,10 +474,7 @@ test "compliance: jsonrpc_error format has code and message" {
 
 ///|
 test "compliance: jsonrpc_success format has result" {
-  let response = @jsonutil.jsonrpc_success(
-    @types.RequestId::Int(1),
-    @jsonutil.json_object([]),
-  )
+  let response = jsonrpc_success_str(@types.RequestId::Int(1), Json::object({}))
   let json = @json.parse(response) catch { _ => panic() }
   assert_eq(json_field_str(json, "jsonrpc"), "2.0")
   assert_true(json_has(json, "result"))
@@ -510,7 +507,7 @@ test "compliance: prompts list_changed notification has correct method" {
 ///|
 test "compliance: notification serializes as valid JSON-RPC notification" {
   let n = @types.tools_list_changed_notification()
-  let json_str = @jsonutil.jsonrpc_notification(n.method_name, n.params)
+  let json_str = n.to_jsonrpc_string()
   let json = @json.parse(json_str) catch { _ => panic() }
   assert_eq(json_field_str(json, "jsonrpc"), "2.0")
   assert_eq(json_field_str(json, "method"), "notifications/tools/list_changed")

@@ -2,7 +2,6 @@ import {
   "colmugx/mcp/protocol/types",
   "colmugx/mcp/protocol/resource",
   "colmugx/mcp/protocol/prompt",
-  "colmugx/mcp/jsonutil",
   "colmugx/mcp/transport",
   "moonbitlang/core/json",
   "moonbitlang/core/env",

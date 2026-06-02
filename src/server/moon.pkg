@@ -4,7 +4,6 @@ import {
   "colmugx/mcp/protocol/resource",
   "colmugx/mcp/protocol/prompt",
   "colmugx/mcp/protocol/core",
-  "colmugx/mcp/jsonutil",
   "colmugx/mcp/transport",
   "moonbitlang/core/json",
   "moonbitlang/async",

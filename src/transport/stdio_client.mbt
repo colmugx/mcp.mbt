@@ -167,10 +167,7 @@ pub async fn StdioClientTransport::send_notification(
     None =>
       raise @types.InvalidState("Transport not started — call start() first")
   }
-  let json = @jsonutil.jsonrpc_notification(
-    notification.method_name,
-    notification.params,
-  )
+  let json = notification.to_jsonrpc_string()
   writer.write(json) catch {
     e =>
       raise @types.WriteError("Failed to send notification: " + e.to_string())

@@ -100,10 +100,7 @@ pub async fn StdioTransport::send_notification(
   if self.closed {
     raise @types.InvalidState("Cannot send on closed transport")
   }
-  let json = @jsonutil.jsonrpc_notification(
-    notification.method_name,
-    notification.params,
-  )
+  let json = notification.to_jsonrpc_string()
   // Write to buffered writer
   self.writer.write(json) catch {
     e =>

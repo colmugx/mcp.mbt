@@ -101,3 +101,21 @@ pub fn cancelled_notification(
     params: Some(Json::object(params_map)),
   }
 }
+
+///|
+/// Serialize notification to JSON-RPC string
+pub fn Notification::to_jsonrpc_string(self : Notification) -> String {
+  match self.params {
+    Some(p) =>
+      Json::object({
+        "jsonrpc": Json::string("2.0"),
+        "method": Json::string(self.method_name),
+        "params": p,
+      }).stringify()
+    None =>
+      Json::object({
+        "jsonrpc": Json::string("2.0"),
+        "method": Json::string(self.method_name),
+      }).stringify()
+  }
+}

@@ -535,87 +535,74 @@ fn MCPClient::handle_server_request(
   let roots_h = self.roots_handler
   let elicitation_h = self.elicitation_handler
   group.spawn_bg(() => {
+    let id_json = request_id_to_json(id)
     let response : String = match method_name {
       "sampling/createMessage" =>
         match sampling_h {
           Some(handler) =>
             match handler(params) {
               Ok(result) =>
-                @jsonutil.json_object([
-                  ("jsonrpc", @jsonutil.json_string("2.0")),
-                  ("id", id.to_json_string()),
-                  ("result", serialize_create_message_result(result)),
-                ])
+                Json::object({
+                  "jsonrpc": Json::string("2.0"),
+                  "id": id_json,
+                  "result": serialize_create_message_result(result),
+                }).stringify()
               Err(e) =>
-                @jsonutil.jsonrpc_error(id, e.to_error_code(), e.message())
+                jsonrpc_error_str(id_json, e.to_error_code(), e.message())
             }
-          None => @jsonutil.jsonrpc_error(id, -32601, "sampling not supported")
+          None => jsonrpc_error_str(id_json, -32601, "sampling not supported")
         }
       "roots/list" =>
         match roots_h {
           Some(handler) =>
             match handler() {
               Ok(roots) =>
-                @jsonutil.json_object([
-                  ("jsonrpc", @jsonutil.json_string("2.0")),
-                  ("id", id.to_json_string()),
-                  (
-                    "result",
-                    @jsonutil.json_object([
-                      (
-                        "roots",
-                        @jsonutil.json_array(
-                          roots.map(fn(r) {
-                            let pairs : Array[(String, String)] = [
-                              ("uri", @jsonutil.json_string(r.uri)),
-                            ]
-                            match r.name {
-                              Some(n) =>
-                                pairs.push(("name", @jsonutil.json_string(n)))
-                              None => ()
-                            }
-                            @jsonutil.json_object(pairs)
-                          }),
-                        ),
-                      ),
-                    ]),
-                  ),
-                ])
+                Json::object({
+                  "jsonrpc": Json::string("2.0"),
+                  "id": id_json,
+                  "result": Json::object({
+                    "roots": Json::array(
+                      roots.map(fn(r) {
+                        let root_map : Map[String, Json] = {}
+                        root_map.set("uri", Json::string(r.uri))
+                        match r.name {
+                          Some(n) => root_map.set("name", Json::string(n))
+                          None => ()
+                        }
+                        Json::object(root_map)
+                      }),
+                    ),
+                  }),
+                }).stringify()
               Err(e) =>
-                @jsonutil.jsonrpc_error(id, e.to_error_code(), e.message())
+                jsonrpc_error_str(id_json, e.to_error_code(), e.message())
             }
-          None => @jsonutil.jsonrpc_error(id, -32601, "roots not supported")
+          None => jsonrpc_error_str(id_json, -32601, "roots not supported")
         }
       "elicitation/create" =>
         match elicitation_h {
           Some(handler) =>
             match handler(params) {
               Ok(result) =>
-                @jsonutil.json_object([
-                  ("jsonrpc", @jsonutil.json_string("2.0")),
-                  ("id", id.to_json_string()),
-                  (
-                    "result",
-                    @jsonutil.json_object([
-                      ("action", @jsonutil.json_string(result.action)),
-                      (
-                        "content",
-                        match result.content {
-                          Some(c) => c.to_string()
-                          None => "null"
-                        },
-                      ),
-                    ]),
-                  ),
-                ])
+                Json::object({
+                  "jsonrpc": Json::string("2.0"),
+                  "id": id_json,
+                  "result": Json::object({
+                    "action": Json::string(result.action),
+                    "content": match result.content {
+                      Some(c) => c
+                      None => Json::null()
+                    },
+                  }),
+                }).stringify()
               Err(e) =>
-                @jsonutil.jsonrpc_error(id, e.to_error_code(), e.message())
+                jsonrpc_error_str(id_json, e.to_error_code(), e.message())
             }
           None =>
-            @jsonutil.jsonrpc_error(id, -32601, "elicitation not supported")
+            jsonrpc_error_str(id_json, -32601, "elicitation not supported")
         }
       _ =>
-        @jsonutil.jsonrpc_error(id, -32601, "Method not found: " + method_name)
+        jsonrpc_error_str(id_json, -32601, "Method not found: " + method_name)
     }
     transport.send(response) catch {
       _ => ()
@@ -1070,74 +1057,78 @@ fn parse_completion_result(
 }
 
 ///|
-fn serialize_create_message_result(
-  result : @types.CreateMessageResult,
-) -> String {
-  @jsonutil.json_object([
-    ("role", @jsonutil.json_string(result.role)),
-    ("model", @jsonutil.json_string(result.model)),
-    ("content", serialize_content_item(result.content)),
-    (
-      "stopReason",
-      match result.stop_reason {
-        Some(r) => @jsonutil.json_string(r)
-        None => "null"
-      },
-    ),
-  ])
+fn request_id_to_json(id : @types.RequestId) -> Json {
+  match id {
+    Int(n) => Json::number(n.to_double())
+    Str(s) => Json::string(s)
+  }
 }
 
 ///|
-fn serialize_content_item(item : @types.ContentItem) -> String {
+fn jsonrpc_error_str(id_json : Json, code : Int, message : String) -> String {
+  Json::object({
+    "jsonrpc": Json::string("2.0"),
+    "id": id_json,
+    "error": Json::object({
+      "code": Json::number(code.to_double()),
+      "message": Json::string(message),
+    }),
+  }).stringify()
+}
+
+///|
+fn serialize_create_message_result(result : @types.CreateMessageResult) -> Json {
+  let obj_map : Map[String, Json] = {}
+  obj_map.set("role", Json::string(result.role))
+  obj_map.set("model", Json::string(result.model))
+  obj_map.set("content", serialize_content_item(result.content))
+  match result.stop_reason {
+    Some(r) => obj_map.set("stopReason", Json::string(r))
+    None => ()
+  }
+  Json::object(obj_map)
+}
+
+///|
+fn serialize_content_item(item : @types.ContentItem) -> Json {
   match item {
     Text(t) =>
-      @jsonutil.json_object([
-        ("type", @jsonutil.json_string("text")),
-        ("text", @jsonutil.json_string(t)),
-      ])
+      Json::object({ "type": Json::string("text"), "text": Json::string(t) })
     Image(data, mime_type~) =>
-      @jsonutil.json_object([
-        ("type", @jsonutil.json_string("image")),
-        ("data", @jsonutil.json_string(data)),
-        ("mimeType", @jsonutil.json_string(mime_type)),
-      ])
+      Json::object({
+        "type": Json::string("image"),
+        "data": Json::string(data),
+        "mimeType": Json::string(mime_type),
+      })
     ResourceLink(uri) =>
-      @jsonutil.json_object([
-        ("type", @jsonutil.json_string("resource_link")),
-        ("uri", @jsonutil.json_string(uri)),
-      ])
+      Json::object({
+        "type": Json::string("resource_link"),
+        "uri": Json::string(uri),
+      })
     EmbeddedResource(content) =>
       match content {
-        Text(t, uri~, mime_type~) =>
-          @jsonutil.json_object([
-            ("type", @jsonutil.json_string("resource")),
-            (
-              "resource",
-              @jsonutil.json_object([
-                ("uri", @jsonutil.json_string(uri)),
-                ("text", @jsonutil.json_string(t)),
-                (
-                  "mimeType",
-                  match mime_type {
-                    Some(m) => @jsonutil.json_string(m)
-                    None => "null"
-                  },
-                ),
-              ]),
-            ),
-          ])
+        Text(t, uri~, mime_type~) => {
+          let res_map : Map[String, Json] = {}
+          res_map.set("uri", Json::string(uri))
+          res_map.set("text", Json::string(t))
+          match mime_type {
+            Some(m) => res_map.set("mimeType", Json::string(m))
+            None => ()
+          }
+          Json::object({
+            "type": Json::string("resource"),
+            "resource": Json::object(res_map),
+          })
+        }
         Blob(b, uri~, mime_type~) =>
-          @jsonutil.json_object([
-            ("type", @jsonutil.json_string("resource")),
-            (
-              "resource",
-              @jsonutil.json_object([
-                ("uri", @jsonutil.json_string(uri)),
-                ("blob", @jsonutil.json_string(b)),
-                ("mimeType", @jsonutil.json_string(mime_type)),
-              ]),
-            ),
-          ])
+          Json::object({
+            "type": Json::string("resource"),
+            "resource": Json::object({
+              "uri": Json::string(uri),
+              "blob": Json::string(b),
+              "mimeType": Json::string(mime_type),
+            }),
+          })
       }
   }
 }

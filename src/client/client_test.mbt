@@ -33,57 +33,119 @@ test "build_initialize_request format" {
     "1.0.0",
     capabilities=caps,
   )
-  assert_eq(
-    req, "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-11-25\",\"capabilities\":{\"roots\":{\"listChanged\":true},\"sampling\":{}},\"clientInfo\":{\"name\":\"test-client\",\"version\":\"1.0.0\"}}}",
+  let actual = @json.parse(req) catch { _ => Json::null() }
+  let expected = @json.parse(
+    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-11-25\",\"capabilities\":{\"roots\":{\"listChanged\":true},\"sampling\":{}},\"clientInfo\":{\"name\":\"test-client\",\"version\":\"1.0.0\"}}}",
+  ) catch {
+    _ => Json::null()
+  }
+  assert_eq(actual, expected)
+}
+
+///|
+test "build_initialize_request with elicitation uses empty object" {
+  let caps : @types.ClientCapabilities = {
+    roots: None,
+    sampling: None,
+    elicitation: Some(@types.ElicitationCapabilities::{ form: true }),
+  }
+  let req = build_initialize_request(
+    1,
+    "test-client",
+    "1.0.0",
+    capabilities=caps,
   )
+  let actual = @json.parse(req) catch { _ => Json::null() }
+  let expected = @json.parse(
+    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-11-25\",\"capabilities\":{\"elicitation\":{\"form\":{}}},\"clientInfo\":{\"name\":\"test-client\",\"version\":\"1.0.0\"}}}",
+  ) catch {
+    _ => Json::null()
+  }
+  assert_eq(actual, expected)
 }
 
 ///|
 test "build_ping_request format" {
   let req = build_ping_request(42)
-  assert_eq(req, "{\"jsonrpc\":\"2.0\",\"id\":42,\"method\":\"ping\"}")
+  let actual = @json.parse(req) catch { _ => Json::null() }
+  let expected = @json.parse(
+    "{\"jsonrpc\":\"2.0\",\"id\":42,\"method\":\"ping\"}",
+  ) catch {
+    _ => Json::null()
+  }
+  assert_eq(actual, expected)
 }
 
 ///|
 test "build_tools_list_request format" {
   let req = build_tools_list_request(1)
-  assert_eq(req, "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}")
+  let actual = @json.parse(req) catch { _ => Json::null() }
+  let expected = @json.parse(
+    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}",
+  ) catch {
+    _ => Json::null()
+  }
+  assert_eq(actual, expected)
 }
 
 ///|
 test "build_tools_call_request format" {
   let req = build_tools_call_request(1, "my_tool", arguments="{\"x\": 1}")
-  assert_eq(
-    req, "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"my_tool\",\"arguments\":{\"x\": 1}}}",
-  )
+  let actual = @json.parse(req) catch { _ => Json::null() }
+  let expected = @json.parse(
+    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"my_tool\",\"arguments\":{\"x\":1}}}",
+  ) catch {
+    _ => Json::null()
+  }
+  assert_eq(actual, expected)
 }
 
 ///|
 test "build_initialized_notification format" {
   let notif = build_initialized_notification()
-  assert_eq(
-    notif, "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}",
-  )
+  let actual = @json.parse(notif) catch { _ => Json::null() }
+  let expected = @json.parse(
+    "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}",
+  ) catch {
+    _ => Json::null()
+  }
+  assert_eq(actual, expected)
 }
 
 ///|
 test "build_resources_list_request format" {
   let req = build_resources_list_request(1)
-  assert_eq(req, "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"resources/list\"}")
+  let actual = @json.parse(req) catch { _ => Json::null() }
+  let expected = @json.parse(
+    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"resources/list\"}",
+  ) catch {
+    _ => Json::null()
+  }
+  assert_eq(actual, expected)
 }
 
 ///|
 test "build_resources_read_request format" {
   let req = build_resources_read_request(1, "file:///test.txt")
-  assert_eq(
-    req, "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"resources/read\",\"params\":{\"uri\":\"file:///test.txt\"}}",
-  )
+  let actual = @json.parse(req) catch { _ => Json::null() }
+  let expected = @json.parse(
+    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"resources/read\",\"params\":{\"uri\":\"file:///test.txt\"}}",
+  ) catch {
+    _ => Json::null()
+  }
+  assert_eq(actual, expected)
 }
 
 ///|
 test "build_prompts_list_request format" {
   let req = build_prompts_list_request(1)
-  assert_eq(req, "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"prompts/list\"}")
+  let actual = @json.parse(req) catch { _ => Json::null() }
+  let expected = @json.parse(
+    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"prompts/list\"}",
+  ) catch {
+    _ => Json::null()
+  }
+  assert_eq(actual, expected)
 }
 
 ///|
@@ -93,17 +155,25 @@ test "build_prompts_get_request format" {
     "my_prompt",
     arguments="{\"key\": \"val\"}",
   )
-  assert_eq(
-    req, "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"prompts/get\",\"params\":{\"name\":\"my_prompt\",\"arguments\":{\"key\": \"val\"}}}",
-  )
+  let actual = @json.parse(req) catch { _ => Json::null() }
+  let expected = @json.parse(
+    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"prompts/get\",\"params\":{\"name\":\"my_prompt\",\"arguments\":{\"key\":\"val\"}}}",
+  ) catch {
+    _ => Json::null()
+  }
+  assert_eq(actual, expected)
 }
 
 ///|
 test "build_set_log_level_request format" {
   let req = build_set_log_level_request(1, "info")
-  assert_eq(
-    req, "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"logging/setLevel\",\"params\":{\"level\":\"info\"}}",
-  )
+  let actual = @json.parse(req) catch { _ => Json::null() }
+  let expected = @json.parse(
+    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"logging/setLevel\",\"params\":{\"level\":\"info\"}}",
+  ) catch {
+    _ => Json::null()
+  }
+  assert_eq(actual, expected)
 }
 
 ///|

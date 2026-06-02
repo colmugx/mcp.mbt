@@ -131,13 +131,11 @@ pub async fn HttpClientTransport::send(
   }
   // Lazy SSE establishment (best-effort — many servers don't support GET SSE)
   if !self.sse_connected {
-    try {
-      self.establish_sse()
-    } catch {
+    self.establish_sse() catch {
       _ => self.sse_connected = true // mark as attempted, don't retry
     }
   }
-  let body_bytes = message.to_bytes()
+  let body_bytes = @utf8.encode(message)
   let headers : Map[String, String] = {}
   headers["Content-Type"] = "application/json"
   headers["Accept"] = "application/json, text/event-stream"
@@ -308,11 +306,8 @@ pub async fn HttpClientTransport::send_notification(
   if self.closed {
     raise @types.InvalidState("Cannot send on closed transport")
   }
-  let json_body = @jsonutil.jsonrpc_notification(
-    notification.method_name,
-    notification.params,
-  )
-  let body_bytes = json_body.to_bytes()
+  let json_body = notification.to_jsonrpc_string()
+  let body_bytes = @utf8.encode(json_body)
   let headers : Map[String, String] = {}
   headers["Content-Type"] = "application/json"
   headers["Content-Length"] = body_bytes.length().to_string()

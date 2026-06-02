@@ -73,7 +73,7 @@ async fn main {
   let host_version = "1.0.0"
   let connections : Array[HostConnection] = []
 
-  @async.with_task_group(fn(group) {
+  @async.with_task_group(group => {
     // Connection 1: local stdio server (spawned as child process)
     let stdio_client = @transport.StdioClientTransport::new(cmd="moon", args=[
       "run", "../server/cmd/main",

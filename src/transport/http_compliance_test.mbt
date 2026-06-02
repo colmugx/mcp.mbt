@@ -86,7 +86,7 @@ test "compliance: HttpTransport supports streaming" {
 /// =====================================================
 test "compliance: notification serializes as SSE data field" {
   let n = @types.tools_list_changed_notification()
-  let json = @jsonutil.jsonrpc_notification(n.method_name, n.params)
+  let json = n.to_jsonrpc_string()
   // SSE format: "data: <json>\n\n"
   let sse_event = "data: " + json + "\n\n"
   assert_true(sse_event.contains("data: "))
@@ -104,10 +104,11 @@ test "compliance: notification serializes as SSE data field" {
 /// =====================================================
 test "compliance: HTTP response uses application/json content type for regular responses" {
   // Verify our response format is valid JSON
-  let response = @jsonutil.jsonrpc_success(
-    @types.RequestId::Int(1),
-    @jsonutil.json_object([]),
-  )
+  let response = Json::object({
+    "jsonrpc": Json::string("2.0"),
+    "id": Json::number(1.0),
+    "result": Json::object({}),
+  }).stringify()
   let json = parse(response)
   assert_eq(jstr(json, "jsonrpc"), "2.0")
   assert_true(jhas(json, "result"))
@@ -117,7 +118,7 @@ test "compliance: HTTP response uses application/json content type for regular r
 test "compliance: HTTP response uses text/event-stream for SSE" {
   // Verify notification format is compatible with SSE
   let n = @types.tools_list_changed_notification()
-  let notification = @jsonutil.jsonrpc_notification(n.method_name, n.params)
+  let notification = n.to_jsonrpc_string()
   let json = parse(notification)
   // SSE events should not have "id" field (notifications)
   if json is Object(obj) {

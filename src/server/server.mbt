@@ -124,15 +124,11 @@ pub async fn MCPServer::handle_request(
 ) -> String {
   let parsed = @json.parse(request_json) catch {
     _ =>
-      return @jsonutil.jsonrpc_error(
-        @types.RequestId::Int(0),
-        -32700,
-        "Parse error",
-      )
+      return jsonrpc_error_str(@types.RequestId::Int(0), -32700, "Parse error")
   }
   match @types.JsonRpcRequest::from_json(parsed) {
     Err(e) =>
-      @jsonutil.jsonrpc_error(
+      jsonrpc_error_str(
         @types.RequestId::Int(0),
         e.to_error_code(),
         e.message(),
@@ -154,7 +150,7 @@ pub async fn MCPServer::handle_request(
         "prompts/get" => handle_prompts_get(self, request.id, request.params)
         "logging/setLevel" => handle_set_level(self, request.id, request.params)
         _ =>
-          @jsonutil.jsonrpc_error(
+          jsonrpc_error_str(
             request.id,
             -32601,
             "Method not found: " + request.method_name,
@@ -189,7 +185,7 @@ pub async fn MCPServer::run(
   )
 
   // 生成发送任务：专门负责从队列取响应并发送
-  group.spawn_bg(fn() {
+  group.spawn_bg(() => {
     while true {
       let response = response_queue.get() catch {
         _ => break // 队列关闭时退出
@@ -214,7 +210,7 @@ pub async fn MCPServer::run(
           // 快速路径：直接执行，不spawn新协程
           let response = self.handle_request(message) catch {
             _ =>
-              @jsonutil.jsonrpc_error(
+              jsonrpc_error_str(
                 @types.RequestId::Int(0),
                 -32603,
                 "Internal server error",
@@ -225,10 +221,10 @@ pub async fn MCPServer::run(
           ()
         } else {
           // 慢速路径：为可能的I/O密集型操作spawn协程
-          group.spawn_bg(fn() {
+          group.spawn_bg(() => {
             let response = self.handle_request(message) catch {
               _ =>
-                @jsonutil.jsonrpc_error(
+                jsonrpc_error_str(
                   @types.RequestId::Int(0),
                   -32603,
                   "Internal server error",
@@ -307,7 +303,7 @@ pub async fn MCPServer::run_stdio(
   let transport = @transport.AnyTransport::Stdio(
     @transport.StdioTransport::new(),
   )
-  @async.with_task_group(fn(group) { self.run(transport, group) }) catch {
+  @async.with_task_group(group => self.run(transport, group)) catch {
     e => raise @types.ReadError("TaskGroup error: " + e.to_string())
   }
 }

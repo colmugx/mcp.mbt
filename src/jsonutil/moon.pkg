@@ -1,4 +1,0 @@
-import {
-  "moonbitlang/core/json",
-  "colmugx/mcp/protocol/types",
-}
