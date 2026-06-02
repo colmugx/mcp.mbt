@@ -223,11 +223,13 @@ pub(all) struct ClientInfo {
 
 ```moonbit
 pub(all) struct ClientCapabilities {
-  roots : RootCapabilities?  // 文件系统根目录能力
-  sampling : Bool            // 支持 sampling
-  elicitation : Bool         // 支持 elicitation
+  roots : RootCapabilities?         // 文件系统根目录能力
+  sampling : SamplingCapabilities?  // 支持 sampling（空结构体标记）
+  elicitation : ElicitationCapabilities?  // 支持 elicitation
 } derive(Eq, Show)
 ```
+
+默认值通过 `default_capabilities()` 设置，启用全部三种能力。
 
 ### RootCapabilities
 
@@ -237,7 +239,116 @@ pub(all) struct RootCapabilities {
 } derive(Eq, Show)
 ```
 
-## 2.7 Prompt 类型
+### SamplingCapabilities
+
+```moonbit
+pub(all) struct SamplingCapabilities {
+  // 空结构体，标记客户端支持 sampling/createMessage
+} derive(Eq, Show)
+```
+
+### ElicitationCapabilities
+
+```moonbit
+pub(all) struct ElicitationCapabilities {
+  form : Bool  // 是否支持表单输入
+} derive(Eq, Show)
+```
+
+## 2.7 Client 扩展类型（双向通信）
+
+以下类型用于 server→client 请求（sampling、roots、elicitation）和通知：
+
+### Root
+
+```moonbit
+pub(all) struct Root {
+  uri : String    // 根目录 URI
+  name : String?  // 可选名称
+} derive(Eq, Show)
+```
+
+### SamplingMessage
+
+```moonbit
+pub(all) struct SamplingMessage {
+  role : String       // "user" 或 "assistant"
+  content : ContentItem
+} derive(Eq, Show)
+```
+
+### CreateMessageRequest
+
+```moonbit
+pub(all) struct CreateMessageRequest {
+  messages : Array[SamplingMessage]
+  max_tokens : Int
+  system_prompt : String?
+  include_context : String?
+  temperature : Double?
+  stop_sequences : Array[String]?
+  metadata : Json?
+} derive(Eq, Show)
+```
+
+### CreateMessageResult
+
+```moonbit
+pub(all) struct CreateMessageResult {
+  role : String
+  model : String
+  content : ContentItem
+  stop_reason : String?
+} derive(Eq, Show)
+```
+
+### ElicitationRequest
+
+```moonbit
+pub(all) struct ElicitationRequest {
+  message : String
+  requested_schema : Json
+} derive(Eq, Show)
+```
+
+### ElicitationResult
+
+```moonbit
+pub(all) struct ElicitationResult {
+  action : String    // "accept", "decline", "cancel"
+  content : Json?    // 用户输入内容
+} derive(Eq, Show)
+```
+
+### ProgressNotification
+
+```moonbit
+pub(all) struct ProgressNotification {
+  progress_token : String
+  progress : Double
+  total : Double?
+  message : String?
+} derive(Eq, Show)
+```
+
+### CancelledNotification
+
+```moonbit
+pub(all) struct CancelledNotification {
+  request_id : RequestId  // Int 或 Str
+  reason : String?
+} derive(Eq, Show)
+```
+
+### ResourceUpdatedNotification
+
+```moonbit
+pub(all) struct ResourceUpdatedNotification {
+  uri : String  // 变更的资源 URI
+} derive(Eq, Show)
+```
+
+## 2.8 Prompt 类型
 
 ```moonbit
 pub(all) struct PromptArgument {

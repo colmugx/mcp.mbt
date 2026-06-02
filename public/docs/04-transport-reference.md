@@ -109,7 +109,7 @@ async fn main {
 
 ## 4.5 HttpClientTransport（Client 端）
 
-HTTP client 端 transport，用于连接到远程 MCP server。实现 Streamable HTTP 传输协议：POST 用于请求-响应，GET SSE 用于 server→client 通知。
+HTTP client 端 transport，用于连接到远程 MCP server。实现 Streamable HTTP 传输协议（MCP 2025-11-25）：POST 用于请求-响应，GET SSE 用于 server→client 通知。
 
 ```moonbit
 let transport = HttpClientTransport::new("http://localhost:4240/mcp")
@@ -119,11 +119,15 @@ let transport = HttpClientTransport::new("http://localhost:4240/mcp")
 
 ```moonbit
 pub struct HttpClientTransport {
-  base_url : String            // MCP server 的 HTTP 端点 URL
-  mut session_id : String?     // 会话 ID（从 server 响应头中获取）
-  mut last_response : String?  // 上次 POST 响应缓存
-  mut last_response_status : Int
-  mut sse_client : @http.Client?  // SSE 流式连接
+  base_url : String                // MCP server 的 HTTP 端点 URL
+  mut session_id : String?         // 会话 ID（从 server 响应头获取）
+  mut last_response : String?      // 上次 POST 的 JSON 响应缓存
+  mut last_response_status : Int   // 上次响应的 HTTP 状态码
+  mut last_event_id : String?      // 上次 SSE 事件的 ID（用于断线重连）
+  mut sse_pending_responses : Array[String]?  // POST SSE 响应中累积的事件
+  mut sse_pending_index : Int      // SSE 事件的 FIFO 读取索引
+  protocol_version : String        // MCP 协议版本（"2025-11-25"）
+  mut sse_client : @http.Client?   // SSE GET 流式连接
   mut sse_connected : Bool
   mut closed : Bool
 }
@@ -131,19 +135,38 @@ pub struct HttpClientTransport {
 
 ### 工作流程
 
-1. **首次 `send()`** 时自动建立 SSE 连接（lazy SSE establishment）
-2. `send()` 通过 `POST` 发送 JSON-RPC 请求，自动携带 `Mcp-Session-Id` 和 `Content-Type` 头
-3. `receive()` 优先返回上次 POST 的响应，否则从 SSE 流读取
-4. Server 响应头中的 `mcp-session-id` 会被自动提取并用于后续请求
+1. **`send()`** 通过 `@http.post_stream()` 发送 JSON-RPC 请求，携带以下头：
+   - `Content-Type: application/json`
+   - `Accept: application/json, text/event-stream`
+   - `MCP-Protocol-Version: 2025-11-25`
+   - `Mcp-Session-Id`（如果已获取）
+2. 响应处理：
+   - **HTTP 404** → 抛出 `InvalidState("session expired, re-initialize")`
+   - **`application/json`** → 缓存到 `last_response`
+   - **`text/event-stream`** → 解析 SSE 事件，累积到 `sse_pending_responses`，提取 `id:` 存入 `last_event_id`
+3. **`receive()`** 按 FIFO 顺序返回：SSE pending → last_response → SSE GET 通道
+4. Server 响应头中的 `mcp-session-id` 被自动提取并用于后续请求
+5. **`send_notification()`** 使用 `post_stream` 发送通知，读取并丢弃响应
 
 | 特性 | 说明 |
 |------|------|
-| `send()` | POST JSON-RPC 请求，自动管理 session 和 SSE |
-| `receive()` | 返回 POST 响应或 SSE 事件 |
-| `send_notification()` | POST 通知（无 id，fire-and-forget） |
+| `send()` | POST JSON-RPC 请求，支持 SSE 流式响应 |
+| `receive()` | FIFO 返回 SSE pending → POST response → SSE GET |
+| `send_notification()` | POST 通知（fire-and-forget） |
+| `close_session()` | 发送 HTTP DELETE 终止会话，然后 close() |
 | `supports_streaming()` | 返回 `true` |
-| 会话管理 | 自动从响应头获取 `Mcp-Session-Id` |
-| SSE | lazy 建立，自动解析 `data:` 行 |
+| 会话管理 | 自动获取 `Mcp-Session-Id`，支持 DELETE 终止 |
+| SSE | lazy 建立 GET 流，支持 `Last-Event-ID` 断线重连 |
+| 协议版本 | 所有请求携带 `MCP-Protocol-Version: 2025-11-25` |
+
+### 关闭会话
+
+```moonbit
+// 优雅关闭：发送 HTTP DELETE 通知 server 终止会话
+transport.close_session()  // 仅在 HttpClientTransport 上可用
+// 或
+client.close()  // 仅关闭 transport 连接，不发送 DELETE
+```
 
 ### 使用示例
 

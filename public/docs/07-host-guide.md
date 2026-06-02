@@ -192,7 +192,35 @@ fn MCPHost::close_all(self : MCPHost) -> Unit {
 }
 ```
 
-## 7.4 Transport 选择
+## 7.4 双向通信
+
+当 server 需要向 client 主动发起请求（如 sampling、roots、elicitation）时，可使用 client 的 `run(group)` 事件循环模式：
+
+```moonbit
+@async.with_task_group(fn(group) {
+  let client = MCPClient::new(name="host", version="1.0.0", transport~)
+    .on_roots(fn() {
+      Ok([{ uri: "file:///workspace", name: Some("workspace") }])
+    })
+    .on_notification({
+      ..NotificationHandlers::empty(),
+      on_tools_changed: Some(fn() { println("Tools changed!") }),
+    })
+
+  // 在 group 上 spawn 请求任务
+  group.spawn_bg(() => {
+    match client.list_tools() {
+      Ok(result) => // 处理结果
+      Err(e) => ...
+    }
+  })
+
+  // run() 自动初始化并进入事件循环
+  client.run(group)
+})
+```
+
+## 7.5 Transport 选择
 
 | 场景 | Transport | 说明 |
 |------|-----------|------|
@@ -235,7 +263,7 @@ Host
         └── GET /api (SSE notifications)
 ```
 
-## 7.5 完整 Host 示例
+## 7.6 完整 Host 示例
 
 ```moonbit
 async fn main {
@@ -285,7 +313,7 @@ async fn main {
 }
 ```
 
-## 7.6 设计原则
+## 7.7 设计原则
 
 | 原则 | 体现 |
 |------|------|

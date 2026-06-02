@@ -177,8 +177,9 @@ Server 的 `run()` 循环区分两类请求：
 | 特性 | 状态 | 说明 |
 |------|------|------|
 | Tasks | ❌ | 实验性异步任务（tasks/get, tasks/update, tasks/cancel） |
-| Elicitation | ❌ | Server-to-client 请求用户输入 |
+| Elicitation | ✅ Client | Client 端已实现（`on_elicitation` handler），Server 端未实现 |
 | Sampling with Tools | ❌ | Server 端 agentic sampling |
+| Server-side Completions | ❌ | Server 端 completion handler |
 | Extensions | ❌ | 扩展协商框架 |
 | OAuth/CIMD | ❌ | 认证相关 |
 
