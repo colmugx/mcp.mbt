@@ -84,6 +84,53 @@ let transport = HttpTransport::new(
 )
 ```
 
+### 服务器端认证
+
+通过 `AuthConfig` 配置 Bearer token 验证和 Protected Resource Metadata：
+
+```moonbit
+let transport = HttpTransport::new(port=4240)
+  .with_auth(AuthConfig::new(
+    verify_token=fn(token) {
+      // 验证 token 是否有效
+      token == "my-secret-token"
+    },
+    resource_metadata_url="http://localhost:4240/mcp",
+    authorization_servers=["https://auth.example.com"],
+    required_scopes="mcp:read",
+    allowed_origins=["http://localhost:3000"],
+  ))
+```
+
+或通过 Server builder API：
+
+```moonbit
+let server = mcp_server(name="my-server", version="1.0.0")
+  .with_auth(AuthConfig::new(
+    verify_token=fn(token) { validate(token) },
+    resource_metadata_url="http://localhost:4240/mcp",
+    authorization_servers=["https://auth.example.com"],
+  ))
+  .run_http(port=4240, group~)
+```
+
+#### AuthConfig 字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `verify_token` | `(String) -> Bool` | 验证 Bearer token，返回 true 表示有效 |
+| `resource_metadata_url` | `String` | 资源 URL，用于 WWW-Authenticate 头和元数据 |
+| `authorization_servers` | `Array[String]` | 授权服务器 URL 列表（RFC 9728） |
+| `required_scopes` | `String?` | 所需权限范围（如 `"mcp:read mcp:write"`） |
+| `allowed_origins` | `Array[String]?` | 允许的 Origin（DNS rebinding 防护） |
+
+#### 认证行为
+
+- 每个请求到达时，提取 `Authorization` 头验证 token
+- 无 token 或无效 token → 返回 `401 Unauthorized` + `WWW-Authenticate` 头
+- `allowed_origins` 配置时，验证 `Origin` 头防止 DNS rebinding 攻击
+- 自动提供 `/.well-known/oauth-protected-resource` 端点（RFC 9728）
+
 | 特性 | 说明 |
 |------|------|
 | `POST /mcp` | 接收 JSON-RPC 请求 |
@@ -114,6 +161,22 @@ HTTP client 端 transport，用于连接到远程 MCP server。实现 Streamable
 ```moonbit
 let transport = HttpClientTransport::new("http://localhost:4240/mcp")
 ```
+
+### 客户端认证
+
+在构造时传入 `auth_token` 参数，自动在所有请求中携带 `Authorization: Bearer <token>` 头：
+
+```moonbit
+let transport = HttpClientTransport::new(
+  "http://localhost:4240/mcp",
+  auth_token="my-secret-token",
+)
+```
+
+认证行为：
+- `Authorization: Bearer <token>` 自动注入到所有 HTTP 请求（POST、GET SSE、DELETE）
+- HTTP 401 响应 → 抛出 `TransportError::Unauthorized`（包含 `WWW-Authenticate` 信息）
+- HTTP 403 响应 → 抛出 `TransportError::Forbidden`
 
 ### 结构体
 

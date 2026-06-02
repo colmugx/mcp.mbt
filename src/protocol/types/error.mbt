@@ -12,6 +12,10 @@ pub(all) suberror TransportError {
   Timeout
   /// Invalid transport state (e.g., trying to send after close)
   InvalidState(String)
+  /// HTTP 401 Unauthorized — includes WWW-Authenticate header info
+  Unauthorized(String)
+  /// HTTP 403 Forbidden — insufficient scope or permissions
+  Forbidden(String)
 } derive(Show, Eq)
 
 ///|

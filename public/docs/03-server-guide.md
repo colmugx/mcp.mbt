@@ -153,7 +153,14 @@ let server = mcp_server(name="my-server", version="1.0.0")
   .with_tool(MyTool{})
   .with_resource(MyResource{})
   .with_prompt(MyPrompt{})
+  .with_auth(AuthConfig::new(
+    verify_token=fn(token) { validate(token) },
+    resource_metadata_url="http://localhost:4240/mcp",
+    authorization_servers=["https://auth.example.com"],
+  ))
 ```
+
+`with_auth()` 为 HTTP 模式配置 Bearer token 认证。详见 [Transport 参考手册](04-transport-reference.md#服务器端认证)。
 
 ## 3.3 ToolResult 构造
 

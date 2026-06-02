@@ -1,4 +1,46 @@
 ///|
+/// Server-side authentication configuration (MCP spec 2025-11-25).
+/// Provides Bearer token validation, Protected Resource Metadata,
+/// and Origin header validation for DNS rebinding prevention.
+pub struct AuthConfig {
+  /// Validate a Bearer token. Return true if the token is valid.
+  verify_token : (String) -> Bool
+  /// URL of this resource for WWW-Authenticate and metadata responses.
+  resource_metadata_url : String
+  /// Authorization server URLs for Protected Resource Metadata (RFC 9728).
+  authorization_servers : Array[String]
+  /// Required scopes (e.g. "mcp:read mcp:write"). None = no scope check.
+  required_scopes : String?
+  /// Allowed Origins for DNS rebinding prevention. None = allow all.
+  allowed_origins : Array[String]?
+}
+
+///|
+pub fn AuthConfig::new(
+  verify_token~ : (String) -> Bool,
+  resource_metadata_url~ : String,
+  authorization_servers? : Array[String] = [],
+  required_scopes? : String = "",
+  allowed_origins? : Array[String] = [],
+) -> AuthConfig {
+  {
+    verify_token,
+    resource_metadata_url,
+    authorization_servers,
+    required_scopes: if required_scopes == "" {
+      None
+    } else {
+      Some(required_scopes)
+    },
+    allowed_origins: if allowed_origins.is_empty() {
+      None
+    } else {
+      Some(allowed_origins)
+    },
+  }
+}
+
+///|
 struct HttpPendingRequest {
   message : String
   reply_queue : @async.Queue[HttpResponse]
@@ -14,6 +56,7 @@ struct HttpResponse {
 pub struct HttpTransport {
   port : Int
   endpoint_path : String
+  auth : AuthConfig?
   pending_requests : @async.Queue[HttpPendingRequest]
   mut current_reply_queue : @async.Queue[HttpResponse]?
   mut session_id : String?
@@ -29,12 +72,21 @@ pub fn HttpTransport::new(
   {
     port,
     endpoint_path,
+    auth: None,
     pending_requests: @async.Queue::new(kind=Unbounded),
     current_reply_queue: None,
     session_id: None,
     sse_active: false,
     event_queue: @async.Queue::new(kind=Unbounded),
   }
+}
+
+///|
+pub fn HttpTransport::with_auth(
+  self : HttpTransport,
+  auth : AuthConfig,
+) -> HttpTransport {
+  { ..self, auth: Some(auth) }
 }
 
 ///|
@@ -54,10 +106,93 @@ pub async fn HttpTransport::start(
     _ => ()
   }
   server.run_forever(async fn(req, body, conn) {
+    // Protected Resource Metadata endpoint (RFC 9728)
+    if req.path == "/.well-known/oauth-protected-resource" {
+      match self.auth {
+        Some(auth) => {
+          let resource = "http://127.0.0.1:" +
+            self.port.to_string() +
+            self.endpoint_path
+          let servers_json = auth.authorization_servers
+            .map(fn(s) { "\"" + s + "\"" })
+            .join(", ")
+          let metadata = "{\"resource\":\"" +
+            resource +
+            "\",\"authorization_servers\":[" +
+            servers_json +
+            "]}"
+          conn.send_response(200, "OK", extra_headers={
+            "Content-Type": "application/json",
+            "Cache-Control": "max-age=3600",
+          })
+          conn.write(metadata)
+          conn.end_response()
+          return
+        }
+        None => {
+          conn.send_response(404, "Not Found")
+          conn.end_response()
+          return
+        }
+      }
+    }
     if req.path != self.endpoint_path {
       conn.send_response(404, "Not Found")
       conn.end_response()
       return
+    }
+    // Auth validation (when configured)
+    match self.auth {
+      Some(auth) => {
+        // Origin validation for DNS rebinding prevention
+        match auth.allowed_origins {
+          Some(origins) =>
+            match req.headers.get("origin") {
+              Some(origin) =>
+                if !origins.exists(fn(o) { o == origin }) {
+                  conn.send_response(403, "Forbidden", extra_headers={
+                    "Content-Type": "application/json",
+                  })
+                  conn.write("{\"error\":\"invalid_origin\"}")
+                  conn.end_response()
+                  return
+                }
+              None => ()
+            }
+          None => ()
+        }
+        // Token validation
+        let auth_header = match req.headers.get("authorization") {
+          Some(h) => h
+          None => ""
+        }
+        if !auth_header.has_prefix("Bearer ") {
+          let www_auth = "Bearer resource_metadata=\"" +
+            auth.resource_metadata_url +
+            "\""
+          let www_auth_full = match auth.required_scopes {
+            Some(scopes) => www_auth + ", scope=\"" + scopes + "\""
+            None => www_auth
+          }
+          conn.send_response(401, "Unauthorized", extra_headers={
+            "WWW-Authenticate": www_auth_full,
+          })
+          conn.end_response()
+          return
+        }
+        let token = auth_header[7:].trim().to_owned()
+        if !(auth.verify_token)(token) {
+          let www_auth = "Bearer resource_metadata=\"" +
+            auth.resource_metadata_url +
+            "\", error=\"invalid_token\""
+          conn.send_response(401, "Unauthorized", extra_headers={
+            "WWW-Authenticate": www_auth,
+          })
+          conn.end_response()
+          return
+        }
+      }
+      None => ()
     }
     let _ = @stdio.stderr.write("[HttpTransport] Request to " + req.path + "\n") catch {
       _ => ()

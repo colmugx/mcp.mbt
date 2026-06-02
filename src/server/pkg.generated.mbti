@@ -36,6 +36,7 @@ pub struct MCPServer {
   description : String?
   instructions : String?
   mut log_level : String?
+  auth_config : @transport.AuthConfig?
   registry : ToolRegistry
   resource_registry : ResourceRegistry
   prompt_registry : PromptRegistry
@@ -54,6 +55,7 @@ pub fn[T : @tool.Tool] MCPServer::register_trait_tool(Self, T) -> Unit
 pub async fn MCPServer::run(Self, @transport.AnyTransport, @async.TaskGroup[Unit]) -> Unit raise @types.TransportError
 pub async fn MCPServer::run_http(Self, port? : Int, path? : String, group~ : @async.TaskGroup[Unit]) -> Unit raise @types.TransportError
 pub async fn MCPServer::run_stdio(Self) -> Unit raise @types.TransportError
+pub fn MCPServer::with_auth(Self, @transport.AuthConfig) -> Self
 pub fn MCPServer::with_description(Self, String) -> Self
 pub fn MCPServer::with_instructions(Self, String) -> Self
 pub fn[T : @prompt.Prompt] MCPServer::with_prompt(Self, T) -> Self

@@ -181,7 +181,8 @@ Server 的 `run()` 循环区分两类请求：
 | Sampling with Tools | ❌ | Server 端 agentic sampling |
 | Server-side Completions | ❌ | Server 端 completion handler |
 | Extensions | ❌ | 扩展协商框架 |
-| OAuth/CIMD | ❌ | 认证相关 |
+| OAuth/CIMD | ✅ Transport | Bearer token 验证 + Protected Resource Metadata（RFC 9728） |
+| OAuth 2.1 Flow | ❌ | 授权码 + PKCE + Token Refresh（应用层逻辑） |
 
 ## 6.6 性能特性
 

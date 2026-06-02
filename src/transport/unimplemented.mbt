@@ -1,6 +1,26 @@
 ///| wasm-gc stub — transport I/O not available on this target
 
 ///|
+pub struct AuthConfig {
+  verify_token : (String) -> Bool
+  resource_metadata_url : String
+  authorization_servers : Array[String]
+  required_scopes : String?
+  allowed_origins : Array[String]?
+}
+
+///|
+pub fn AuthConfig::new(
+  verify_token~ : (String) -> Bool,
+  resource_metadata_url~ : String,
+  authorization_servers? : Array[String] = [],
+  required_scopes? : String = "",
+  allowed_origins? : Array[String] = [],
+) -> AuthConfig {
+  abort("AuthConfig is not available on wasm-gc target")
+}
+
+///|
 pub struct StdioTransport {
   closed : Bool
 }
@@ -56,6 +76,7 @@ pub fn StdioTransport::close(self : StdioTransport) -> Unit {
 pub struct HttpTransport {
   port : Int
   endpoint_path : String
+  auth : AuthConfig?
 }
 
 ///|
@@ -186,6 +207,7 @@ pub fn StdioClientTransport::close(self : StdioClientTransport) -> Unit {
 ///|
 pub struct HttpClientTransport {
   base_url : String
+  auth_token : String?
   closed : Bool
 }
 

@@ -33,6 +33,8 @@ pub(all) suberror TransportError {
   WriteError(String)
   Timeout
   InvalidState(String)
+  Unauthorized(String)
+  Forbidden(String)
 } derive(Eq, Show)
 
 // Types and methods

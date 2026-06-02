@@ -119,6 +119,7 @@ MCP 2025-11-25 compliance status:
 - [x] SchemaBuilder fluent API
 
 ### Production
+- [x] Authentication (Bearer token, AuthConfig, Protected Resource Metadata)
 - [x] Concurrent request handling (@async.TaskGroup)
 - [x] Error handling (MCPError hierarchy with JSON-RPC error codes)
 - [x] Schema caching (stringified once at registration)
@@ -127,7 +128,7 @@ MCP 2025-11-25 compliance status:
 
 ### Not Yet Implemented
 - [ ] Tasks (experimental)
-- [ ] OAuth/CIMD authentication
+- [ ] OAuth 2.1 flow (authorization code + PKCE + token refresh)
 - [ ] WebSocket transport
 - [ ] Server-side completions handler
 

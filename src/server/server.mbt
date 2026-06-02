@@ -10,6 +10,7 @@ pub struct MCPServer {
   description : String?
   instructions : String?
   mut log_level : String?
+  auth_config : @transport.AuthConfig?
   registry : ToolRegistry
   resource_registry : ResourceRegistry
   prompt_registry : PromptRegistry
@@ -24,6 +25,7 @@ pub fn MCPServer::new(name : String, version : String) -> MCPServer {
     description: None,
     instructions: None,
     log_level: None,
+    auth_config: None,
     registry: ToolRegistry::new(),
     resource_registry: ResourceRegistry::new(),
     prompt_registry: PromptRegistry::new(),
@@ -291,6 +293,14 @@ pub fn MCPServer::with_instructions(
 }
 
 ///|
+pub fn MCPServer::with_auth(
+  self : MCPServer,
+  auth : @transport.AuthConfig,
+) -> MCPServer {
+  { ..self, auth_config: Some(auth) }
+}
+
+///|
 pub async fn MCPServer::run_stdio(
   self : MCPServer,
 ) -> Unit raise @types.TransportError {
@@ -310,6 +320,10 @@ pub async fn MCPServer::run_http(
   group~ : @async.TaskGroup[Unit],
 ) -> Unit raise @types.TransportError {
   let http = @transport.HttpTransport::new(port~, endpoint_path=path)
+  let http = match self.auth_config {
+    Some(auth) => http.with_auth(auth)
+    None => http
+  }
   group.spawn_bg(async fn() { http.start() })
   let transport = @transport.AnyTransport::Http(http)
   self.run(transport, group)

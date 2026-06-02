@@ -30,8 +30,18 @@ pub fn AnyTransport::send_event(Self, event_type~ : String, data~ : String) -> U
 pub async fn AnyTransport::send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
 pub fn AnyTransport::supports_streaming(Self) -> Bool
 
+pub struct AuthConfig {
+  verify_token : (String) -> Bool
+  resource_metadata_url : String
+  authorization_servers : Array[String]
+  required_scopes : String?
+  allowed_origins : Array[String]?
+}
+pub fn AuthConfig::new(verify_token~ : (String) -> Bool, resource_metadata_url~ : String, authorization_servers? : Array[String], required_scopes? : String, allowed_origins? : Array[String]) -> Self
+
 pub struct HttpClientTransport {
   base_url : String
+  auth_token : String?
   mut session_id : String?
   mut last_response : String?
   mut last_response_status : Int
@@ -45,7 +55,7 @@ pub struct HttpClientTransport {
 }
 pub fn HttpClientTransport::close(Self) -> Unit
 pub async fn HttpClientTransport::close_session(Self) -> Unit
-pub fn HttpClientTransport::new(String) -> Self
+pub fn HttpClientTransport::new(String, auth_token? : String) -> Self
 pub async fn HttpClientTransport::receive(Self) -> String? raise @types.TransportError
 pub async fn HttpClientTransport::send(Self, String) -> Unit raise @types.TransportError
 pub fn HttpClientTransport::send_event(Self, event_type~ : String, data~ : String) -> Unit
@@ -59,6 +69,7 @@ type HttpResponse
 pub struct HttpTransport {
   port : Int
   endpoint_path : String
+  auth : AuthConfig?
   pending_requests : @aqueue.Queue[HttpPendingRequest]
   mut current_reply_queue : @aqueue.Queue[HttpResponse]?
   mut session_id : String?
@@ -73,6 +84,7 @@ pub fn HttpTransport::send_event(Self, event_type~ : String, data~ : String) -> 
 pub async fn HttpTransport::send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
 pub async fn HttpTransport::start(Self) -> Unit raise @types.TransportError
 pub fn HttpTransport::supports_streaming(Self) -> Bool
+pub fn HttpTransport::with_auth(Self, AuthConfig) -> Self
 
 pub struct StdioClientTransport {
   cmd : String

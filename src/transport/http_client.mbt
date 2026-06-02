@@ -4,6 +4,7 @@
 /// request-response, optional GET SSE for server→client notifications.
 pub struct HttpClientTransport {
   base_url : String
+  auth_token : String?
   mut session_id : String?
   mut last_response : String?
   mut last_response_status : Int
@@ -17,9 +18,17 @@ pub struct HttpClientTransport {
 }
 
 ///|
-pub fn HttpClientTransport::new(base_url : String) -> HttpClientTransport {
+pub fn HttpClientTransport::new(
+  base_url : String,
+  auth_token? : String = "",
+) -> HttpClientTransport {
   {
     base_url,
+    auth_token: if auth_token == "" {
+      None
+    } else {
+      Some(auth_token)
+    },
     session_id: None,
     last_response: None,
     last_response_status: 0,
@@ -49,6 +58,10 @@ async fn HttpClientTransport::establish_sse(
   }
   match self.last_event_id {
     Some(id) => headers["Last-Event-ID"] = id
+    None => ()
+  }
+  match self.auth_token {
+    Some(t) => headers["Authorization"] = "Bearer " + t
     None => ()
   }
   let (response, client) = @http.get_stream(self.base_url, headers~) catch {
@@ -128,6 +141,10 @@ pub async fn HttpClientTransport::send(
     Some(id) => headers["Mcp-Session-Id"] = id
     None => ()
   }
+  match self.auth_token {
+    Some(t) => headers["Authorization"] = "Bearer " + t
+    None => ()
+  }
   // Use post_stream for spec-compliant response handling
   let client = @http.post_stream(self.base_url, headers~) catch {
     e => raise @types.WriteError("HTTP POST failed: \{e}")
@@ -164,6 +181,24 @@ pub async fn HttpClientTransport::send(
     raise @types.InvalidState(
       "Server returned 404 — session expired, re-initialize",
     )
+  }
+  // Handle HTTP 401 → Unauthorized
+  if response.code == 401 {
+    let www_auth = match response.headers.get("www-authenticate") {
+      Some(v) => v
+      None => ""
+    }
+    client.close()
+    let msg = match www_auth {
+      "" => "HTTP 401 Unauthorized"
+      _ => "HTTP 401 Unauthorized — WWW-Authenticate: " + www_auth
+    }
+    raise @types.Unauthorized(msg)
+  }
+  // Handle HTTP 403 → Forbidden
+  if response.code == 403 {
+    client.close()
+    raise @types.Forbidden("HTTP 403 Forbidden — insufficient permissions")
   }
   // Determine response mode from Content-Type
   let content_type = match response.headers.get("content-type") {
@@ -282,6 +317,10 @@ pub async fn HttpClientTransport::send_notification(
     Some(id) => headers["Mcp-Session-Id"] = id
     None => ()
   }
+  match self.auth_token {
+    Some(t) => headers["Authorization"] = "Bearer " + t
+    None => ()
+  }
   // Use post_stream — server may respond with SSE even for notifications
   let client = @http.post_stream(self.base_url, headers~) catch {
     e => raise @types.WriteError("Failed to send notification: \{e}")
@@ -332,6 +371,10 @@ pub async fn HttpClientTransport::close_session(
       headers["MCP-Protocol-Version"] = self.protocol_version
       match self.session_id {
         Some(id) => headers["Mcp-Session-Id"] = id
+        None => ()
+      }
+      match self.auth_token {
+        Some(t) => headers["Authorization"] = "Bearer " + t
         None => ()
       }
       // Best-effort DELETE — wrap entire operation in try

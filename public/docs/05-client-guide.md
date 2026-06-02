@@ -22,6 +22,21 @@ let client = MCPClient::new(
 
 Transport 在构造时绑定，之后不可更改。可通过 `capabilities?` 参数自定义客户端能力（默认启用 roots、sampling、elicitation）。
 
+### 带认证的 Client
+
+连接需要认证的 server 时，在 transport 构造时传入 `auth_token`：
+
+```moonbit
+let transport = @transport.AnyTransport::HttpClient(
+  @transport.HttpClientTransport::new(
+    "http://localhost:4240/mcp",
+    auth_token="my-bearer-token",
+  ),
+)
+```
+
+SDK 自动在所有请求中注入 `Authorization: Bearer <token>` 头。若 server 返回 401，抛出 `TransportError::Unauthorized`。
+
 ## 5.2 Client 结构体
 
 ```moonbit
