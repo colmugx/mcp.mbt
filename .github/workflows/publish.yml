@@ -20,14 +20,14 @@ jobs:
       - name: get current version
         id: current
         run: |
-          VERSION=$(jq -r '.version' moon.mod.json)
+          VERSION=$(grep '^version' moon.mod | head -1 | sed 's/version *= *"\(.*\)"/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Current version: $VERSION"
 
       - name: get previous version
         id: previous
         run: |
-          PREV_VERSION=$(git show HEAD~1:moon.mod.json | jq -r '.version')
+          PREV_VERSION=$(git show HEAD~1:moon.mod | grep '^version' | head -1 | sed 's/version *= *"\(.*\)"/\1/')
           echo "version=$PREV_VERSION" >> $GITHUB_OUTPUT
           echo "Previous version: $PREV_VERSION"
 
