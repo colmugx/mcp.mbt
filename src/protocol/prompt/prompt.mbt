@@ -17,7 +17,7 @@ pub(all) struct PromptDefinition {
   name : String
   description : String?
   arguments : Array[@types.PromptArgument]?
-} derive(Eq, Show)
+} derive(Eq, Debug)
 
 ///|=====================================================
 

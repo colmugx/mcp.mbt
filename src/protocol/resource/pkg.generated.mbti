@@ -3,6 +3,7 @@ package "colmugx/mcp/protocol/resource"
 
 import {
   "colmugx/mcp/protocol/types",
+  "moonbitlang/core/debug",
 }
 
 // Values
@@ -13,19 +14,19 @@ import {
 pub(all) enum ResourceContent {
   Text(String)
   Blob(String, mime_type~ : String)
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ResourceDefinition {
   uri : String
   name : String
   description : String?
   mime_type : String?
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ResourceReadResult {
   uri : String
   content : ResourceContent
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 

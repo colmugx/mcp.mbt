@@ -3,6 +3,7 @@ package "colmugx/mcp/protocol/core"
 
 import {
   "colmugx/mcp/protocol/tool",
+  "moonbitlang/core/debug",
 }
 
 // Values
@@ -53,7 +54,7 @@ pub struct JsonSchema {
   required : Array[String]?
   items : JsonSchema?
   default : Json?
-} derive(Show)
+} derive(@debug.Debug)
 pub fn JsonSchema::to_json(Self) -> Json
 
 pub(all) enum ParamKind {

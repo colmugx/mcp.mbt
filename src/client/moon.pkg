@@ -8,3 +8,7 @@ import {
   "moonbitlang/async",
   "moonbitlang/async/aqueue",
 }
+
+import {
+  "moonbitlang/core/debug",
+} for "test"

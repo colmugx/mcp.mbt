@@ -8,6 +8,7 @@ import {
   "colmugx/mcp/transport",
   "moonbitlang/async",
   "moonbitlang/async/aqueue",
+  "moonbitlang/core/debug",
 }
 
 // Values
@@ -47,33 +48,33 @@ pub fn handle_server_notification(NotificationHandlers, @types.Notification) -> 
 pub(all) struct CallToolResult {
   content : Array[@types.ContentItem]
   is_error : Bool
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct CompletionResult {
   values : Array[String]
   total : Int?
   has_more : Bool?
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ListPromptsResult {
   prompts : Array[@prompt.PromptDefinition]
   next_cursor : String?
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ListResourceTemplatesResult {
   resource_templates : Array[ResourceTemplate]
   next_cursor : String?
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ListResourcesResult {
   resources : Array[@resource.ResourceDefinition]
   next_cursor : String?
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ListToolsResult {
   tools : Array[@types.ToolDefinition]
   next_cursor : String?
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub struct MCPClient {
   client_name : String
@@ -124,7 +125,7 @@ pub fn NotificationHandlers::empty() -> Self
 
 pub(all) struct ReadResourceResult {
   contents : Array[@resource.ResourceReadResult]
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct RequestIdCounter {
   mut next_id : Int
@@ -137,7 +138,7 @@ pub(all) struct ResourceTemplate {
   name : String
   description : String?
   mime_type : String?
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 

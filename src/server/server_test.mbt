@@ -6,14 +6,14 @@
 /// MCPServer Tests
 test "MCPServer::new creates server with name and version" {
   let server = MCPServer::new("test-server", "1.0.0")
-  assert_eq(server.name, "test-server")
-  assert_eq(server.version, "1.0.0")
+  @debug.assert_eq(server.name, "test-server")
+  @debug.assert_eq(server.version, "1.0.0")
 }
 
 ///|
 test "MCPServer::new creates empty registry" {
   let server = MCPServer::new("test-server", "1.0.0")
-  assert_eq(server.registry.list_tools().length(), 0)
+  @debug.assert_eq(server.registry.list_tools().length(), 0)
 }
 
 ///|
@@ -25,8 +25,8 @@ test "MCPServer register_tool adds to registry" {
     Json::object({ "type": Json::string("object") }),
     fn(_args) { Ok(@tool.ToolResult::text("test")) },
   )
-  assert_eq(server.registry.list_tools().length(), 1)
-  assert_eq(server.registry.list_tools()[0].name, "test_tool")
+  @debug.assert_eq(server.registry.list_tools().length(), 1)
+  @debug.assert_eq(server.registry.list_tools()[0].name, "test_tool")
 }
 
 ///|
@@ -38,9 +38,9 @@ test "MCPServer register_tool preserves order" {
   server.register_tool("tool2", "Second tool", Json::object({}), fn(_args) {
     Ok(@tool.ToolResult::text("test2"))
   })
-  assert_eq(server.registry.list_tools().length(), 2)
-  assert_eq(server.registry.list_tools()[0].name, "tool1")
-  assert_eq(server.registry.list_tools()[1].name, "tool2")
+  @debug.assert_eq(server.registry.list_tools().length(), 2)
+  @debug.assert_eq(server.registry.list_tools()[0].name, "tool1")
+  @debug.assert_eq(server.registry.list_tools()[1].name, "tool2")
 }
 
 ///|
@@ -59,9 +59,9 @@ test "MCPServer tool metadata is stored correctly" {
     Ok(@tool.ToolResult::text("test"))
   })
   let tool_entry = server.registry.list_tools()[0]
-  assert_eq(tool_entry.name, "test")
-  assert_eq(tool_entry.description, "Test tool description")
-  assert_eq(tool_entry.input_schema, schema)
+  @debug.assert_eq(tool_entry.name, "test")
+  @debug.assert_eq(tool_entry.description, "Test tool description")
+  @debug.assert_eq(tool_entry.input_schema, schema)
 }
 
 ///| =====================================================
@@ -72,7 +72,7 @@ test "MCPServer tool metadata is stored correctly" {
 /// =====================================================
 test "ToolRegistry::new creates empty registry" {
   let registry = ToolRegistry::new()
-  assert_eq(registry.list_tools().length(), 0)
+  @debug.assert_eq(registry.list_tools().length(), 0)
 }
 
 ///|
@@ -84,9 +84,12 @@ test "ToolRegistry::register adds tool entry" {
     Json::object({ "type": Json::string("object") }),
     fn(_args) { Ok(@tool.ToolResult::text("test")) },
   )
-  assert_eq(registry.list_tools().length(), 1)
-  assert_eq(registry.list_tools()[0].name, "test_tool")
-  assert_eq(registry.list_tools()[0].description, "Test tool description")
+  @debug.assert_eq(registry.list_tools().length(), 1)
+  @debug.assert_eq(registry.list_tools()[0].name, "test_tool")
+  @debug.assert_eq(
+    registry.list_tools()[0].description,
+    "Test tool description",
+  )
 }
 
 ///|
@@ -99,11 +102,11 @@ test "ToolRegistry::list_tools returns tool definitions" {
     Ok(@tool.ToolResult::text("test"))
   })
   let tools = registry.list_tools()
-  assert_eq(tools.length(), 2)
-  assert_eq(tools[0].name, "tool1")
-  assert_eq(tools[0].description, "Description 1")
-  assert_eq(tools[1].name, "tool2")
-  assert_eq(tools[1].description, "Description 2")
+  @debug.assert_eq(tools.length(), 2)
+  @debug.assert_eq(tools[0].name, "tool1")
+  @debug.assert_eq(tools[0].description, "Description 1")
+  @debug.assert_eq(tools[1].name, "tool2")
+  @debug.assert_eq(tools[1].description, "Description 2")
 }
 
 ///|
@@ -118,7 +121,7 @@ test "ToolRegistry preserves input schemas" {
   registry.register("test", "Test tool", schema, fn(_args) {
     Ok(@tool.ToolResult::text("test"))
   })
-  assert_eq(registry.list_tools()[0].input_schema, schema)
+  @debug.assert_eq(registry.list_tools()[0].input_schema, schema)
 }
 
 ///|
@@ -132,11 +135,11 @@ test "ToolRegistry::list_tools includes all metadata" {
     Ok(@tool.ToolResult::text("result"))
   })
   let tools = registry.list_tools()
-  assert_eq(tools.length(), 1)
+  @debug.assert_eq(tools.length(), 1)
   let tool = tools[0]
-  assert_eq(tool.name, "my_tool")
-  assert_eq(tool.description, "My tool description")
-  assert_eq(tool.input_schema, schema)
+  @debug.assert_eq(tool.name, "my_tool")
+  @debug.assert_eq(tool.description, "My tool description")
+  @debug.assert_eq(tool.input_schema, schema)
 }
 
 ///| =====================================================
@@ -166,23 +169,23 @@ test "example: register multiple tools and verify" {
   })
 
   // Verify server metadata
-  assert_eq(server.name, "multi-tool-server")
-  assert_eq(server.version, "1.0.0")
+  @debug.assert_eq(server.name, "multi-tool-server")
+  @debug.assert_eq(server.version, "1.0.0")
 
   // Verify all tools are registered
-  assert_eq(server.registry.list_tools().length(), 3)
+  @debug.assert_eq(server.registry.list_tools().length(), 3)
 
   // Verify tool order is preserved
-  assert_eq(server.registry.list_tools()[0].name, "tool_a")
-  assert_eq(server.registry.list_tools()[1].name, "tool_b")
-  assert_eq(server.registry.list_tools()[2].name, "tool_c")
+  @debug.assert_eq(server.registry.list_tools()[0].name, "tool_a")
+  @debug.assert_eq(server.registry.list_tools()[1].name, "tool_b")
+  @debug.assert_eq(server.registry.list_tools()[2].name, "tool_c")
 
   // Verify list_tools returns correct metadata
   let tools = server.registry.list_tools()
-  assert_eq(tools.length(), 3)
-  assert_eq(tools[0].name, "tool_a")
-  assert_eq(tools[1].name, "tool_b")
-  assert_eq(tools[2].name, "tool_c")
+  @debug.assert_eq(tools.length(), 3)
+  @debug.assert_eq(tools[0].name, "tool_a")
+  @debug.assert_eq(tools[1].name, "tool_b")
+  @debug.assert_eq(tools[2].name, "tool_c")
 }
 
 ///|
@@ -215,8 +218,8 @@ test "example: server with complex schemas" {
 
   // Verify schema is preserved
   let tool = server.registry.list_tools()[0]
-  assert_eq(tool.name, "search")
-  assert_eq(tool.description, "Search with complex parameters")
+  @debug.assert_eq(tool.name, "search")
+  @debug.assert_eq(tool.description, "Search with complex parameters")
 
   // Verify schema structure
   match tool.input_schema {
@@ -258,7 +261,10 @@ test "MCPServer::with_auth sets auth_config" {
   )
   match authed.auth_config {
     Some(config) =>
-      assert_eq(config.resource_metadata_url, "http://localhost:4240/mcp")
+      @debug.assert_eq(
+        config.resource_metadata_url,
+        "http://localhost:4240/mcp",
+      )
     None => panic()
   }
 }
@@ -274,10 +280,10 @@ test "MCPServer::with_auth preserves other fields" {
         resource_metadata_url="http://localhost:4240/mcp",
       ),
     )
-  assert_eq(server.name, "test")
-  assert_eq(server.version, "1.0.0")
-  assert_eq(server.title, Some("My Server"))
-  assert_eq(server.description, Some("A test server"))
+  @debug.assert_eq(server.name, "test")
+  @debug.assert_eq(server.version, "1.0.0")
+  @debug.assert_eq(server.title, Some("My Server"))
+  @debug.assert_eq(server.description, Some("A test server"))
   match server.auth_config {
     Some(_) => ()
     None => panic()

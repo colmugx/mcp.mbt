@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "colmugx/mcp/protocol/types"
 
+import {
+  "moonbitlang/core/debug",
+}
+
 // Values
 pub fn cancelled_notification(String, reason? : String) -> Notification
 
@@ -23,7 +27,7 @@ pub(all) suberror MCPError {
   InternalError(String)
   TransportError(TransportError)
   ToolError(String)
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 pub fn MCPError::message(Self) -> String
 pub fn MCPError::to_error_code(Self) -> Int
 
@@ -35,32 +39,33 @@ pub(all) suberror TransportError {
   InvalidState(String)
   Unauthorized(String)
   Forbidden(String)
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
+pub impl Show for TransportError
 
 // Types and methods
 pub(all) struct CancelledNotification {
   request_id : RequestId
   reason : String?
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ClientCapabilities {
   roots : RootCapabilities?
   sampling : SamplingCapabilities?
   elicitation : ElicitationCapabilities?
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ClientInfo {
   name : String
   title : String?
   version : String
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) enum ContentItem {
   Text(String)
   Image(String, mime_type~ : String)
   ResourceLink(String)
   EmbeddedResource(EmbeddedResourceContent)
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct CreateMessageRequest {
   messages : Array[SamplingMessage]
@@ -70,63 +75,63 @@ pub(all) struct CreateMessageRequest {
   temperature : Double?
   stop_sequences : Array[String]?
   metadata : Json?
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct CreateMessageResult {
   role : String
   model : String
   content : ContentItem
   stop_reason : String?
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ElicitationCapabilities {
   form : Bool
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ElicitationRequest {
   message : String
   requested_schema : Json
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ElicitationResult {
   action : String
   content : Json?
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) enum EmbeddedResourceContent {
   Text(String, uri~ : String, mime_type~ : String?)
   Blob(String, uri~ : String, mime_type~ : String)
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct GetPromptResult {
   description : String?
   messages : Array[PromptMessage]
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct JsonRpcError {
   code : Int
   message : String
   data : Json?
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct JsonRpcRequest {
   jsonrpc : String
   id : RequestId
   method_name : String
   params : Json
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 pub fn JsonRpcRequest::from_json(Json) -> Result[Self, MCPError]
 
 pub(all) struct JsonRpcResponse {
   jsonrpc : String
   id : RequestId
   result : Result[Json, JsonRpcError]
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct Notification {
   method_name : String
   params : Json?
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 pub fn Notification::to_jsonrpc_string(Self) -> String
 
 pub(all) struct NotificationCapabilities {
@@ -134,84 +139,84 @@ pub(all) struct NotificationCapabilities {
   resources_list_changed : Bool
   resources_updated : Bool
   prompts_list_changed : Bool
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ProgressNotification {
   progress_token : String
   progress : Double
   total : Double?
   message : String?
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct Prompt {
   name : String
   description : String?
   arguments : Array[PromptArgument]?
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct PromptArgument {
   name : String
   description : String?
   required : Bool?
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct PromptCapabilities {
   list_changed : Bool
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct PromptMessage {
   role : String
   content : ContentItem
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) enum RequestId {
   Int(Int)
   Str(String)
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 pub fn RequestId::to_json_string(Self) -> String
 
 pub(all) struct ResourceCapabilities {
   subscribe : Bool
   list_changed : Bool
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ResourceUpdatedNotification {
   uri : String
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct Root {
   uri : String
   name : String?
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct RootCapabilities {
   list_changed : Bool
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct SamplingCapabilities {
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct SamplingMessage {
   role : String
   content : ContentItem
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ServerCapabilities {
   tools : ToolCapabilities?
   resources : ResourceCapabilities?
   prompts : PromptCapabilities?
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ServerInfo {
   name : String
   title : String?
   version : String
   description : String?
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ToolCapabilities {
   list_changed : Bool
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ToolDefinition {
   name : String
@@ -219,7 +224,7 @@ pub(all) struct ToolDefinition {
   input_schema : Json
   cached_schema_json : String
   icon : String?
-} derive(Eq, Show)
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 

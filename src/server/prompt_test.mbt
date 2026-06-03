@@ -5,7 +5,7 @@
 ///|
 test "PromptRegistry::new creates empty registry" {
   let registry = PromptRegistry::new()
-  assert_eq(registry.list_prompts().length(), 0)
+  @debug.assert_eq(registry.list_prompts().length(), 0)
 }
 
 ///|
@@ -14,8 +14,8 @@ test "PromptRegistry::register adds prompt entry" {
   registry.register("test_prompt", "Test prompt description", [], fn(_args) {
     Ok({ description: Some("Test"), messages: [] })
   })
-  assert_eq(registry.list_prompts().length(), 1)
-  assert_eq(registry.list_prompts()[0].name, "test_prompt")
+  @debug.assert_eq(registry.list_prompts().length(), 1)
+  @debug.assert_eq(registry.list_prompts()[0].name, "test_prompt")
 }
 
 ///|
@@ -28,7 +28,7 @@ test "PromptRegistry::list_prompts returns prompt definitions" {
     Ok({ description: Some("Test2"), messages: [] })
   })
   let prompts = registry.list_prompts()
-  assert_eq(prompts.length(), 2)
+  @debug.assert_eq(prompts.length(), 2)
 }
 
 ///|
@@ -38,7 +38,7 @@ test "PromptRegistry::list_prompts includes description" {
     Ok({ description: Some("Test"), messages: [] })
   })
   let prompt = registry.list_prompts()[0]
-  assert_eq(prompt.description, Some("Test description"))
+  @debug.assert_eq(prompt.description, Some("Test description"))
 }
 
 ///|
@@ -52,7 +52,7 @@ test "PromptRegistry::list_prompts includes arguments" {
   )
   let prompts = registry.list_prompts()
   match prompts[0].arguments {
-    Some(args) => assert_eq(args.length(), 1)
+    Some(args) => @debug.assert_eq(args.length(), 1)
     None => fail("Expected arguments")
   }
 }

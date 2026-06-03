@@ -4,8 +4,8 @@ test "MCPClient::new creates client with info" {
     @transport.StdioTransport::new(),
   )
   let client = MCPClient::new(name="test-client", version="1.0.0", transport~)
-  assert_eq(client.client_name, "test-client")
-  assert_eq(client.client_version, "1.0.0")
+  @debug.assert_eq(client.client_name, "test-client")
+  @debug.assert_eq(client.client_version, "1.0.0")
 }
 
 ///|
@@ -16,8 +16,8 @@ test "MCPClient next_id increments" {
   let client = MCPClient::new(name="test", version="1.0", transport~)
   let id1 = client.next_request_id()
   let id2 = client.next_request_id()
-  assert_eq(id1, 1)
-  assert_eq(id2, 2)
+  @debug.assert_eq(id1, 1)
+  @debug.assert_eq(id2, 2)
 }
 
 ///|
@@ -39,7 +39,7 @@ test "build_initialize_request format" {
   ) catch {
     _ => Json::null()
   }
-  assert_eq(actual, expected)
+  @debug.assert_eq(actual, expected)
 }
 
 ///|
@@ -61,7 +61,7 @@ test "build_initialize_request with elicitation uses empty object" {
   ) catch {
     _ => Json::null()
   }
-  assert_eq(actual, expected)
+  @debug.assert_eq(actual, expected)
 }
 
 ///|
@@ -73,7 +73,7 @@ test "build_ping_request format" {
   ) catch {
     _ => Json::null()
   }
-  assert_eq(actual, expected)
+  @debug.assert_eq(actual, expected)
 }
 
 ///|
@@ -85,7 +85,7 @@ test "build_tools_list_request format" {
   ) catch {
     _ => Json::null()
   }
-  assert_eq(actual, expected)
+  @debug.assert_eq(actual, expected)
 }
 
 ///|
@@ -97,7 +97,7 @@ test "build_tools_call_request format" {
   ) catch {
     _ => Json::null()
   }
-  assert_eq(actual, expected)
+  @debug.assert_eq(actual, expected)
 }
 
 ///|
@@ -109,7 +109,7 @@ test "build_initialized_notification format" {
   ) catch {
     _ => Json::null()
   }
-  assert_eq(actual, expected)
+  @debug.assert_eq(actual, expected)
 }
 
 ///|
@@ -121,7 +121,7 @@ test "build_resources_list_request format" {
   ) catch {
     _ => Json::null()
   }
-  assert_eq(actual, expected)
+  @debug.assert_eq(actual, expected)
 }
 
 ///|
@@ -133,7 +133,7 @@ test "build_resources_read_request format" {
   ) catch {
     _ => Json::null()
   }
-  assert_eq(actual, expected)
+  @debug.assert_eq(actual, expected)
 }
 
 ///|
@@ -145,7 +145,7 @@ test "build_prompts_list_request format" {
   ) catch {
     _ => Json::null()
   }
-  assert_eq(actual, expected)
+  @debug.assert_eq(actual, expected)
 }
 
 ///|
@@ -161,7 +161,7 @@ test "build_prompts_get_request format" {
   ) catch {
     _ => Json::null()
   }
-  assert_eq(actual, expected)
+  @debug.assert_eq(actual, expected)
 }
 
 ///|
@@ -173,7 +173,7 @@ test "build_set_log_level_request format" {
   ) catch {
     _ => Json::null()
   }
-  assert_eq(actual, expected)
+  @debug.assert_eq(actual, expected)
 }
 
 ///|
@@ -185,7 +185,7 @@ test "handle_server_notification dispatches tools changed" {
   }
   let notification = @types.tools_list_changed_notification()
   handle_server_notification(handlers, notification)
-  assert_eq(called, true)
+  @debug.assert_eq(called, true)
 }
 
 ///|
@@ -197,7 +197,7 @@ test "handle_server_notification dispatches resources changed" {
   }
   let notification = @types.resources_list_changed_notification()
   handle_server_notification(handlers, notification)
-  assert_eq(called, true)
+  @debug.assert_eq(called, true)
 }
 
 ///|
@@ -209,7 +209,7 @@ test "handle_server_notification dispatches prompts changed" {
   }
   let notification = @types.prompts_list_changed_notification()
   handle_server_notification(handlers, notification)
-  assert_eq(called, true)
+  @debug.assert_eq(called, true)
 }
 
 ///|

@@ -86,7 +86,9 @@ async fn read_sse_event(
   let data_lines : Array[String] = []
   let mut event_id : String? = None
   while true {
-    let line = client.read_until("\n") catch { _ => return (None, None) }
+    let line = client.read_until("\n") catch {
+      e => raise @types.ReadError("SSE read error: \{e}")
+    }
     match line {
       None => return (None, None)
       Some(l) =>

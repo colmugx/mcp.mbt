@@ -4,7 +4,7 @@ pub(all) struct ClientInfo {
   name : String
   title : String?
   version : String
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// Client Capabilities — declared during initialization
@@ -12,37 +12,37 @@ pub(all) struct ClientCapabilities {
   roots : RootCapabilities?
   sampling : SamplingCapabilities?
   elicitation : ElicitationCapabilities?
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// Root Capabilities — client can provide filesystem roots
 pub(all) struct RootCapabilities {
   list_changed : Bool
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// Sampling Capabilities — client supports LLM sampling requests
-pub(all) struct SamplingCapabilities {} derive(Show, Eq)
+pub(all) struct SamplingCapabilities {} derive(Debug, Eq)
 
 ///|
 /// Elicitation Capabilities — client supports user interaction requests
 pub(all) struct ElicitationCapabilities {
   form : Bool
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// Root — a filesystem root exposed by the client for `roots/list`
 pub(all) struct Root {
   uri : String
   name : String?
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// SamplingMessage — a message within a sampling/createMessage request
 pub(all) struct SamplingMessage {
   role : String
   content : ContentItem
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// CreateMessageRequest — server asks client to sample an LLM
@@ -54,7 +54,7 @@ pub(all) struct CreateMessageRequest {
   temperature : Double?
   stop_sequences : Array[String]?
   metadata : Json?
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// CreateMessageResult — client's response to a sampling request
@@ -63,21 +63,21 @@ pub(all) struct CreateMessageResult {
   model : String
   content : ContentItem
   stop_reason : String?
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// ElicitationRequest — server asks client to interact with the user
 pub(all) struct ElicitationRequest {
   message : String
   requested_schema : Json
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// ElicitationResult — client's response to an elicitation request
 pub(all) struct ElicitationResult {
   action : String
   content : Json?
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// ProgressNotification — params for `notifications/progress`
@@ -86,17 +86,17 @@ pub(all) struct ProgressNotification {
   progress : Double
   total : Double?
   message : String?
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// CancelledNotification — params for `notifications/cancelled`
 pub(all) struct CancelledNotification {
   request_id : RequestId
   reason : String?
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// ResourceUpdatedNotification — params for `notifications/resources/updated`
 pub(all) struct ResourceUpdatedNotification {
   uri : String
-} derive(Show, Eq)
+} derive(Debug, Eq)

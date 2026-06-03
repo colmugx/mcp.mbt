@@ -56,20 +56,20 @@ fn _jget(json : Json, field : String) -> Json {
 /// =====================================================
 test "compliance: HttpTransport default port is 4240" {
   let transport = HttpTransport::new()
-  assert_eq(transport.port, 4240)
+  @debug.assert_eq(transport.port, 4240)
 }
 
 ///|
 test "compliance: HttpTransport default endpoint is /mcp" {
   let transport = HttpTransport::new()
-  assert_eq(transport.endpoint_path, "/mcp")
+  @debug.assert_eq(transport.endpoint_path, "/mcp")
 }
 
 ///|
 test "compliance: HttpTransport supports custom port and path" {
   let transport = HttpTransport::new(port=8080, endpoint_path="/api/mcp")
-  assert_eq(transport.port, 8080)
-  assert_eq(transport.endpoint_path, "/api/mcp")
+  @debug.assert_eq(transport.port, 8080)
+  @debug.assert_eq(transport.endpoint_path, "/api/mcp")
 }
 
 ///|
@@ -93,7 +93,7 @@ test "compliance: notification serializes as SSE data field" {
   assert_true(sse_event.contains("notifications/tools/list_changed"))
   // Verify the JSON within SSE is valid
   let payload = parse(json)
-  assert_eq(jstr(payload, "jsonrpc"), "2.0")
+  @debug.assert_eq(jstr(payload, "jsonrpc"), "2.0")
 }
 
 ///| =====================================================
@@ -110,7 +110,7 @@ test "compliance: HTTP response uses application/json content type for regular r
     "result": Json::object({}),
   }).stringify()
   let json = parse(response)
-  assert_eq(jstr(json, "jsonrpc"), "2.0")
+  @debug.assert_eq(jstr(json, "jsonrpc"), "2.0")
   assert_true(jhas(json, "result"))
 }
 

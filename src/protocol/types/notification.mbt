@@ -14,7 +14,7 @@
 pub(all) struct Notification {
   method_name : String
   params : Json?
-} derive(Eq, Show)
+} derive(Eq, Debug)
 
 ///|=====================================================
 
@@ -29,7 +29,7 @@ pub(all) struct NotificationCapabilities {
   resources_list_changed : Bool
   resources_updated : Bool
   prompts_list_changed : Bool
-} derive(Eq, Show)
+} derive(Eq, Debug)
 
 ///|=====================================================
 

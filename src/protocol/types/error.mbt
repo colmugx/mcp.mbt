@@ -16,7 +16,20 @@ pub(all) suberror TransportError {
   Unauthorized(String)
   /// HTTP 403 Forbidden — insufficient scope or permissions
   Forbidden(String)
-} derive(Show, Eq)
+} derive(Debug, Eq)
+
+///|
+pub impl Show for TransportError with fn to_string(self) -> String {
+  match self {
+    ConnectionClosed => "Connection closed"
+    ReadError(msg) => "Read error: " + msg
+    WriteError(msg) => "Write error: " + msg
+    Timeout => "Timeout"
+    InvalidState(msg) => "Invalid state: " + msg
+    Unauthorized(msg) => "Unauthorized: " + msg
+    Forbidden(msg) => "Forbidden: " + msg
+  }
+}
 
 ///|
 /// MCP protocol-level errors
@@ -36,7 +49,7 @@ pub(all) suberror MCPError {
   TransportError(TransportError)
   /// Tool execution error (custom error code -32000)
   ToolError(String)
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// Convert MCPError to JSON-RPC error code

@@ -13,7 +13,7 @@ pub struct JsonSchema {
   required : Array[String]?
   items : JsonSchema?
   default : Json?
-} derive(Show)
+} derive(Debug)
 
 ///|
 pub suberror ToolError {

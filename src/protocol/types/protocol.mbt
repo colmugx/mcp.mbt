@@ -4,30 +4,30 @@ pub(all) struct ServerInfo {
   title : String?
   version : String
   description : String?
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 pub(all) struct ServerCapabilities {
   tools : ToolCapabilities?
   resources : ResourceCapabilities?
   prompts : PromptCapabilities?
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 pub(all) struct ToolCapabilities {
   list_changed : Bool
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 pub(all) struct ResourceCapabilities {
   subscribe : Bool
   list_changed : Bool
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 pub(all) struct PromptCapabilities {
   list_changed : Bool
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 pub(all) struct ToolDefinition {
@@ -36,14 +36,14 @@ pub(all) struct ToolDefinition {
   input_schema : Json
   cached_schema_json : String
   icon : String?
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// Request ID supporting both Int and String per JSON-RPC 2.0 / MCP spec
 pub(all) enum RequestId {
   Int(Int)
   Str(String)
-} derive(Eq, Show)
+} derive(Eq, Debug)
 
 ///|
 /// Convert RequestId to its JSON string representation
@@ -69,35 +69,35 @@ pub(all) struct JsonRpcRequest {
   id : RequestId
   method_name : String
   params : Json
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 pub(all) struct JsonRpcResponse {
   jsonrpc : String
   id : RequestId
   result : Result[Json, JsonRpcError]
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 pub(all) struct JsonRpcError {
   code : Int
   message : String
   data : Json?
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 pub(all) struct PromptArgument {
   name : String
   description : String?
   required : Bool?
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 pub(all) struct Prompt {
   name : String
   description : String?
   arguments : Array[PromptArgument]?
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// Content item for MCP tool results
@@ -109,25 +109,25 @@ pub(all) enum ContentItem {
   ResourceLink(String)
   /// Embedded resource (type: "resource") — contains inline text or blob content
   EmbeddedResource(EmbeddedResourceContent)
-} derive(Eq, Show)
+} derive(Eq, Debug)
 
 ///|
 pub(all) enum EmbeddedResourceContent {
   Text(String, uri~ : String, mime_type~ : String?)
   Blob(String, uri~ : String, mime_type~ : String)
-} derive(Eq, Show)
+} derive(Eq, Debug)
 
 ///|
 pub(all) struct PromptMessage {
   role : String
   content : ContentItem
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 pub(all) struct GetPromptResult {
   description : String?
   messages : Array[PromptMessage]
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 pub fn JsonRpcRequest::from_json(

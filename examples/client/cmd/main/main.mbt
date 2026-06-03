@@ -128,7 +128,7 @@ async fn main {
           "echo",
           arguments="{\"text\":\"Hello from \{conn.name}!\"}",
         ) {
-        Ok(result) => println("[\{conn.name}/echo] \{result}")
+        Ok(result) => println("[\{conn.name}/echo] \{@debug.to_string(result)}")
         Err(e) => println("[\{conn.name}/echo] Error: \{e.message()}")
       }
 

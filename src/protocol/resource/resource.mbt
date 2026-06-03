@@ -15,7 +15,7 @@ pub(all) enum ResourceContent {
   Text(String)
   /// Binary blob with base64 data and mime type
   Blob(String, mime_type~ : String)
-} derive(Eq, Show)
+} derive(Eq, Debug)
 
 ///|=====================================================
 
@@ -32,7 +32,7 @@ pub(all) struct ResourceDefinition {
   name : String
   description : String?
   mime_type : String?
-} derive(Eq, Show)
+} derive(Eq, Debug)
 
 ///|=====================================================
 
@@ -46,7 +46,7 @@ pub(all) struct ResourceDefinition {
 pub(all) struct ResourceReadResult {
   uri : String
   content : ResourceContent
-} derive(Eq, Show)
+} derive(Eq, Debug)
 
 ///|=====================================================
 

@@ -3,7 +3,7 @@
 pub struct ToolResult {
   content : Array[@types.ContentItem]
   is_error : Bool
-} derive(Eq, Show)
+} derive(Eq, Debug)
 
 ///|
 /// Create a successful result with text content
@@ -68,7 +68,7 @@ pub(all) struct ParamDef {
   description : String
   type_ : String // "string", "number", "boolean", "object", "array"
   required : Bool
-} derive(Eq, Show)
+} derive(Eq, Debug)
 
 ///|
 /// Core Tool trait following MCP protocol

@@ -3,6 +3,7 @@ import {
   "colmugx/mcp/transport",
   "colmugx/mcp/protocol/types",
   "moonbitlang/async",
+  "moonbitlang/core/debug",
 }
 
 options(
