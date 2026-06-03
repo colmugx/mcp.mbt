@@ -111,7 +111,6 @@ src/
     prompt/       Prompt trait、PromptDefinition
     resource/     Resource trait、ResourceContent
     internal/     内部 JSON 构建工具
-  jsonutil/       公共 JSON builder 函数
   transport/      传输层 — native: stdio/http/http-client, wasm-gc: stub
   server/         Server 应用层（handler、registry、bridge）
   client/         Client 应用层（client、request_builder、notification_handler、client_types）

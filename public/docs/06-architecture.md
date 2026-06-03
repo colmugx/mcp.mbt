@@ -47,9 +47,9 @@ protocol/resource ←── protocol/types
 protocol/core  ←── protocol/tool
 protocol/      ←── 所有 protocol/* 子包
 
-transport/     ←── protocol/types, protocol/internal(jsonutil), moonbitlang/async/*
-server/        ←── protocol/*, transport/, jsonutil
-client/        ←── protocol/types, protocol/resource, protocol/prompt, transport/, jsonutil
+transport/     ←── protocol/types, moonbitlang/async/*
+server/        ←── protocol/*, transport/
+client/        ←── protocol/types, protocol/resource, protocol/prompt, transport/
 
 (顶层)        ←── server, client, transport, protocol
 ```

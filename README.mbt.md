@@ -2,7 +2,7 @@
 
 Type-safe [Model Context Protocol](https://modelcontextprotocol.io/) (MCP 2025-11-25) server and client implementation in MoonBit.
 
-**Version**: 0.12.0 · **Protocol**: 2025-11-25 · **License**: Apache-2.0
+**Version**: 0.13.4 · **Protocol**: 2025-11-25 · **License**: Apache-2.0
 
 ## Installation
 

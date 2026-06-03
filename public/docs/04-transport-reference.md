@@ -368,7 +368,7 @@ impl Transport for MyTransport with send(self, msg : String) -> Unit raise @type
 }
 
 impl Transport for MyTransport with send_notification(self, n : @types.Notification) -> Unit raise @types.TransportError {
-  let json = @jsonutil.jsonrpc_notification(n.method_name, n.params)
+  let json = n.to_jsonrpc_string()
   self.send(json)
 }
 
