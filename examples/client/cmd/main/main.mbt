@@ -2,7 +2,7 @@
 
 ///|
 async fn main {
-  let host = @client.MCPHost::new(name="example-host", version="1.0.0")
+  let host = @client.MCPHost::MCPHost(name="example-host", version="1.0.0")
 
   @async.with_task_group(group => {
     match

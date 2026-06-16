@@ -16,7 +16,7 @@ struct ResourceRegistry {
 }
 
 ///|
-fn ResourceRegistry::new() -> ResourceRegistry {
+fn ResourceRegistry::ResourceRegistry() -> ResourceRegistry {
   { resources: Map::default(), subscriptions: [] }
 }
 

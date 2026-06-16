@@ -13,7 +13,7 @@ struct ToolRegistry {
 }
 
 ///|
-fn ToolRegistry::new() -> ToolRegistry {
+fn ToolRegistry::ToolRegistry() -> ToolRegistry {
   { tools: Map::default() }
 }
 

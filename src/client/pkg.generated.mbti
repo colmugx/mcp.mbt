@@ -89,12 +89,12 @@ pub struct MCPHost {
   version : String
   connections : Map[String, MCPClient]
 }
+pub fn MCPHost::MCPHost(name~ : String, version~ : String) -> Self
 pub async fn MCPHost::call_tool(Self, String, arguments? : String) -> Result[CallToolResult, @types.MCPError]
 pub fn MCPHost::close_all(Self) -> Unit
 pub async fn MCPHost::connect_http(Self, name~ : String, url~ : String, auth_token? : String) -> Result[Unit, @types.MCPError]
 pub async fn MCPHost::connect_stdio(Self, name~ : String, cmd~ : String, args? : Array[String], extra_env? : Map[String, String], group~ : @async.TaskGroup[Unit]) -> Result[Unit, @types.MCPError]
 pub async fn MCPHost::list_tools(Self) -> Result[ListToolsResult, @types.MCPError]
-pub fn MCPHost::new(name~ : String, version~ : String) -> Self
 
 pub(all) struct NotificationHandlers {
   on_tools_changed : (() -> Unit)?

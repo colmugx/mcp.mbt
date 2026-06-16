@@ -1,9 +1,13 @@
 ///|
-test "MCPClient::new creates client with info" {
+test "MCPClient creates client with info" {
   let transport = @transport.AnyTransport::Stdio(
-    @transport.StdioTransport::new(),
+    @transport.StdioTransport::StdioTransport(),
   )
-  let client = MCPClient::new(name="test-client", version="1.0.0", transport~)
+  let client = MCPClient::MCPClient(
+    name="test-client",
+    version="1.0.0",
+    transport~,
+  )
   @debug.assert_eq(client.client_name, "test-client")
   @debug.assert_eq(client.client_version, "1.0.0")
 }
@@ -11,9 +15,9 @@ test "MCPClient::new creates client with info" {
 ///|
 test "MCPClient next_id increments" {
   let transport = @transport.AnyTransport::Stdio(
-    @transport.StdioTransport::new(),
+    @transport.StdioTransport::StdioTransport(),
   )
-  let client = MCPClient::new(name="test", version="1.0", transport~)
+  let client = MCPClient::MCPClient(name="test", version="1.0", transport~)
   let id1 = client.next_request_id()
   let id2 = client.next_request_id()
   @debug.assert_eq(id1, 1)

@@ -18,7 +18,7 @@ The SDK uses `moonbitlang/async@0.19.4` and targets native I/O for server, clien
 
 ```moonbit
 async fn main {
-  @mcp.MCPServer::new("demo-server", "1.0.0")
+  @mcp.MCPServer::MCPServer("demo-server", "1.0.0")
     .tool("echo", "Echo text", Json::object({}), fn(args) {
       let text = match args {
         Object(obj) =>
@@ -63,7 +63,7 @@ For local subprocess servers, use `MCPClient::connect_stdio(cmd~, args?, name~, 
 
 ```moonbit
 async fn main {
-  let host = @mcp.MCPHost::new(name="my-host", version="1.0.0")
+  let host = @mcp.MCPHost::MCPHost(name="my-host", version="1.0.0")
   @async.with_task_group(group => {
     ignore(host.connect_stdio(name="local", cmd="moon", args=["run", "server"], group~))
     ignore(host.connect_http(name="remote", url="http://localhost:4240/mcp"))

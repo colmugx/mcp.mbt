@@ -18,7 +18,7 @@ pub struct HttpClientTransport {
 }
 
 ///|
-pub fn HttpClientTransport::new(
+pub fn HttpClientTransport::HttpClientTransport(
   base_url : String,
   auth_token? : String = "",
 ) -> HttpClientTransport {

@@ -40,8 +40,8 @@ pub struct MCPServer {
   resource_registry : ResourceRegistry
   prompt_registry : PromptRegistry
 }
+pub fn MCPServer::MCPServer(String, String) -> Self
 pub async fn MCPServer::handle_request(Self, String) -> String
-pub fn MCPServer::new(String, String) -> Self
 pub fn MCPServer::prompt(Self, String, String, Array[@types.PromptArgument], async (Json) -> Result[@types.GetPromptResult, @types.MCPError]) -> Self
 pub fn MCPServer::resource(Self, String, String, String, String, async () -> Result[@resource.ResourceReadResult, @types.MCPError]) -> Self
 pub async fn MCPServer::run_http(Self, port? : Int, path? : String) -> Unit raise @types.TransportError

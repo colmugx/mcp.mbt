@@ -25,7 +25,7 @@ pub struct StdioClientTransport {
 }
 
 ///|
-pub fn StdioClientTransport::new(
+pub fn StdioClientTransport::StdioClientTransport(
   cmd~ : String,
   args? : Array[String] = [],
   extra_env? : Map[String, String] = {},

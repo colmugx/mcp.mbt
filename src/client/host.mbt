@@ -8,7 +8,7 @@ pub struct MCPHost {
 }
 
 ///|
-pub fn MCPHost::new(name~ : String, version~ : String) -> MCPHost {
+pub fn MCPHost::MCPHost(name~ : String, version~ : String) -> MCPHost {
   { name, version, connections: {} }
 }
 

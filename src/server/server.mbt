@@ -44,7 +44,7 @@ pub struct MCPServer {
 }
 
 ///|
-pub fn MCPServer::new(name : String, version : String) -> MCPServer {
+pub fn MCPServer::MCPServer(name : String, version : String) -> MCPServer {
   {
     name,
     version,
@@ -53,9 +53,9 @@ pub fn MCPServer::new(name : String, version : String) -> MCPServer {
     instructions: None,
     log_level: None,
     auth_config: None,
-    registry: ToolRegistry::new(),
-    resource_registry: ResourceRegistry::new(),
-    prompt_registry: PromptRegistry::new(),
+    registry: ToolRegistry::ToolRegistry(),
+    resource_registry: ResourceRegistry::ResourceRegistry(),
+    prompt_registry: PromptRegistry::PromptRegistry(),
   }
 }
 
@@ -395,7 +395,7 @@ pub async fn MCPServer::run_stdio(
   self : MCPServer,
 ) -> Unit raise @types.TransportError {
   let transport = @transport.AnyTransport::Stdio(
-    @transport.StdioTransport::new(),
+    @transport.StdioTransport::StdioTransport(),
   )
   @async.with_task_group(group => self.run_with_transport(transport, group)) catch {
     e => raise @types.ReadError("TaskGroup error: " + e.to_string())
@@ -409,7 +409,10 @@ pub async fn MCPServer::run_http(
   path? : String = "/mcp",
 ) -> Unit raise @types.TransportError {
   @async.with_task_group(group => {
-    let http = @transport.HttpTransport::new(port~, endpoint_path=path)
+    let http = @transport.HttpTransport::HttpTransport(
+      port~,
+      endpoint_path=path,
+    )
     let http = match self.auth_config {
       Some(auth) => http.with_auth(auth)
       None => http
@@ -424,5 +427,5 @@ pub async fn MCPServer::run_http(
 
 ///|
 pub fn mcp_server(name~ : String, version~ : String) -> MCPServer {
-  MCPServer::new(name, version)
+  MCPServer::MCPServer(name, version)
 }

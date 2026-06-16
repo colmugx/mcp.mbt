@@ -16,7 +16,7 @@ pub struct AuthConfig {
 }
 
 ///|
-pub fn AuthConfig::new(
+pub fn AuthConfig::AuthConfig(
   verify_token~ : (String) -> Bool,
   resource_metadata_url~ : String,
   authorization_servers? : Array[String] = [],
@@ -53,7 +53,7 @@ pub struct HttpTransport {
 }
 
 ///|
-pub fn HttpTransport::new(
+pub fn HttpTransport::HttpTransport(
   port? : Int = 4240,
   endpoint_path? : String = "/mcp",
 ) -> HttpTransport {

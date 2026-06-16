@@ -10,7 +10,7 @@ pub struct AuthConfig {
 }
 
 ///|
-pub fn AuthConfig::new(
+pub fn AuthConfig::AuthConfig(
   verify_token~ : (String) -> Bool,
   resource_metadata_url~ : String,
   authorization_servers? : Array[String] = [],
@@ -26,7 +26,7 @@ pub struct StdioTransport {
 }
 
 ///|
-pub fn StdioTransport::new() -> StdioTransport {
+pub fn StdioTransport::StdioTransport() -> StdioTransport {
   abort("StdioTransport is not available on wasm-gc target")
 }
 
@@ -80,7 +80,7 @@ pub struct HttpTransport {
 }
 
 ///|
-pub fn HttpTransport::new(
+pub fn HttpTransport::HttpTransport(
   port? : Int = 4240,
   endpoint_path? : String = "/mcp",
 ) -> HttpTransport {
@@ -142,7 +142,7 @@ pub struct StdioClientTransport {
 }
 
 ///|
-pub fn StdioClientTransport::new(
+pub fn StdioClientTransport::StdioClientTransport(
   cmd~ : String,
   args? : Array[String] = [],
   extra_env? : Map[String, String] = {},
@@ -212,7 +212,9 @@ pub struct HttpClientTransport {
 }
 
 ///|
-pub fn HttpClientTransport::new(base_url~ : String) -> HttpClientTransport {
+pub fn HttpClientTransport::HttpClientTransport(
+  base_url~ : String,
+) -> HttpClientTransport {
   abort("HttpClientTransport is not available on wasm-gc target")
 }
 

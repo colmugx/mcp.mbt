@@ -3,14 +3,14 @@
 ///| PromptRegistry basic functionality
 
 ///|
-test "PromptRegistry::new creates empty registry" {
-  let registry = PromptRegistry::new()
+test "PromptRegistry::PromptRegistry creates empty registry" {
+  let registry = PromptRegistry::PromptRegistry()
   @debug.assert_eq(registry.list_prompts().length(), 0)
 }
 
 ///|
 test "PromptRegistry::register adds prompt entry" {
-  let registry = PromptRegistry::new()
+  let registry = PromptRegistry::PromptRegistry()
   registry.register("test_prompt", "Test prompt description", [], fn(_args) {
     Ok({ description: Some("Test"), messages: [] })
   })
@@ -20,7 +20,7 @@ test "PromptRegistry::register adds prompt entry" {
 
 ///|
 test "PromptRegistry::list_prompts returns prompt definitions" {
-  let registry = PromptRegistry::new()
+  let registry = PromptRegistry::PromptRegistry()
   registry.register("prompt1", "First prompt", [], fn(_args) {
     Ok({ description: Some("Test1"), messages: [] })
   })
@@ -33,7 +33,7 @@ test "PromptRegistry::list_prompts returns prompt definitions" {
 
 ///|
 test "PromptRegistry::list_prompts includes description" {
-  let registry = PromptRegistry::new()
+  let registry = PromptRegistry::PromptRegistry()
   registry.register("test", "Test description", [], fn(_args) {
     Ok({ description: Some("Test"), messages: [] })
   })
@@ -43,7 +43,7 @@ test "PromptRegistry::list_prompts includes description" {
 
 ///|
 test "PromptRegistry::list_prompts includes arguments" {
-  let registry = PromptRegistry::new()
+  let registry = PromptRegistry::PromptRegistry()
   registry.register(
     "test",
     "Test",

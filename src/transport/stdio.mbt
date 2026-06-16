@@ -12,7 +12,7 @@ pub struct StdioTransport {
 }
 
 ///|
-pub fn StdioTransport::new() -> StdioTransport {
+pub fn StdioTransport::StdioTransport() -> StdioTransport {
   {
     closed: false,
     // stdin is already buffered internally (has ReaderBuffer)

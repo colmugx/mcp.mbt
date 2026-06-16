@@ -37,7 +37,7 @@ pub struct AuthConfig {
   required_scopes : String?
   allowed_origins : Array[String]?
 }
-pub fn AuthConfig::new(verify_token~ : (String) -> Bool, resource_metadata_url~ : String, authorization_servers? : Array[String], required_scopes? : String, allowed_origins? : Array[String]) -> Self
+pub fn AuthConfig::AuthConfig(verify_token~ : (String) -> Bool, resource_metadata_url~ : String, authorization_servers? : Array[String], required_scopes? : String, allowed_origins? : Array[String]) -> Self
 
 pub struct HttpClientTransport {
   base_url : String
@@ -53,9 +53,9 @@ pub struct HttpClientTransport {
   mut sse_pending_index : Int
   protocol_version : String
 }
+pub fn HttpClientTransport::HttpClientTransport(String, auth_token? : String) -> Self
 pub fn HttpClientTransport::close(Self) -> Unit
 pub async fn HttpClientTransport::close_session(Self) -> Unit
-pub fn HttpClientTransport::new(String, auth_token? : String) -> Self
 pub async fn HttpClientTransport::receive(Self) -> String? raise @types.TransportError
 pub async fn HttpClientTransport::send(Self, String) -> Unit raise @types.TransportError
 pub fn HttpClientTransport::send_event(Self, event_type~ : String, data~ : String) -> Unit
@@ -72,8 +72,8 @@ pub struct HttpTransport {
   mut sse_active : Bool
   event_queue : @aqueue.Queue[@types.Notification]
 }
+pub fn HttpTransport::HttpTransport(port? : Int, endpoint_path? : String) -> Self
 pub fn HttpTransport::close(Self) -> Unit
-pub fn HttpTransport::new(port? : Int, endpoint_path? : String) -> Self
 pub async fn HttpTransport::receive(Self) -> String? raise @types.TransportError
 pub async fn HttpTransport::receive_request(Self) -> (String, @aqueue.Queue[String])? raise @types.TransportError
 pub async fn HttpTransport::send(Self, String) -> Unit raise @types.TransportError
@@ -92,8 +92,8 @@ pub struct StdioClientTransport {
   mut raw_writer : @process.WriteToProcess?
   mut writer : @io.BufferedWriter[@process.WriteToProcess]?
 }
+pub fn StdioClientTransport::StdioClientTransport(cmd~ : String, args? : Array[String], extra_env? : Map[String, String]) -> Self
 pub fn StdioClientTransport::close(Self) -> Unit
-pub fn StdioClientTransport::new(cmd~ : String, args? : Array[String], extra_env? : Map[String, String]) -> Self
 pub async fn StdioClientTransport::receive(Self) -> String? raise @types.TransportError
 pub async fn StdioClientTransport::send(Self, String) -> Unit raise @types.TransportError
 pub fn StdioClientTransport::send_event(Self, event_type~ : String, data~ : String) -> Unit
@@ -106,8 +106,8 @@ pub struct StdioTransport {
   reader : @stdio.Input
   writer : @io.BufferedWriter[@stdio.Output]
 }
+pub fn StdioTransport::StdioTransport() -> Self
 pub fn StdioTransport::close(Self) -> Unit
-pub fn StdioTransport::new() -> Self
 pub async fn StdioTransport::receive(Self) -> String? raise @types.TransportError
 pub async fn StdioTransport::send(Self, String) -> Unit raise @types.TransportError
 pub fn StdioTransport::send_event(Self, event_type~ : String, data~ : String) -> Unit

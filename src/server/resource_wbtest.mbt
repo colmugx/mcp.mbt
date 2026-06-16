@@ -3,14 +3,14 @@
 ///| ResourceRegistry basic functionality
 
 ///|
-test "ResourceRegistry::new creates empty registry" {
-  let registry = ResourceRegistry::new()
+test "ResourceRegistry::ResourceRegistry creates empty registry" {
+  let registry = ResourceRegistry::ResourceRegistry()
   @debug.assert_eq(registry.list_resources().length(), 0)
 }
 
 ///|
 test "ResourceRegistry::register adds resource entry" {
-  let registry = ResourceRegistry::new()
+  let registry = ResourceRegistry::ResourceRegistry()
   registry.register(
     "file:///test.txt",
     "test_resource",
@@ -27,7 +27,7 @@ test "ResourceRegistry::register adds resource entry" {
 
 ///|
 test "ResourceRegistry::list_resources returns resource definitions" {
-  let registry = ResourceRegistry::new()
+  let registry = ResourceRegistry::ResourceRegistry()
   registry.register(
     "file:///test1.txt",
     "resource1",
@@ -52,7 +52,7 @@ test "ResourceRegistry::list_resources returns resource definitions" {
 
 ///|
 test "ResourceRegistry::list_resources includes optional fields" {
-  let registry = ResourceRegistry::new()
+  let registry = ResourceRegistry::ResourceRegistry()
   registry.register(
     "file:///test.txt",
     "test",
@@ -67,7 +67,7 @@ test "ResourceRegistry::list_resources includes optional fields" {
 
 ///|
 test "ResourceRegistry::subscribe adds to subscriptions" {
-  let registry = ResourceRegistry::new()
+  let registry = ResourceRegistry::ResourceRegistry()
   registry.register("file:///test.txt", "test", "Test", "text/plain", fn() {
     Ok({ uri: "file:///test.txt", content: @resource.Text("test") })
   })
@@ -77,7 +77,7 @@ test "ResourceRegistry::subscribe adds to subscriptions" {
 
 ///|
 test "ResourceRegistry::subscribe returns error for non-existent resource" {
-  let registry = ResourceRegistry::new()
+  let registry = ResourceRegistry::ResourceRegistry()
   let result = registry.subscribe("file:///nonexistent.txt")
   @debug.debug_inspect(
     result,
@@ -89,7 +89,7 @@ test "ResourceRegistry::subscribe returns error for non-existent resource" {
 
 ///|
 test "ResourceRegistry::subscribe prevents duplicates" {
-  let registry = ResourceRegistry::new()
+  let registry = ResourceRegistry::ResourceRegistry()
   registry.register("file:///test.txt", "test", "Test", "text/plain", fn() {
     Ok({ uri: "file:///test.txt", content: @resource.Text("test") })
   })
@@ -103,7 +103,7 @@ test "ResourceRegistry::subscribe prevents duplicates" {
 
 ///|
 test "ResourceRegistry::unsubscribe removes subscription" {
-  let registry = ResourceRegistry::new()
+  let registry = ResourceRegistry::ResourceRegistry()
   registry.register("file:///test.txt", "test", "Test", "text/plain", fn() {
     Ok({ uri: "file:///test.txt", content: @resource.Text("test") })
   })
@@ -114,7 +114,7 @@ test "ResourceRegistry::unsubscribe removes subscription" {
 
 ///|
 test "ResourceRegistry::unsubscribe always succeeds even if not subscribed" {
-  let registry = ResourceRegistry::new()
+  let registry = ResourceRegistry::ResourceRegistry()
   let result = registry.unsubscribe("file:///nonexistent.txt")
   @debug.debug_inspect(result, content="Ok(())")
 }

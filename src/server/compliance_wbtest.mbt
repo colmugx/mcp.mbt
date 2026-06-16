@@ -81,7 +81,7 @@ fn parse_error_code(response : String) -> Int {
 ///|
 /// =====================================================
 test "compliance: response has jsonrpc 2.0" {
-  let server = MCPServer::new("test", "1.0.0")
+  let server = MCPServer::MCPServer("test", "1.0.0")
   let response = handle_initialize(server, @types.RequestId::Int(1))
   let json = @json.parse(response) catch { _ => panic() }
   assert_eq(json_field_str(json, "jsonrpc"), "2.0")
@@ -89,7 +89,7 @@ test "compliance: response has jsonrpc 2.0" {
 
 ///|
 test "compliance: response id matches request id" {
-  let _ = MCPServer::new("test", "1.0.0")
+  let _ = MCPServer::MCPServer("test", "1.0.0")
   let response = handle_ping(@types.RequestId::Int(42))
   let json = @json.parse(response) catch { _ => panic() }
   match json {
@@ -109,14 +109,14 @@ test "compliance: response id matches request id" {
 ///|
 /// =====================================================
 test "compliance: initialize returns protocolVersion 2025-11-25" {
-  let server = MCPServer::new("test", "1.0.0")
+  let server = MCPServer::MCPServer("test", "1.0.0")
   let result = parse_result(handle_initialize(server, @types.RequestId::Int(1)))
   assert_eq(json_field_str(result, "protocolVersion"), "2025-11-25")
 }
 
 ///|
 test "compliance: initialize returns serverInfo with name and version" {
-  let server = MCPServer::new("test-server", "2.0.0")
+  let server = MCPServer::MCPServer("test-server", "2.0.0")
   let result = parse_result(handle_initialize(server, @types.RequestId::Int(1)))
   let info = json_get(result, "serverInfo")
   assert_eq(json_field_str(info, "name"), "test-server")
@@ -125,7 +125,7 @@ test "compliance: initialize returns serverInfo with name and version" {
 
 ///|
 test "compliance: initialize returns capabilities with tools/resources/prompts" {
-  let server = MCPServer::new("test", "1.0.0")
+  let server = MCPServer::MCPServer("test", "1.0.0")
   let result = parse_result(handle_initialize(server, @types.RequestId::Int(1)))
   let caps = json_get(result, "capabilities")
   assert_true(json_has(caps, "tools"))
@@ -135,7 +135,7 @@ test "compliance: initialize returns capabilities with tools/resources/prompts" 
 
 ///|
 test "compliance: initialize capabilities.tools has listChanged" {
-  let server = MCPServer::new("test", "1.0.0")
+  let server = MCPServer::MCPServer("test", "1.0.0")
   let result = parse_result(handle_initialize(server, @types.RequestId::Int(1)))
   let tools_cap = json_get(json_get(result, "capabilities"), "tools")
   assert_true(json_has(tools_cap, "listChanged"))
@@ -143,7 +143,7 @@ test "compliance: initialize capabilities.tools has listChanged" {
 
 ///|
 test "compliance: initialize capabilities.resources has subscribe and listChanged" {
-  let server = MCPServer::new("test", "1.0.0")
+  let server = MCPServer::MCPServer("test", "1.0.0")
   let result = parse_result(handle_initialize(server, @types.RequestId::Int(1)))
   let res_cap = json_get(json_get(result, "capabilities"), "resources")
   assert_true(json_has(res_cap, "subscribe"))
@@ -152,7 +152,7 @@ test "compliance: initialize capabilities.resources has subscribe and listChange
 
 ///|
 test "compliance: initialize capabilities.prompts has listChanged" {
-  let server = MCPServer::new("test", "1.0.0")
+  let server = MCPServer::MCPServer("test", "1.0.0")
   let result = parse_result(handle_initialize(server, @types.RequestId::Int(1)))
   let prompts_cap = json_get(json_get(result, "capabilities"), "prompts")
   assert_true(json_has(prompts_cap, "listChanged"))
@@ -197,7 +197,7 @@ test "compliance: ping response has correct id" {
 ///|
 /// =====================================================
 test "compliance: tools/list returns array with name/description/inputSchema" {
-  let server = MCPServer::new("test", "1.0.0")
+  let server = MCPServer::MCPServer("test", "1.0.0")
   server.register_tool(
     "echo",
     "Echo tool",
@@ -219,7 +219,7 @@ test "compliance: tools/list returns array with name/description/inputSchema" {
 
 ///|
 test "compliance: tools/list preserves tool name" {
-  let server = MCPServer::new("test", "1.0.0")
+  let server = MCPServer::MCPServer("test", "1.0.0")
   server.register_tool(
     "my_tool",
     "My tool",
@@ -242,7 +242,7 @@ test "compliance: tools/list preserves tool name" {
 ///|
 /// =====================================================
 test "compliance: resources/list returns array with uri and name" {
-  let server = MCPServer::new("test", "1.0.0")
+  let server = MCPServer::MCPServer("test", "1.0.0")
   server.register_resource(
     "file:///test.txt",
     "Test File",
@@ -266,7 +266,7 @@ test "compliance: resources/list returns array with uri and name" {
 
 ///|
 test "compliance: resources/list includes mimeType" {
-  let server = MCPServer::new("test", "1.0.0")
+  let server = MCPServer::MCPServer("test", "1.0.0")
   server.register_resource(
     "file:///data.json",
     "Data",
@@ -288,7 +288,7 @@ test "compliance: resources/list includes mimeType" {
 
 ///|
 test "compliance: resources/list includes description when present" {
-  let server = MCPServer::new("test", "1.0.0")
+  let server = MCPServer::MCPServer("test", "1.0.0")
   server.register_resource(
     "file:///test.txt",
     "Test",
@@ -314,7 +314,7 @@ test "compliance: resources/list includes description when present" {
 ///|
 /// =====================================================
 test "compliance: resources/subscribe returns empty result" {
-  let server = MCPServer::new("test", "1.0.0")
+  let server = MCPServer::MCPServer("test", "1.0.0")
   server.register_resource("file:///test.txt", "Test", "desc", "text/plain", fn() {
     Ok({ uri: "file:///test.txt", content: @resource.Text("hello") })
   })
@@ -333,7 +333,7 @@ test "compliance: resources/subscribe returns empty result" {
 
 ///|
 test "compliance: resources/subscribe missing uri returns error" {
-  let server = MCPServer::new("test", "1.0.0")
+  let server = MCPServer::MCPServer("test", "1.0.0")
   let response = handle_resources_subscribe(
     server,
     @types.RequestId::Int(1),
@@ -344,7 +344,7 @@ test "compliance: resources/subscribe missing uri returns error" {
 
 ///|
 test "compliance: resources/unsubscribe missing uri returns error" {
-  let server = MCPServer::new("test", "1.0.0")
+  let server = MCPServer::MCPServer("test", "1.0.0")
   let response = handle_resources_unsubscribe(
     server,
     @types.RequestId::Int(1),
@@ -360,7 +360,7 @@ test "compliance: resources/unsubscribe missing uri returns error" {
 ///|
 /// =====================================================
 test "compliance: prompts/list returns array with name" {
-  let server = MCPServer::new("test", "1.0.0")
+  let server = MCPServer::MCPServer("test", "1.0.0")
   server.register_prompt("greet", "Greeting prompt", [], fn(_args) {
     Ok({
       description: Some("A greeting"),
@@ -383,7 +383,7 @@ test "compliance: prompts/list returns array with name" {
 
 ///|
 test "compliance: prompts/list includes arguments" {
-  let server = MCPServer::new("test", "1.0.0")
+  let server = MCPServer::MCPServer("test", "1.0.0")
   let arg : @types.PromptArgument = {
     name: "name",
     description: Some("Name to greet"),
@@ -417,7 +417,7 @@ test "compliance: prompts/list includes arguments" {
 
 ///|
 test "compliance: prompts/list includes description" {
-  let server = MCPServer::new("test", "1.0.0")
+  let server = MCPServer::MCPServer("test", "1.0.0")
   server.register_prompt("greet", "A greeting prompt", [], fn(_args) {
     Ok({
       description: Some("Greeting"),

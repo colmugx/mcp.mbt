@@ -4,21 +4,21 @@
 
 ///|
 /// MCPServer Tests
-test "MCPServer::new creates server with name and version" {
-  let server = MCPServer::new("test-server", "1.0.0")
+test "MCPServer::MCPServer creates server with name and version" {
+  let server = MCPServer::MCPServer("test-server", "1.0.0")
   @debug.assert_eq(server.name, "test-server")
   @debug.assert_eq(server.version, "1.0.0")
 }
 
 ///|
-test "MCPServer::new creates empty registry" {
-  let server = MCPServer::new("test-server", "1.0.0")
+test "MCPServer::MCPServer creates empty registry" {
+  let server = MCPServer::MCPServer("test-server", "1.0.0")
   @debug.assert_eq(server.registry.list_tools().length(), 0)
 }
 
 ///|
 test "MCPServer register_tool adds to registry" {
-  let server = MCPServer::new("test-server", "1.0.0")
+  let server = MCPServer::MCPServer("test-server", "1.0.0")
   server.register_tool(
     "test_tool",
     "Test description",
@@ -31,7 +31,7 @@ test "MCPServer register_tool adds to registry" {
 
 ///|
 test "MCPServer register_tool preserves order" {
-  let server = MCPServer::new("test-server", "1.0.0")
+  let server = MCPServer::MCPServer("test-server", "1.0.0")
   server.register_tool("tool1", "First tool", Json::object({}), fn(_args) {
     Ok(@tool.ToolResult::text("test1"))
   })
@@ -45,7 +45,7 @@ test "MCPServer register_tool preserves order" {
 
 ///|
 test "MCPServer tool metadata is stored correctly" {
-  let server = MCPServer::new("test-server", "1.0.0")
+  let server = MCPServer::MCPServer("test-server", "1.0.0")
   let schema = Json::object({
     "type": Json::string("object"),
     "properties": Json::object({
@@ -70,14 +70,14 @@ test "MCPServer tool metadata is stored correctly" {
 
 ///|
 /// =====================================================
-test "ToolRegistry::new creates empty registry" {
-  let registry = ToolRegistry::new()
+test "ToolRegistry::ToolRegistry creates empty registry" {
+  let registry = ToolRegistry::ToolRegistry()
   @debug.assert_eq(registry.list_tools().length(), 0)
 }
 
 ///|
 test "ToolRegistry::register adds tool entry" {
-  let registry = ToolRegistry::new()
+  let registry = ToolRegistry::ToolRegistry()
   registry.register(
     "test_tool",
     "Test tool description",
@@ -94,7 +94,7 @@ test "ToolRegistry::register adds tool entry" {
 
 ///|
 test "ToolRegistry::list_tools returns tool definitions" {
-  let registry = ToolRegistry::new()
+  let registry = ToolRegistry::ToolRegistry()
   registry.register("tool1", "Description 1", Json::object({}), fn(_args) {
     Ok(@tool.ToolResult::text("test"))
   })
@@ -111,7 +111,7 @@ test "ToolRegistry::list_tools returns tool definitions" {
 
 ///|
 test "ToolRegistry preserves input schemas" {
-  let registry = ToolRegistry::new()
+  let registry = ToolRegistry::ToolRegistry()
   let schema = Json::object({
     "type": Json::string("object"),
     "properties": Json::object({
@@ -126,7 +126,7 @@ test "ToolRegistry preserves input schemas" {
 
 ///|
 test "ToolRegistry::list_tools includes all metadata" {
-  let registry = ToolRegistry::new()
+  let registry = ToolRegistry::ToolRegistry()
   let schema = Json::object({
     "type": Json::string("object"),
     "properties": Json::object({}),
@@ -149,7 +149,7 @@ test "ToolRegistry::list_tools includes all metadata" {
 ///|
 /// =====================================================
 test "example: register multiple tools and verify" {
-  let server = MCPServer::new("multi-tool-server", "1.0.0")
+  let server = MCPServer::MCPServer("multi-tool-server", "1.0.0")
 
   // Register multiple tools
   server.register_tool("tool_a", "Tool A description", Json::object({}), fn(
@@ -190,7 +190,7 @@ test "example: register multiple tools and verify" {
 
 ///|
 test "example: server with complex schemas" {
-  let server = MCPServer::new("complex-server", "1.0.0")
+  let server = MCPServer::MCPServer("complex-server", "1.0.0")
   let complex_schema = Json::object({
     "type": Json::string("object"),
     "properties": Json::object({
@@ -248,13 +248,13 @@ test "example: server with complex schemas" {
 ///|
 /// =====================================================
 test "MCPServer::with_auth sets auth_config" {
-  let server = MCPServer::new("auth-server", "1.0.0")
+  let server = MCPServer::MCPServer("auth-server", "1.0.0")
   match server.auth_config {
     None => ()
     Some(_) => panic()
   }
   let authed = server.with_auth(
-    @transport.AuthConfig::new(
+    @transport.AuthConfig::AuthConfig(
       verify_token=fn(token) { token == "valid" },
       resource_metadata_url="http://localhost:4240/mcp",
     ),
@@ -271,11 +271,11 @@ test "MCPServer::with_auth sets auth_config" {
 
 ///|
 test "MCPServer::with_auth preserves other fields" {
-  let server = MCPServer::new("test", "1.0.0")
+  let server = MCPServer::MCPServer("test", "1.0.0")
     .with_title("My Server")
     .with_description("A test server")
     .with_auth(
-      @transport.AuthConfig::new(
+      @transport.AuthConfig::AuthConfig(
         verify_token=fn(_) { true },
         resource_metadata_url="http://localhost:4240/mcp",
       ),
