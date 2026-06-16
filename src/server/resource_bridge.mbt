@@ -1,5 +1,5 @@
 ///|
-pub fn[T : @resource.Resource] ResourceRegistry::register_trait_resource(
+fn[T : @resource.Resource] ResourceRegistry::register_trait_resource(
   self : ResourceRegistry,
   resource : T,
 ) -> Unit {

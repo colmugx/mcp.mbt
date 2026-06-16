@@ -60,7 +60,7 @@ pub fn MCPServer::new(name : String, version : String) -> MCPServer {
 }
 
 ///|
-pub fn MCPServer::register_tool(
+fn MCPServer::register_tool(
   self : MCPServer,
   name : String,
   description : String,
@@ -71,7 +71,7 @@ pub fn MCPServer::register_tool(
 }
 
 ///|
-pub fn[T : @tool.Tool] MCPServer::register_trait_tool(
+fn[T : @tool.Tool] MCPServer::register_trait_tool(
   self : MCPServer,
   tool : T,
 ) -> Unit {
@@ -79,7 +79,7 @@ pub fn[T : @tool.Tool] MCPServer::register_trait_tool(
 }
 
 ///|
-pub fn MCPServer::register_resource(
+fn MCPServer::register_resource(
   self : MCPServer,
   uri : String,
   name : String,
@@ -91,7 +91,7 @@ pub fn MCPServer::register_resource(
 }
 
 ///|
-pub fn[T : @resource.Resource] MCPServer::register_trait_resource(
+fn[T : @resource.Resource] MCPServer::register_trait_resource(
   self : MCPServer,
   resource : T,
 ) -> Unit {
@@ -99,7 +99,7 @@ pub fn[T : @resource.Resource] MCPServer::register_trait_resource(
 }
 
 ///|
-pub fn MCPServer::register_prompt(
+fn MCPServer::register_prompt(
   self : MCPServer,
   name : String,
   description : String,
@@ -110,38 +110,11 @@ pub fn MCPServer::register_prompt(
 }
 
 ///|
-pub fn[T : @prompt.Prompt] MCPServer::register_trait_prompt(
+fn[T : @prompt.Prompt] MCPServer::register_trait_prompt(
   self : MCPServer,
   prompt : T,
 ) -> Unit {
   self.prompt_registry.register_trait_prompt(prompt)
-}
-
-///|
-pub async fn MCPServer::notify_tools_list_changed(
-  _ : MCPServer,
-  transport : @transport.AnyTransport,
-) -> Unit raise @types.TransportError {
-  let notification = @types.tools_list_changed_notification()
-  transport.send_notification(notification)
-}
-
-///|
-pub async fn MCPServer::notify_resources_list_changed(
-  _ : MCPServer,
-  transport : @transport.AnyTransport,
-) -> Unit raise @types.TransportError {
-  let notification = @types.resources_list_changed_notification()
-  transport.send_notification(notification)
-}
-
-///|
-pub async fn MCPServer::notify_prompts_list_changed(
-  _ : MCPServer,
-  transport : @transport.AnyTransport,
-) -> Unit raise @types.TransportError {
-  let notification = @types.prompts_list_changed_notification()
-  transport.send_notification(notification)
 }
 
 ///|
@@ -309,7 +282,7 @@ async fn MCPServer::run_http_transport(
 }
 
 ///|
-pub async fn MCPServer::run(
+async fn MCPServer::run_with_transport(
   self : MCPServer,
   transport : @transport.AnyTransport,
   group : @async.TaskGroup[Unit],
@@ -334,6 +307,18 @@ pub fn[T : @tool.Tool] MCPServer::with_tool(
 }
 
 ///|
+pub fn MCPServer::tool(
+  self : MCPServer,
+  name : String,
+  description : String,
+  input_schema : Json,
+  handler : async (Json) -> Result[@tool.ToolResult, @types.MCPError],
+) -> MCPServer {
+  self.register_tool(name, description, input_schema, handler)
+  self
+}
+
+///|
 pub fn[T : @resource.Resource] MCPServer::with_resource(
   self : MCPServer,
   resource : T,
@@ -343,11 +328,36 @@ pub fn[T : @resource.Resource] MCPServer::with_resource(
 }
 
 ///|
+pub fn MCPServer::resource(
+  self : MCPServer,
+  uri : String,
+  name : String,
+  description : String,
+  mime_type : String,
+  handler : async () -> Result[@resource.ResourceReadResult, @types.MCPError],
+) -> MCPServer {
+  self.register_resource(uri, name, description, mime_type, handler)
+  self
+}
+
+///|
 pub fn[T : @prompt.Prompt] MCPServer::with_prompt(
   self : MCPServer,
   prompt : T,
 ) -> MCPServer {
   self.register_trait_prompt(prompt)
+  self
+}
+
+///|
+pub fn MCPServer::prompt(
+  self : MCPServer,
+  name : String,
+  description : String,
+  arguments : Array[@types.PromptArgument],
+  handler : async (Json) -> Result[@types.GetPromptResult, @types.MCPError],
+) -> MCPServer {
+  self.register_prompt(name, description, arguments, handler)
   self
 }
 
@@ -387,7 +397,7 @@ pub async fn MCPServer::run_stdio(
   let transport = @transport.AnyTransport::Stdio(
     @transport.StdioTransport::new(),
   )
-  @async.with_task_group(group => self.run(transport, group)) catch {
+  @async.with_task_group(group => self.run_with_transport(transport, group)) catch {
     e => raise @types.ReadError("TaskGroup error: " + e.to_string())
   }
 }
@@ -397,16 +407,19 @@ pub async fn MCPServer::run_http(
   self : MCPServer,
   port? : Int = 4240,
   path? : String = "/mcp",
-  group~ : @async.TaskGroup[Unit],
 ) -> Unit raise @types.TransportError {
-  let http = @transport.HttpTransport::new(port~, endpoint_path=path)
-  let http = match self.auth_config {
-    Some(auth) => http.with_auth(auth)
-    None => http
+  @async.with_task_group(group => {
+    let http = @transport.HttpTransport::new(port~, endpoint_path=path)
+    let http = match self.auth_config {
+      Some(auth) => http.with_auth(auth)
+      None => http
+    }
+    group.spawn_bg(async fn() { http.start() })
+    let transport = @transport.AnyTransport::Http(http)
+    self.run_with_transport(transport, group)
+  }) catch {
+    e => raise @types.ReadError("TaskGroup error: " + e.to_string())
   }
-  group.spawn_bg(async fn() { http.start() })
-  let transport = @transport.AnyTransport::Http(http)
-  self.run(transport, group)
 }
 
 ///|

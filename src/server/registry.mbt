@@ -1,5 +1,5 @@
 ///|
-pub struct ToolEntry {
+priv struct ToolEntry {
   name : String
   description : String
   input_schema : Json
@@ -8,18 +8,17 @@ pub struct ToolEntry {
 }
 
 ///|
-pub(all) struct ToolRegistry {
+struct ToolRegistry {
   tools : Map[String, ToolEntry]
-  mut on_change : (() -> Unit)?
 }
 
 ///|
-pub fn ToolRegistry::new() -> ToolRegistry {
-  { tools: Map::default(), on_change: None }
+fn ToolRegistry::new() -> ToolRegistry {
+  { tools: Map::default() }
 }
 
 ///|
-pub fn ToolRegistry::register(
+fn ToolRegistry::register(
   self : ToolRegistry,
   name : String,
   description : String,
@@ -34,14 +33,10 @@ pub fn ToolRegistry::register(
     cached_schema_json,
     handler,
   })
-  match self.on_change {
-    Some(callback) => callback()
-    None => ()
-  }
 }
 
 ///|
-pub fn ToolRegistry::list_tools(
+fn ToolRegistry::list_tools(
   self : ToolRegistry,
 ) -> Array[@types.ToolDefinition] {
   Array::from_iter(
@@ -60,15 +55,7 @@ pub fn ToolRegistry::list_tools(
 }
 
 ///|
-pub fn ToolRegistry::set_on_change(
-  self : ToolRegistry,
-  callback : () -> Unit,
-) -> Unit {
-  self.on_change = Some(callback)
-}
-
-///|
-pub async fn ToolRegistry::call_tool(
+async fn ToolRegistry::call_tool(
   self : ToolRegistry,
   name : String,
   params : Json,

@@ -1,7 +1,7 @@
 ///| Prompt Registry - Internal prompt management
 
 ///|
-pub struct PromptEntry {
+priv struct PromptEntry {
   name : String
   description : String
   arguments : Array[@types.PromptArgument]
@@ -9,28 +9,19 @@ pub struct PromptEntry {
 }
 
 ///|
-pub(all) struct PromptRegistry {
+struct PromptRegistry {
   prompts : Map[String, PromptEntry]
-  mut on_change : (() -> Unit)?
 }
 
 ///|
-pub fn PromptRegistry::new() -> PromptRegistry {
-  { prompts: Map::default(), on_change: None }
-}
-
-///|
-pub fn PromptRegistry::set_on_change(
-  self : PromptRegistry,
-  callback : () -> Unit,
-) -> Unit {
-  self.on_change = Some(callback)
+fn PromptRegistry::new() -> PromptRegistry {
+  { prompts: Map::default() }
 }
 
 ///|
 
 ///|
-pub fn PromptRegistry::register(
+fn PromptRegistry::register(
   self : PromptRegistry,
   name : String,
   description : String,
@@ -38,14 +29,10 @@ pub fn PromptRegistry::register(
   handler : async (Json) -> Result[@types.GetPromptResult, @types.MCPError],
 ) -> Unit {
   self.prompts.set(name, { name, description, arguments, handler })
-  match self.on_change {
-    Some(callback) => callback()
-    None => ()
-  }
 }
 
 ///|
-pub fn PromptRegistry::list_prompts(
+fn PromptRegistry::list_prompts(
   self : PromptRegistry,
 ) -> Array[@prompt.PromptDefinition] {
   Array::from_iter(
@@ -62,7 +49,7 @@ pub fn PromptRegistry::list_prompts(
 }
 
 ///|
-pub async fn PromptRegistry::get_prompt(
+async fn PromptRegistry::get_prompt(
   self : PromptRegistry,
   name : String,
   args : Json,

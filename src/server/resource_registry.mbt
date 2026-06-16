@@ -1,7 +1,7 @@
 ///| Resource Registry - Internal resource management
 
 ///|
-pub struct ResourceEntry {
+priv struct ResourceEntry {
   name : String
   description : String
   uri : String
@@ -10,29 +10,20 @@ pub struct ResourceEntry {
 }
 
 ///|
-pub(all) struct ResourceRegistry {
+struct ResourceRegistry {
   resources : Map[String, ResourceEntry]
   mut subscriptions : Array[String]
-  mut on_change : (() -> Unit)?
 }
 
 ///|
-pub fn ResourceRegistry::new() -> ResourceRegistry {
-  { resources: Map::default(), subscriptions: [], on_change: None }
-}
-
-///|
-pub fn ResourceRegistry::set_on_change(
-  self : ResourceRegistry,
-  callback : () -> Unit,
-) -> Unit {
-  self.on_change = Some(callback)
+fn ResourceRegistry::new() -> ResourceRegistry {
+  { resources: Map::default(), subscriptions: [] }
 }
 
 ///|
 
 ///|
-pub fn ResourceRegistry::register(
+fn ResourceRegistry::register(
   self : ResourceRegistry,
   uri : String,
   name : String,
@@ -41,14 +32,10 @@ pub fn ResourceRegistry::register(
   handler : async () -> Result[@resource.ResourceReadResult, @types.MCPError],
 ) -> Unit {
   self.resources.set(uri, { name, description, uri, mime_type, handler })
-  match self.on_change {
-    Some(callback) => callback()
-    None => ()
-  }
 }
 
 ///|
-pub fn ResourceRegistry::list_resources(
+fn ResourceRegistry::list_resources(
   self : ResourceRegistry,
 ) -> Array[@resource.ResourceDefinition] {
   Array::from_iter(
@@ -66,7 +53,7 @@ pub fn ResourceRegistry::list_resources(
 }
 
 ///|
-pub async fn ResourceRegistry::read_resource(
+async fn ResourceRegistry::read_resource(
   self : ResourceRegistry,
   uri : String,
 ) -> Result[@resource.ResourceReadResult, @types.MCPError] {
@@ -80,7 +67,7 @@ pub async fn ResourceRegistry::read_resource(
 }
 
 ///|
-pub fn ResourceRegistry::subscribe(
+fn ResourceRegistry::subscribe(
   self : ResourceRegistry,
   uri : String,
 ) -> Result[Unit, @types.MCPError] {
@@ -97,7 +84,7 @@ pub fn ResourceRegistry::subscribe(
 }
 
 ///|
-pub fn ResourceRegistry::unsubscribe(
+fn ResourceRegistry::unsubscribe(
   self : ResourceRegistry,
   uri : String,
 ) -> Result[Unit, @types.MCPError] {

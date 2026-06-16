@@ -16,13 +16,6 @@ pub using @core {trait Params, type JsonSchema, type ToolError}
 pub using @core {tool_fn, simple_tool}
 
 ///|
-pub using @transport {
-  type AnyTransport,
-  type StdioTransport,
-  type HttpTransport,
-}
-
-///|
 pub using @types {
   type MCPError,
   type TransportError,

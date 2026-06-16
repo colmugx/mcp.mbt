@@ -23,7 +23,7 @@ fn expand_params_to_json(params : Array[@tool.ParamDef]) -> Json {
 }
 
 ///|
-pub fn[T : @tool.Tool] ToolRegistry::register_trait_tool(
+fn[T : @tool.Tool] ToolRegistry::register_trait_tool(
   self : ToolRegistry,
   tool : T,
 ) -> Unit {

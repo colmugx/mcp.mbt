@@ -1,5 +1,5 @@
 ///|
-pub fn[T : @prompt.Prompt] PromptRegistry::register_trait_prompt(
+fn[T : @prompt.Prompt] PromptRegistry::register_trait_prompt(
   self : PromptRegistry,
   prompt : T,
 ) -> Unit {
