@@ -157,9 +157,11 @@ Server 的 `run()` 循环区分两类请求：
 - **快速路径**（`initialize`, `tools/list`, `resources/list`, `prompts/list`）：直接在主循环执行，不 spawn 协程
 - **慢速路径**（`tools/call`, `resources/read`, `prompts/get`）：在 TaskGroup 中 spawn 新协程执行
 
-判断依据：`is_fast_request()` 通过字符串包含检查方法名。
+判断依据：先解析 JSON-RPC request，再根据 `method_name` 分类，不依赖原始字符串格式。
 
-所有响应通过 `@aqueue.Queue` 统一排队，由专门的发送任务写入 transport。
+响应路由按 transport 类型区分：
+- **stdio**：所有响应进入共享 `@aqueue.Queue`，由单独 sender task 串行写 stdout
+- **HTTP**：每个 POST 请求携带自己的 reply queue，response 直接回到对应连接，不经过全局“当前请求”槽位
 
 ## 6.5 协议版本
 

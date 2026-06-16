@@ -23,7 +23,7 @@ pub fn NotificationHandlers::empty() -> NotificationHandlers {
 }
 
 ///|
-pub fn handle_server_notification(
+fn handle_server_notification(
   handlers : NotificationHandlers,
   notification : @types.Notification,
 ) -> Unit {

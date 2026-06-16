@@ -2,11 +2,11 @@
 package "colmugx/mcp"
 
 import {
+  "colmugx/mcp/client",
   "colmugx/mcp/protocol/core",
   "colmugx/mcp/protocol/tool",
   "colmugx/mcp/protocol/types",
   "colmugx/mcp/server",
-  "colmugx/mcp/transport",
 }
 
 // Values
@@ -29,11 +29,11 @@ pub fn[Args : @core.Params, Ret : @core.ToToolResult] tool_fn((Args) -> Ret, nam
 // Types and methods
 
 // Type aliases
-pub using @transport {type AnyTransport}
+pub using @client {type CallToolResult}
+
+pub using @client {type CompletionResult}
 
 pub using @types {type ContentItem}
-
-pub using @transport {type HttpTransport}
 
 pub using @types {type JsonRpcRequest}
 
@@ -41,19 +41,27 @@ pub using @types {type JsonRpcResponse}
 
 pub using @core {type JsonSchema}
 
+pub using @client {type ListPromptsResult}
+
+pub using @client {type ListResourcesResult}
+
+pub using @client {type ListToolsResult}
+
+pub using @client {type MCPClient}
+
 pub using @types {type MCPError}
+
+pub using @client {type MCPHost}
 
 pub using @server {type MCPServer}
 
 pub using @tool {type ParamDef}
 
+pub using @client {type ReadResourceResult}
+
 pub using @types {type ServerCapabilities}
 
 pub using @types {type ServerInfo}
-
-pub using @transport {type StdioClientTransport}
-
-pub using @transport {type StdioTransport}
 
 pub using @types {type ToolDefinition}
 

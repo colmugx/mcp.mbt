@@ -154,6 +154,10 @@ async fn main {
 2. 在 TaskGroup 中启动 `http.start()` 作为后台任务
 3. 调用 `server.run(transport, group)` 进入请求处理循环
 
+Server 运行时会按 transport 类型选择响应路径：
+- `stdio` 共享一个串行发送队列，避免 stdout 交错
+- `http` 为每个 POST 请求保留独立 reply queue，response 直接写回对应连接
+
 ## 4.5 HttpClientTransport（Client 端）
 
 HTTP client 端 transport，用于连接到远程 MCP server。实现 Streamable HTTP 传输协议（MCP 2025-11-25）：POST 用于请求-响应，GET SSE 用于 server→client 通知。

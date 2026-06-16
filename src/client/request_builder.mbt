@@ -1,5 +1,5 @@
 ///|
-pub fn build_initialize_request(
+fn build_initialize_request(
   id : Int,
   client_name : String,
   client_version : String,
@@ -39,7 +39,7 @@ pub fn build_initialize_request(
 }
 
 ///|
-pub fn build_initialized_notification() -> String {
+fn build_initialized_notification() -> String {
   Json::object({
     "jsonrpc": Json::string("2.0"),
     "method": Json::string("notifications/initialized"),
@@ -47,7 +47,7 @@ pub fn build_initialized_notification() -> String {
 }
 
 ///|
-pub fn build_ping_request(id : Int) -> String {
+fn build_ping_request(id : Int) -> String {
   Json::object({
     "jsonrpc": Json::string("2.0"),
     "id": Json::number(id.to_double()),
@@ -56,7 +56,7 @@ pub fn build_ping_request(id : Int) -> String {
 }
 
 ///|
-pub fn build_tools_list_request(id : Int, cursor? : String = "") -> String {
+fn build_tools_list_request(id : Int, cursor? : String = "") -> String {
   if cursor == "" {
     Json::object({
       "jsonrpc": Json::string("2.0"),
@@ -74,7 +74,7 @@ pub fn build_tools_list_request(id : Int, cursor? : String = "") -> String {
 }
 
 ///|
-pub fn build_tools_call_request(
+fn build_tools_call_request(
   id : Int,
   name : String,
   arguments? : String = "{}",
@@ -99,7 +99,7 @@ pub fn build_tools_call_request(
 }
 
 ///|
-pub fn build_resources_list_request(id : Int, cursor? : String = "") -> String {
+fn build_resources_list_request(id : Int, cursor? : String = "") -> String {
   if cursor == "" {
     Json::object({
       "jsonrpc": Json::string("2.0"),
@@ -117,7 +117,7 @@ pub fn build_resources_list_request(id : Int, cursor? : String = "") -> String {
 }
 
 ///|
-pub fn build_resources_read_request(id : Int, uri : String) -> String {
+fn build_resources_read_request(id : Int, uri : String) -> String {
   Json::object({
     "jsonrpc": Json::string("2.0"),
     "id": Json::number(id.to_double()),
@@ -127,7 +127,7 @@ pub fn build_resources_read_request(id : Int, uri : String) -> String {
 }
 
 ///|
-pub fn build_prompts_list_request(id : Int, cursor? : String = "") -> String {
+fn build_prompts_list_request(id : Int, cursor? : String = "") -> String {
   if cursor == "" {
     Json::object({
       "jsonrpc": Json::string("2.0"),
@@ -145,7 +145,7 @@ pub fn build_prompts_list_request(id : Int, cursor? : String = "") -> String {
 }
 
 ///|
-pub fn build_prompts_get_request(
+fn build_prompts_get_request(
   id : Int,
   name : String,
   arguments? : String = "{}",
@@ -163,7 +163,7 @@ pub fn build_prompts_get_request(
 }
 
 ///|
-pub fn build_set_log_level_request(id : Int, level : String) -> String {
+fn build_set_log_level_request(id : Int, level : String) -> String {
   Json::object({
     "jsonrpc": Json::string("2.0"),
     "id": Json::number(id.to_double()),
@@ -173,7 +173,7 @@ pub fn build_set_log_level_request(id : Int, level : String) -> String {
 }
 
 ///|
-pub fn build_resources_subscribe_request(id : Int, uri : String) -> String {
+fn build_resources_subscribe_request(id : Int, uri : String) -> String {
   Json::object({
     "jsonrpc": Json::string("2.0"),
     "id": Json::number(id.to_double()),
@@ -183,7 +183,7 @@ pub fn build_resources_subscribe_request(id : Int, uri : String) -> String {
 }
 
 ///|
-pub fn build_resources_unsubscribe_request(id : Int, uri : String) -> String {
+fn build_resources_unsubscribe_request(id : Int, uri : String) -> String {
   Json::object({
     "jsonrpc": Json::string("2.0"),
     "id": Json::number(id.to_double()),
@@ -193,7 +193,7 @@ pub fn build_resources_unsubscribe_request(id : Int, uri : String) -> String {
 }
 
 ///|
-pub fn build_resources_templates_list_request(
+fn build_resources_templates_list_request(
   id : Int,
   cursor? : String = "",
 ) -> String {
@@ -214,7 +214,7 @@ pub fn build_resources_templates_list_request(
 }
 
 ///|
-pub fn build_completion_complete_request(
+fn build_completion_complete_request(
   id : Int,
   ref_type~ : String,
   ref_name~ : String,

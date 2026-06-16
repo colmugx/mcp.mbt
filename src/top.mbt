@@ -38,10 +38,14 @@ pub using @pcore {
 pub using @server {mcp_server, type MCPServer}
 
 ///|
-/// Transport
-pub using @transport {
-  type AnyTransport,
-  type StdioTransport,
-  type StdioClientTransport,
-  type HttpTransport,
+/// Client and Host
+pub using @client {
+  type MCPClient,
+  type MCPHost,
+  type ListToolsResult,
+  type CallToolResult,
+  type ListResourcesResult,
+  type ReadResourceResult,
+  type ListPromptsResult,
+  type CompletionResult,
 }

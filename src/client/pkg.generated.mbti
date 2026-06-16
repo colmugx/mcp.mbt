@@ -12,35 +12,6 @@ import {
 }
 
 // Values
-pub fn build_completion_complete_request(Int, ref_type~ : String, ref_name~ : String, argument_name~ : String, argument_value~ : String) -> String
-
-pub fn build_initialize_request(Int, String, String, capabilities~ : @types.ClientCapabilities) -> String
-
-pub fn build_initialized_notification() -> String
-
-pub fn build_ping_request(Int) -> String
-
-pub fn build_prompts_get_request(Int, String, arguments? : String) -> String
-
-pub fn build_prompts_list_request(Int, cursor? : String) -> String
-
-pub fn build_resources_list_request(Int, cursor? : String) -> String
-
-pub fn build_resources_read_request(Int, String) -> String
-
-pub fn build_resources_subscribe_request(Int, String) -> String
-
-pub fn build_resources_templates_list_request(Int, cursor? : String) -> String
-
-pub fn build_resources_unsubscribe_request(Int, String) -> String
-
-pub fn build_set_log_level_request(Int, String) -> String
-
-pub fn build_tools_call_request(Int, String, arguments? : String, progress_token? : String) -> String
-
-pub fn build_tools_list_request(Int, cursor? : String) -> String
-
-pub fn handle_server_notification(NotificationHandlers, @types.Notification) -> Unit
 
 // Errors
 
@@ -93,13 +64,14 @@ pub struct MCPClient {
 pub async fn MCPClient::call_tool(Self, String, arguments? : String) -> Result[CallToolResult, @types.MCPError]
 pub fn MCPClient::close(Self) -> Unit
 pub async fn MCPClient::complete(Self, ref_type~ : String, ref_name~ : String, argument_name~ : String, argument_value~ : String) -> Result[CompletionResult, @types.MCPError]
+pub async fn MCPClient::connect_http(url~ : String, name~ : String, version~ : String, auth_token? : String) -> Result[Self, @types.MCPError]
+pub async fn MCPClient::connect_stdio(cmd~ : String, args? : Array[String], name~ : String, version~ : String, extra_env? : Map[String, String], group~ : @async.TaskGroup[Unit]) -> Result[Self, @types.MCPError]
 pub async fn MCPClient::get_prompt(Self, String, arguments? : String) -> Result[@types.GetPromptResult, @types.MCPError]
 pub async fn MCPClient::initialize(Self) -> Result[@types.ServerInfo, @types.MCPError]
 pub async fn MCPClient::list_prompts(Self, cursor? : String) -> Result[ListPromptsResult, @types.MCPError]
 pub async fn MCPClient::list_resource_templates(Self, cursor? : String) -> Result[ListResourceTemplatesResult, @types.MCPError]
 pub async fn MCPClient::list_resources(Self, cursor? : String) -> Result[ListResourcesResult, @types.MCPError]
 pub async fn MCPClient::list_tools(Self, cursor? : String) -> Result[ListToolsResult, @types.MCPError]
-pub fn MCPClient::new(name~ : String, version~ : String, transport~ : @transport.AnyTransport, capabilities? : @types.ClientCapabilities) -> Self
 pub fn MCPClient::next_request_id(Self) -> Int
 pub fn MCPClient::on_elicitation(Self, (Json) -> Result[@types.ElicitationResult, @types.MCPError]) -> Self
 pub fn MCPClient::on_notification(Self, NotificationHandlers) -> Self
@@ -111,6 +83,18 @@ pub async fn MCPClient::run(Self, @async.TaskGroup[Unit]) -> Unit
 pub async fn MCPClient::set_log_level(Self, String) -> Result[Unit, @types.MCPError]
 pub async fn MCPClient::subscribe_resource(Self, String) -> Result[Unit, @types.MCPError]
 pub async fn MCPClient::unsubscribe_resource(Self, String) -> Result[Unit, @types.MCPError]
+
+pub struct MCPHost {
+  name : String
+  version : String
+  connections : Map[String, MCPClient]
+}
+pub async fn MCPHost::call_tool(Self, String, arguments? : String) -> Result[CallToolResult, @types.MCPError]
+pub fn MCPHost::close_all(Self) -> Unit
+pub async fn MCPHost::connect_http(Self, name~ : String, url~ : String, auth_token? : String) -> Result[Unit, @types.MCPError]
+pub async fn MCPHost::connect_stdio(Self, name~ : String, cmd~ : String, args? : Array[String], extra_env? : Map[String, String], group~ : @async.TaskGroup[Unit]) -> Result[Unit, @types.MCPError]
+pub async fn MCPHost::list_tools(Self) -> Result[ListToolsResult, @types.MCPError]
+pub fn MCPHost::new(name~ : String, version~ : String) -> Self
 
 pub(all) struct NotificationHandlers {
   on_tools_changed : (() -> Unit)?
@@ -127,11 +111,7 @@ pub(all) struct ReadResourceResult {
   contents : Array[@resource.ResourceReadResult]
 } derive(Eq, @debug.Debug)
 
-pub(all) struct RequestIdCounter {
-  mut next_id : Int
-}
-pub fn RequestIdCounter::new() -> Self
-pub fn RequestIdCounter::next(Self) -> Int
+type RequestIdCounter
 
 pub(all) struct ResourceTemplate {
   uri_template : String

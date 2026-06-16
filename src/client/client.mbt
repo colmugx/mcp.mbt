@@ -1,15 +1,15 @@
 ///|
-pub(all) struct RequestIdCounter {
+struct RequestIdCounter {
   mut next_id : Int
 }
 
 ///|
-pub fn RequestIdCounter::new() -> RequestIdCounter {
+fn RequestIdCounter::new() -> RequestIdCounter {
   { next_id: 0 }
 }
 
 ///|
-pub fn RequestIdCounter::next(self : RequestIdCounter) -> Int {
+fn RequestIdCounter::next(self : RequestIdCounter) -> Int {
   self.next_id = self.next_id + 1
   self.next_id
 }
@@ -37,7 +37,7 @@ pub struct MCPClient {
 }
 
 ///|
-pub fn MCPClient::new(
+fn MCPClient::new(
   name~ : String,
   version~ : String,
   transport~ : @transport.AnyTransport,
@@ -56,6 +56,45 @@ pub fn MCPClient::new(
     elicitation_handler: None,
     response_map: {},
     event_loop_started: false,
+  }
+}
+
+///|
+pub async fn MCPClient::connect_http(
+  url~ : String,
+  name~ : String,
+  version~ : String,
+  auth_token? : String = "",
+) -> Result[MCPClient, @types.MCPError] {
+  let transport = @transport.AnyTransport::HttpClient(
+    @transport.HttpClientTransport::new(url, auth_token~),
+  )
+  let client = MCPClient::new(name~, version~, transport~)
+  match client.initialize() {
+    Ok(_) => Ok(client)
+    Err(e) => Err(e)
+  }
+}
+
+///|
+pub async fn MCPClient::connect_stdio(
+  cmd~ : String,
+  args? : Array[String] = [],
+  name~ : String,
+  version~ : String,
+  extra_env? : Map[String, String] = {},
+  group~ : @async.TaskGroup[Unit],
+) -> Result[MCPClient, @types.MCPError] {
+  let stdio = @transport.StdioClientTransport::new(cmd~, args~, extra_env~)
+  stdio.start(group) catch {
+    e =>
+      return Err(@types.InternalError("Stdio start failed: " + e.to_string()))
+  }
+  let transport = @transport.AnyTransport::StdioClient(stdio)
+  let client = MCPClient::new(name~, version~, transport~)
+  match client.initialize() {
+    Ok(_) => Ok(client)
+    Err(e) => Err(e)
   }
 }
 

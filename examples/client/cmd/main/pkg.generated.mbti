@@ -6,7 +6,6 @@ package "colmugx/mcp-example-client/cmd/main"
 // Errors
 
 // Types and methods
-type HostConnection
 
 // Type aliases
 
