@@ -2,10 +2,10 @@
 
 ## High-Level API
 
-Create servers with `MCPServer::new(name, version)` and register capabilities with builder methods.
+Create servers with `MCPServer(name, version)` and register capabilities with builder methods.
 
 ```moonbit
-let server = @mcp.MCPServer::new("app", "1.0.0")
+let server = @mcp.MCPServer("app", "1.0.0")
   .tool("echo", "Echo input", Json::object({}), fn(args) {
     Ok(@tool.ToolResult::text(args.stringify()))
   })

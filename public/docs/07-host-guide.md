@@ -5,7 +5,7 @@
 ## Create
 
 ```moonbit
-let host = @mcp.MCPHost::new(name="my-host", version="1.0.0")
+let host = @mcp.MCPHost(name="my-host", version="1.0.0")
 ```
 
 ## Connect

@@ -6,7 +6,7 @@ v0.14 is centered on three high-level types: `MCPServer`, `MCPClient`, and `MCPH
 
 ```moonbit
 async fn main {
-  @mcp.MCPServer::new("notes", "1.0.0")
+  @mcp.MCPServer("notes", "1.0.0")
     .tool("echo", "Echo text", Json::object({}), fn(args) {
       Ok(@tool.ToolResult::text(args.stringify()))
     })
@@ -60,7 +60,7 @@ For local servers:
 
 ```moonbit
 async fn main {
-  let host = @mcp.MCPHost::new(name="quickstart-host", version="1.0.0")
+  let host = @mcp.MCPHost(name="quickstart-host", version="1.0.0")
   @async.with_task_group(group => {
     ignore(host.connect_stdio(name="local", cmd="moon", args=["run", "server"], group~))
     ignore(host.connect_http(name="remote", url="http://localhost:4240/mcp"))
