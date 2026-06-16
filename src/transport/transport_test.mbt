@@ -186,6 +186,29 @@ test "HttpTransport::close is no_op" {
   ()
 }
 
+///|
+async test "HttpTransport routes out-of-order responses by JSON-RPC id" {
+  let transport = HttpTransport::new()
+  let request_a = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"slow\"}"
+  let request_b = "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"fast\"}"
+  let reply_a : @async.Queue[String] = @async.Queue(kind=Blocking(1))
+  let reply_b : @async.Queue[String] = @async.Queue(kind=Blocking(1))
+
+  transport.pending_requests.put((request_a, reply_a))
+  transport.pending_requests.put((request_b, reply_b))
+
+  @debug.assert_eq(transport.receive(), Some(request_a))
+  @debug.assert_eq(transport.receive(), Some(request_b))
+
+  let response_b = "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":\"B\"}"
+  let response_a = "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":\"A\"}"
+  transport.send(response_b)
+  transport.send(response_a)
+
+  @debug.assert_eq(reply_b.get(), response_b)
+  @debug.assert_eq(reply_a.get(), response_a)
+}
+
 ///| =====================================================
 
 ///| AnyTransport Enum Tests

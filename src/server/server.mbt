@@ -1,6 +1,33 @@
 ///| MCPServer - Main Server Implementation
 
-///|=====================================================
+///|
+priv enum ReplyHandle {
+  Stdio(@aqueue.Queue[String])
+  Http(@async.Queue[String])
+}
+
+///|
+priv struct ServerRequest {
+  message : String
+  reply : ReplyHandle
+}
+
+///|
+async fn ReplyHandle::send(
+  self : ReplyHandle,
+  response : String,
+) -> Unit raise @types.TransportError {
+  match self {
+    Stdio(queue) =>
+      queue.put(response) catch {
+        e => raise @types.WriteError(e.to_string())
+      }
+    Http(queue) =>
+      queue.put(response) catch {
+        e => raise @types.WriteError(e.to_string())
+      }
+  }
+}
 
 ///|
 pub struct MCPServer {
@@ -122,55 +149,163 @@ pub async fn MCPServer::handle_request(
   self : MCPServer,
   request_json : String,
 ) -> String {
+  match parse_request_message(request_json) {
+    Ok(request) => self.handle_parsed_request(request)
+    Err(response) => response
+  }
+}
+
+///|
+fn parse_request_message(
+  request_json : String,
+) -> Result[@types.JsonRpcRequest, String] {
   let parsed = @json.parse(request_json) catch {
     _ =>
-      return jsonrpc_error_str(@types.RequestId::Int(0), -32700, "Parse error")
+      return Err(
+        jsonrpc_error_str(@types.RequestId::Int(0), -32700, "Parse error"),
+      )
   }
   match @types.JsonRpcRequest::from_json(parsed) {
+    Ok(request) => Ok(request)
     Err(e) =>
-      jsonrpc_error_str(
-        @types.RequestId::Int(0),
-        e.to_error_code(),
-        e.message(),
+      Err(
+        jsonrpc_error_str(
+          @types.RequestId::Int(0),
+          e.to_error_code(),
+          e.message(),
+        ),
       )
-    Ok(request) =>
-      match request.method_name {
-        "initialize" => handle_initialize(self, request.id)
-        "ping" => handle_ping(request.id)
-        "tools/list" => handle_tools_list(self, request.id)
-        "tools/call" => handle_tools_call(self, request.id, request.params)
-        "resources/list" => handle_resources_list(self, request.id)
-        "resources/read" =>
-          handle_resources_read(self, request.id, request.params)
-        "resources/subscribe" =>
-          handle_resources_subscribe(self, request.id, request.params)
-        "resources/unsubscribe" =>
-          handle_resources_unsubscribe(self, request.id, request.params)
-        "prompts/list" => handle_prompts_list(self, request.id)
-        "prompts/get" => handle_prompts_get(self, request.id, request.params)
-        "logging/setLevel" => handle_set_level(self, request.id, request.params)
-        _ =>
-          jsonrpc_error_str(
-            request.id,
-            -32601,
-            "Method not found: " + request.method_name,
-          )
+  }
+}
+
+///|
+fn is_fast_method(method_name : String) -> Bool {
+  method_name == "initialize" ||
+  method_name == "ping" ||
+  method_name == "tools/list" ||
+  method_name == "resources/list" ||
+  method_name == "prompts/list"
+}
+
+///|
+async fn MCPServer::handle_parsed_request(
+  self : MCPServer,
+  request : @types.JsonRpcRequest,
+) -> String {
+  match request.method_name {
+    "initialize" => handle_initialize(self, request.id)
+    "ping" => handle_ping(request.id)
+    "tools/list" => handle_tools_list(self, request.id)
+    "tools/call" => handle_tools_call(self, request.id, request.params)
+    "resources/list" => handle_resources_list(self, request.id)
+    "resources/read" => handle_resources_read(self, request.id, request.params)
+    "resources/subscribe" =>
+      handle_resources_subscribe(self, request.id, request.params)
+    "resources/unsubscribe" =>
+      handle_resources_unsubscribe(self, request.id, request.params)
+    "prompts/list" => handle_prompts_list(self, request.id)
+    "prompts/get" => handle_prompts_get(self, request.id, request.params)
+    "logging/setLevel" => handle_set_level(self, request.id, request.params)
+    _ =>
+      jsonrpc_error_str(
+        request.id,
+        -32601,
+        "Method not found: " + request.method_name,
+      )
+  }
+}
+
+///|
+fn internal_error_response(id : @types.RequestId) -> String {
+  jsonrpc_error_str(id, -32603, "Internal server error")
+}
+
+///|
+async fn MCPServer::handle_server_request(
+  self : MCPServer,
+  request : ServerRequest,
+  group : @async.TaskGroup[Unit],
+) -> Unit {
+  match parse_request_message(request.message) {
+    Err(response) => request.reply.send(response) catch { _ => () }
+    Ok(parsed_request) =>
+      if is_fast_method(parsed_request.method_name) {
+        let response = self.handle_parsed_request(parsed_request) catch {
+          _ => internal_error_response(parsed_request.id)
+        }
+        request.reply.send(response) catch {
+          _ => ()
+        }
+      } else {
+        group.spawn_bg(() => {
+          let response = self.handle_parsed_request(parsed_request) catch {
+            _ => internal_error_response(parsed_request.id)
+          }
+          request.reply.send(response) catch {
+            _ => ()
+          }
+        })
       }
   }
 }
 
 ///|
-/// Determine if a request is a "fast" operation that doesn't need async spawning.
-/// Fast requests are those that:
-/// - Don't perform I/O operations
-/// - Complete in microseconds (e.g., initialize, tools/list, resources/list)
-/// - Don't benefit from concurrency
-fn is_fast_request(message : String) -> Bool {
-  message.contains("\"method\":\"initialize\"") ||
-  message.contains("\"method\":\"ping\"") ||
-  message.contains("\"method\":\"tools/list\"") ||
-  message.contains("\"method\":\"resources/list\"") ||
-  message.contains("\"method\":\"prompts/list\"")
+async fn MCPServer::run_stdio_transport(
+  self : MCPServer,
+  transport : @transport.StdioTransport,
+  group : @async.TaskGroup[Unit],
+) -> Unit raise @types.TransportError {
+  let response_queue : @aqueue.Queue[String] = @aqueue.Queue(
+    kind=@aqueue.Kind::Unbounded,
+  )
+  group.spawn_bg(() => {
+    while true {
+      let response = response_queue.get() catch { _ => break }
+      transport.send(response) catch {
+        _ => ()
+      }
+    }
+  })
+
+  while true {
+    match transport.receive() {
+      None => {
+        response_queue.close()
+        transport.close()
+        break
+      }
+      Some(message) =>
+        self.handle_server_request(
+          { message, reply: ReplyHandle::Stdio(response_queue) },
+          group,
+        ) catch {
+          _ => ()
+        }
+    }
+  }
+}
+
+///|
+async fn MCPServer::run_http_transport(
+  self : MCPServer,
+  transport : @transport.HttpTransport,
+  group : @async.TaskGroup[Unit],
+) -> Unit raise @types.TransportError {
+  while true {
+    match transport.receive_request() {
+      None => {
+        transport.close()
+        break
+      }
+      Some((message, reply_queue)) =>
+        self.handle_server_request(
+          { message, reply: ReplyHandle::Http(reply_queue) },
+          group,
+        ) catch {
+          _ => ()
+        }
+    }
+  }
 }
 
 ///|
@@ -179,64 +314,13 @@ pub async fn MCPServer::run(
   transport : @transport.AnyTransport,
   group : @async.TaskGroup[Unit],
 ) -> Unit raise @types.TransportError {
-  // 创建响应队列用于并发任务到发送任务的通信
-  let response_queue : @aqueue.Queue[String] = @aqueue.Queue(
-    kind=@aqueue.Kind::Unbounded,
-  )
-
-  // 生成发送任务：专门负责从队列取响应并发送
-  group.spawn_bg(() => {
-    while true {
-      let response = response_queue.get() catch {
-        _ => break // 队列关闭时退出
-      }
-      transport.send(response) catch {
-        _ => () // 忽略发送错误，继续处理
-      }
-    }
-  })
-
-  // 主循环：接收请求并为每个请求生成并发任务
-  while true {
-    match transport.receive() {
-      None => {
-        response_queue.close() // 关闭队列通知发送任务退出
-        transport.close()
-        break
-      }
-      Some(message) =>
-        // 性能优化：快速请求直接执行，避免spawn开销
-        if is_fast_request(message) {
-          // 快速路径：直接执行，不spawn新协程
-          let response = self.handle_request(message) catch {
-            _ =>
-              jsonrpc_error_str(
-                @types.RequestId::Int(0),
-                -32603,
-                "Internal server error",
-              )
-          }
-          // try_put 是非阻塞的，对于Unbounded队列总是成功
-          let _ = response_queue.try_put(response) catch { _ => false }
-          ()
-        } else {
-          // 慢速路径：为可能的I/O密集型操作spawn协程
-          group.spawn_bg(() => {
-            let response = self.handle_request(message) catch {
-              _ =>
-                jsonrpc_error_str(
-                  @types.RequestId::Int(0),
-                  -32603,
-                  "Internal server error",
-                )
-            }
-            // 把响应放入队列
-            response_queue.put(response) catch {
-              _ => () // 队列已关闭，忽略
-            }
-          })
-        }
-    }
+  match transport {
+    Stdio(stdio) => self.run_stdio_transport(stdio, group)
+    Http(http) => self.run_http_transport(http, group)
+    _ =>
+      raise @types.InvalidState(
+        "MCPServer::run requires a server transport (stdio or http)",
+      )
   }
 }
 

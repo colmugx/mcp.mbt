@@ -62,16 +62,12 @@ pub fn HttpClientTransport::send_event(Self, event_type~ : String, data~ : Strin
 pub async fn HttpClientTransport::send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
 pub fn HttpClientTransport::supports_streaming(Self) -> Bool
 
-type HttpPendingRequest
-
-type HttpResponse
-
 pub struct HttpTransport {
   port : Int
   endpoint_path : String
   auth : AuthConfig?
-  pending_requests : @aqueue.Queue[HttpPendingRequest]
-  mut current_reply_queue : @aqueue.Queue[HttpResponse]?
+  pending_requests : @aqueue.Queue[(String, @aqueue.Queue[String])]
+  pending_reply_queues : Map[String, @aqueue.Queue[String]]
   mut session_id : String?
   mut sse_active : Bool
   event_queue : @aqueue.Queue[@types.Notification]
@@ -79,6 +75,7 @@ pub struct HttpTransport {
 pub fn HttpTransport::close(Self) -> Unit
 pub fn HttpTransport::new(port? : Int, endpoint_path? : String) -> Self
 pub async fn HttpTransport::receive(Self) -> String? raise @types.TransportError
+pub async fn HttpTransport::receive_request(Self) -> (String, @aqueue.Queue[String])? raise @types.TransportError
 pub async fn HttpTransport::send(Self, String) -> Unit raise @types.TransportError
 pub fn HttpTransport::send_event(Self, event_type~ : String, data~ : String) -> Unit
 pub async fn HttpTransport::send_notification(Self, @types.Notification) -> Unit raise @types.TransportError

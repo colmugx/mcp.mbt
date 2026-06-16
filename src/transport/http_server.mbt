@@ -41,24 +41,12 @@ pub fn AuthConfig::new(
 }
 
 ///|
-struct HttpPendingRequest {
-  message : String
-  reply_queue : @async.Queue[HttpResponse]
-}
-
-///|
-struct HttpResponse {
-  body : String
-  use_sse : Bool
-}
-
-///|
 pub struct HttpTransport {
   port : Int
   endpoint_path : String
   auth : AuthConfig?
-  pending_requests : @async.Queue[HttpPendingRequest]
-  mut current_reply_queue : @async.Queue[HttpResponse]?
+  pending_requests : @async.Queue[(String, @async.Queue[String])]
+  pending_reply_queues : Map[String, @async.Queue[String]]
   mut session_id : String?
   mut sse_active : Bool
   event_queue : @async.Queue[@types.Notification]
@@ -74,10 +62,32 @@ pub fn HttpTransport::new(
     endpoint_path,
     auth: None,
     pending_requests: @async.Queue(kind=Unbounded),
-    current_reply_queue: None,
+    pending_reply_queues: {},
     session_id: None,
     sse_active: false,
     event_queue: @async.Queue(kind=Unbounded),
+  }
+}
+
+///|
+fn id_key_from_json(value : Json) -> String? {
+  match value {
+    Number(n, ..) => Some("n:" + n.to_int().to_string())
+    String(s) => Some("s:" + s)
+    _ => None
+  }
+}
+
+///|
+fn id_key_from_message(message : String) -> String? {
+  let json = @json.parse(message) catch { _ => return None }
+  if json is Object(obj) {
+    match obj.get("id") {
+      Some(id) => id_key_from_json(id)
+      None => None
+    }
+  } else {
+    None
   }
 }
 
@@ -217,29 +227,15 @@ pub async fn HttpTransport::start(
           }
         let reply_queue = @async.Queue(kind=Blocking(1))
         try {
-          self.pending_requests.put({ message, reply_queue })
+          self.pending_requests.put((message, reply_queue))
           let response = reply_queue.get()
-          if response.use_sse {
-            conn.send_response(200, "OK", extra_headers={
-              "Content-Type": "text/event-stream",
-              "Cache-Control": "no-cache",
-              "Connection": "keep-alive",
-              "MCP-Protocol-Version": "2025-11-25",
-              "Mcp-Session-Id": session_header,
-            })
-            conn.flush()
-            conn.write("data: " + response.body + "\n\n")
-            conn.flush()
-            conn.end_response()
-          } else {
-            conn.send_response(200, "OK", extra_headers={
-              "Content-Type": "application/json",
-              "MCP-Protocol-Version": "2025-11-25",
-              "Mcp-Session-Id": session_header,
-            })
-            conn.write(response.body)
-            conn.end_response()
-          }
+          conn.send_response(200, "OK", extra_headers={
+            "Content-Type": "application/json",
+            "MCP-Protocol-Version": "2025-11-25",
+            "Mcp-Session-Id": session_header,
+          })
+          conn.write(response)
+          conn.end_response()
         } catch {
           _ => {
             conn.send_response(500, "Internal Server Error")
@@ -286,15 +282,30 @@ pub async fn HttpTransport::start(
 }
 
 ///|
+pub async fn HttpTransport::receive_request(
+  self : HttpTransport,
+) -> (String, @async.Queue[String])? raise @types.TransportError {
+  try {
+    let req = self.pending_requests.get()
+    Some(req)
+  } catch {
+    e => raise @types.ReadError(e.to_string())
+  }
+}
+
+///|
 pub async fn HttpTransport::receive(
   self : HttpTransport,
 ) -> String? raise @types.TransportError {
-  try {
-    let req = self.pending_requests.get()
-    self.current_reply_queue = Some(req.reply_queue)
-    Some(req.message)
-  } catch {
-    e => raise @types.ReadError(e.to_string())
+  match self.receive_request() {
+    Some((message, reply_queue)) => {
+      match id_key_from_message(message) {
+        Some(id_key) => self.pending_reply_queues.set(id_key, reply_queue)
+        None => ()
+      }
+      Some(message)
+    }
+    None => None
   }
 }
 
@@ -303,15 +314,22 @@ pub async fn HttpTransport::send(
   self : HttpTransport,
   message : String,
 ) -> Unit raise @types.TransportError {
-  match self.current_reply_queue {
-    Some(q) =>
-      try {
-        q.put({ body: message, use_sse: false })
-        self.current_reply_queue = None
-      } catch {
+  let id_key = match id_key_from_message(message) {
+    Some(id) => id
+    None =>
+      raise @types.InvalidState("Cannot route response without a JSON-RPC id")
+  }
+  match self.pending_reply_queues.get(id_key) {
+    Some(q) => {
+      self.pending_reply_queues.remove(id_key)
+      q.put(message) catch {
         e => raise @types.WriteError(e.to_string())
       }
-    None => raise @types.InvalidState("No pending request to reply to")
+    }
+    None =>
+      raise @types.InvalidState(
+        "No pending HTTP request for JSON-RPC id: " + id_key,
+      )
   }
 }
 
