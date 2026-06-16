@@ -1,8 +1,8 @@
 # MoonBit MCP SDK
 
-Type-safe [Model Context Protocol](https://modelcontextprotocol.io/) (MCP 2025-11-25) server and client implementation in MoonBit.
+Type-safe [Model Context Protocol](https://modelcontextprotocol.io/) SDK for MoonBit.
 
-**Version**: 0.13.4 · **Protocol**: 2025-11-25 · **License**: Apache-2.0
+**Version**: 0.14.0 · **Protocol**: 2025-11-25 · **License**: Apache-2.0
 
 ## Installation
 
@@ -10,141 +10,97 @@ Type-safe [Model Context Protocol](https://modelcontextprotocol.io/) (MCP 2025-1
 moon add colmugx/mcp
 ```
 
-Requires `moonbitlang/async` (auto-resolved as a dependency).
+The SDK uses `moonbitlang/async@0.19.4` and targets native I/O for server, client, and host runtimes.
 
 ## Quick Start
 
 ### Server
 
 ```moonbit
-// 1. Define a tool
-struct EchoTool {}
-pub impl Tool for EchoTool with name(_) -> String { "echo" }
-pub impl Tool for EchoTool with description(_) -> String { "Echo input" }
-pub impl Tool for EchoTool with params(_) -> Array[ParamDef] {
-  [ParamDef::{ name: "text", schema: @core.str_schema(desc="Text"), required: true }]
-}
-pub impl Tool for EchoTool with async execute(_, args) -> ToolResult {
-  match @core.get_string(args, "text") {
-    Ok(t) => @tool.ToolResult::text("Echo: " + t)
-    Err(_) => @tool.ToolResult::error("Missing 'text'")
-  }
-}
-
-// 2. Create and run
-fn main {
-  @mcp.mcp_server(name="my-server", version="1.0.0")
-    .with_tool(EchoTool::{})
-    .run_stdio()  // or .run_http(port=4240)
+async fn main {
+  @mcp.MCPServer::new("demo-server", "1.0.0")
+    .tool("echo", "Echo text", Json::object({}), fn(args) {
+      let text = match args {
+        Object(obj) =>
+          match obj.get("text") {
+            Some(String(value)) => value
+            _ => ""
+          }
+        _ => ""
+      }
+      Ok(@tool.ToolResult::text(text))
+    })
+    .run_stdio()
 }
 ```
 
-**Claude Desktop** — add to `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "my-server": {
-      "command": "moon",
-      "args": ["run", "path/to/server"]
-    }
-  }
-}
-```
+Use `.run_http(port=4240, path="/mcp")` for Streamable HTTP.
 
 ### Client
 
 ```moonbit
 async fn main {
-  let transport = @transport.AnyTransport::HttpClient(
-    @transport.HttpClientTransport::new("http://localhost:4240/mcp"),
-  )
-  let client = MCPClient::new(name="my-client", version="1.0.0", transport~)
-
-  match client.initialize() {
-    Ok(info) => {
-      println("Connected to \{info.name}")
+  match @mcp.MCPClient::connect_http(
+    url="http://localhost:4240/mcp",
+    name="demo-client",
+    version="1.0.0",
+  ) {
+    Ok(client) => {
       match client.list_tools() {
-        Ok(result) => for t in result.tools { println("  \{t.name}") }
-        Err(e) => println("Error: \{e.message()}")
+        Ok(result) => for tool in result.tools { println(tool.name) }
+        Err(e) => println(e.message())
       }
-      match client.call_tool("echo", arguments="{\"text\":\"hello\"}") {
-        Ok(result) => for item in result.content {
-          match item { Text(t) => println(t) _ => () }
-        }
-        Err(e) => println("Error: \{e.message()}")
-      }
+      client.close()
     }
-    Err(e) => println("Init failed: \{e.message()}")
+    Err(e) => println("connect failed: \{e.message()}")
   }
-  client.close()
 }
 ```
 
-For bidirectional mode (handling server-initiated requests), see [Client Guide](public/docs/05-client-guide.md).
+For local subprocess servers, use `MCPClient::connect_stdio(cmd~, args?, name~, version~, extra_env?, group~)`.
 
-## Feature Checklist
+### Host
 
-MCP 2025-11-25 compliance status:
+```moonbit
+async fn main {
+  let host = @mcp.MCPHost::new(name="my-host", version="1.0.0")
+  @async.with_task_group(group => {
+    ignore(host.connect_stdio(name="local", cmd="moon", args=["run", "server"], group~))
+    ignore(host.connect_http(name="remote", url="http://localhost:4240/mcp"))
+    match host.list_tools() {
+      Ok(result) => for tool in result.tools { println(tool.name) } // local.echo
+      Err(e) => println(e.message())
+    }
+    ignore(host.call_tool("local.echo", arguments="{\"text\":\"hello\"}"))
+    host.close_all()
+  })
+}
+```
 
-### Protocol Primitives
-- [x] JSON-RPC 2.0 (RequestId Int/Str, error codes)
-- [x] Lifecycle (initialize + initialized notification)
-- [x] Ping
-
-### Server Capabilities
-- [x] Tools (list, call, concurrent execution via TaskGroup)
-- [x] Resources (list, read, subscribe, unsubscribe)
-- [x] Prompts (list, get)
-- [x] Logging (setLevel)
-- [x] Notifications (tools/resources/prompts list_changed)
-- [ ] Completions (server-side handler)
-
-### Client Capabilities
-- [x] Sampling (`on_sampling` handler, CreateMessageRequest/Result)
-- [x] Roots (`on_roots` handler, Root type)
-- [x] Elicitation (`on_elicitation` handler, ElicitationRequest/Result)
-
-### Transports
-- [x] STDIO (server + client)
-- [x] HTTP/SSE server (Streamable HTTP, session management)
-- [x] HTTP Client (SSE POST, DELETE session, Last-Event-ID)
-- [ ] WebSocket
-
-### Advanced
-- [x] Pagination (cursor/nextCursor on all list methods)
-- [x] Bidirectional event loop (`client.run(group)`)
-- [x] 7 notification types (progress, cancelled, resource_updated, etc.)
-- [x] ContentItem (Text, Image, ResourceLink, EmbeddedResource Text/Blob)
-- [x] SchemaBuilder fluent API
-
-### Production
-- [x] Authentication (Bearer token, AuthConfig, Protected Resource Metadata)
-- [x] Concurrent request handling (@async.TaskGroup)
-- [x] Error handling (MCPError hierarchy with JSON-RPC error codes)
-- [x] Schema caching (stringified once at registration)
-- [x] Session management (Mcp-Session-Id, HTTP DELETE)
-- [x] Cross-platform protocol layer (wasm-gc targets)
-
-### Not Yet Implemented
-- [ ] Tasks (experimental)
-- [ ] OAuth 2.1 flow (authorization code + PKCE + token refresh)
-- [ ] WebSocket transport
-- [ ] Server-side completions handler
+Host tool names are qualified as `connection.tool` so multiple servers can expose the same tool name without collision.
 
 ## Documentation
 
 | Document | Description |
 |----------|-------------|
-| [Quickstart](public/docs/01-quickstart.md) | 5-minute setup guide |
-| [Protocol Types](public/docs/02-protocol-types.md) | Type reference (JSON-RPC, errors, ContentItem) |
-| [Server Guide](public/docs/03-server-guide.md) | Tool/Resource/Prompt registration, SchemaBuilder |
-| [Transport Reference](public/docs/04-transport-reference.md) | STDIO, HTTP/SSE, custom transport |
-| [Client Guide](public/docs/05-client-guide.md) | Client API, pagination, bidirectional communication |
-| [Architecture](public/docs/06-architecture.md) | Three-layer design, cross-platform, performance |
-| [Host Guide](public/docs/07-host-guide.md) | Multi-server host pattern |
+| [Quickstart](public/docs/01-quickstart.md) | Server, client, and host setup |
+| [Protocol Types](public/docs/02-protocol-types.md) | JSON-RPC, errors, and MCP types |
+| [Server Guide](public/docs/03-server-guide.md) | High-level server API and runtime behavior |
+| [Transport Reference](public/docs/04-transport-reference.md) | Advanced transport internals |
+| [Client Guide](public/docs/05-client-guide.md) | `MCPClient::connect_*` and bidirectional mode |
+| [Architecture](public/docs/06-architecture.md) | Protocol, runtime, transport, application layers |
+| [Host Guide](public/docs/07-host-guide.md) | `MCPHost` named connections and routing |
+| [Migration 0.14](MIGRATION-0.14.md) | Breaking changes from 0.13.x |
 
-**Other**: [CHANGELOG](CHANGELOG.md) · [Migration Guide](MIGRATION-0.5.md) · [Contributing](CONTRIBUTING.md) · [MCP Spec](https://modelcontextprotocol.io/specification/)
+## v0.14 API Direction
+
+The default public path is intentionally small:
+
+- `MCPServer` for serving tools, resources, and prompts.
+- `MCPClient` for one server connection.
+- `MCPHost` for multiple named server connections.
+
+Transports and request builders are advanced/internal details. Existing low-level imports may still be useful for SDK contributors, but application code should prefer the high-level APIs above.
 
 ## License
 
