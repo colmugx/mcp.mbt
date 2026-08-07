@@ -46,45 +46,6 @@ fn extract_json_string(json : Json, field : String) -> String? {
 }
 
 ///|
-fn handle_ping(id : @types.RequestId) -> String {
-  jsonrpc_success_str(id, Json::object({}))
-}
-
-///|
-fn handle_initialize(server : MCPServer, id : @types.RequestId) -> String {
-  let capabilities = Json::object({
-    "tools": Json::object({ "listChanged": Json::boolean(true) }),
-    "resources": Json::object({
-      "subscribe": Json::boolean(true),
-      "listChanged": Json::boolean(true),
-    }),
-    "prompts": Json::object({ "listChanged": Json::boolean(true) }),
-    "logging": Json::object({}),
-  })
-  let info_map : Map[String, Json] = Default::default()
-  info_map.set("name", Json::string(server.name))
-  info_map.set("version", Json::string(server.version))
-  match server.title {
-    Some(t) => info_map.set("title", Json::string(t))
-    None => ()
-  }
-  match server.description {
-    Some(d) => info_map.set("description", Json::string(d))
-    None => ()
-  }
-  let server_info = Json::object(info_map)
-  let result_map : Map[String, Json] = Default::default()
-  result_map.set("protocolVersion", Json::string("2025-11-25"))
-  result_map.set("capabilities", capabilities)
-  result_map.set("serverInfo", server_info)
-  match server.instructions {
-    Some(instr) => result_map.set("instructions", Json::string(instr))
-    None => ()
-  }
-  jsonrpc_success_str(id, Json::object(result_map))
-}
-
-///|
 fn handle_tools_list(server : MCPServer, id : @types.RequestId) -> String {
   let tools = server.registry.list_tools()
   let tool_jsons = tools.map(fn(tool) {
@@ -226,40 +187,6 @@ async fn handle_resources_read(
 }
 
 ///|
-fn handle_resources_subscribe(
-  server : MCPServer,
-  id : @types.RequestId,
-  params : Json,
-) -> String {
-  let uri = extract_json_string(params, "uri")
-  match uri {
-    None => jsonrpc_error_str(id, -32602, "Missing 'uri' parameter")
-    Some(uri_str) =>
-      match server.resource_registry.subscribe(uri_str) {
-        Ok(_) => jsonrpc_success_str(id, Json::object({}))
-        Err(e) => jsonrpc_error_str(id, e.to_error_code(), e.message())
-      }
-  }
-}
-
-///|
-fn handle_resources_unsubscribe(
-  server : MCPServer,
-  id : @types.RequestId,
-  params : Json,
-) -> String {
-  let uri = extract_json_string(params, "uri")
-  match uri {
-    None => jsonrpc_error_str(id, -32602, "Missing 'uri' parameter")
-    Some(uri_str) =>
-      match server.resource_registry.unsubscribe(uri_str) {
-        Ok(_) => jsonrpc_success_str(id, Json::object({}))
-        Err(e) => jsonrpc_error_str(id, e.to_error_code(), e.message())
-      }
-  }
-}
-
-///|
 fn handle_prompts_list(server : MCPServer, id : @types.RequestId) -> String {
   let prompts = server.prompt_registry.list_prompts()
   let prompt_jsons = prompts.map(fn(prompt) {
@@ -329,21 +256,5 @@ async fn handle_prompts_get(
         }
         Err(e) => jsonrpc_error_str(id, e.to_error_code(), e.message())
       }
-  }
-}
-
-///|
-fn handle_set_level(
-  server : MCPServer,
-  id : @types.RequestId,
-  params : Json,
-) -> String {
-  let level = extract_json_string(params, "level")
-  match level {
-    None => jsonrpc_error_str(id, -32602, "Missing 'level' parameter")
-    Some(lvl) => {
-      server.log_level = Some(lvl)
-      jsonrpc_success_str(id, Json::object({}))
-    }
   }
 }

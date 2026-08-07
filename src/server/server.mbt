@@ -36,7 +36,6 @@ pub struct MCPServer {
   title : String?
   description : String?
   instructions : String?
-  mut log_level : String?
   auth_config : @transport.AuthConfig?
   registry : ToolRegistry
   resource_registry : ResourceRegistry
@@ -51,7 +50,6 @@ pub fn MCPServer::MCPServer(name : String, version : String) -> MCPServer {
     title: None,
     description: None,
     instructions: None,
-    log_level: None,
     auth_config: None,
     registry: ToolRegistry::ToolRegistry(),
     resource_registry: ResourceRegistry::ResourceRegistry(),
@@ -153,8 +151,6 @@ fn parse_request_message(
 
 ///|
 fn is_fast_method(method_name : String) -> Bool {
-  method_name == "initialize" ||
-  method_name == "ping" ||
   method_name == "tools/list" ||
   method_name == "resources/list" ||
   method_name == "prompts/list"
@@ -166,19 +162,12 @@ async fn MCPServer::handle_parsed_request(
   request : @types.JsonRpcRequest,
 ) -> String {
   match request.method_name {
-    "initialize" => handle_initialize(self, request.id)
-    "ping" => handle_ping(request.id)
     "tools/list" => handle_tools_list(self, request.id)
     "tools/call" => handle_tools_call(self, request.id, request.params)
     "resources/list" => handle_resources_list(self, request.id)
     "resources/read" => handle_resources_read(self, request.id, request.params)
-    "resources/subscribe" =>
-      handle_resources_subscribe(self, request.id, request.params)
-    "resources/unsubscribe" =>
-      handle_resources_unsubscribe(self, request.id, request.params)
     "prompts/list" => handle_prompts_list(self, request.id)
     "prompts/get" => handle_prompts_get(self, request.id, request.params)
-    "logging/setLevel" => handle_set_level(self, request.id, request.params)
     _ =>
       jsonrpc_error_str(
         request.id,

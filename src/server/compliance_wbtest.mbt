@@ -59,21 +59,6 @@ fn parse_result(response : String) -> Json {
   json_get(json, "result")
 }
 
-///|
-/// Helper: parse error code from response
-fn parse_error_code(response : String) -> Int {
-  let json = @json.parse(response) catch { _ => panic() }
-  let err = json_get(json, "error")
-  if err is Object(obj) {
-    match obj.get("code") {
-      Some(Number(n, ..)) => n.to_int()
-      _ => panic()
-    }
-  } else {
-    panic()
-  }
-}
-
 ///| =====================================================
 
 ///| JSON-RPC Message Format
@@ -82,108 +67,20 @@ fn parse_error_code(response : String) -> Int {
 /// =====================================================
 test "compliance: response has jsonrpc 2.0" {
   let server = MCPServer::MCPServer("test", "1.0.0")
-  let response = handle_initialize(server, @types.RequestId::Int(1))
+  let response = handle_tools_list(server, @types.RequestId::Int(1))
   let json = @json.parse(response) catch { _ => panic() }
   assert_eq(json_field_str(json, "jsonrpc"), "2.0")
 }
 
 ///|
 test "compliance: response id matches request id" {
-  let _ = MCPServer::MCPServer("test", "1.0.0")
-  let response = handle_ping(@types.RequestId::Int(42))
+  let server = MCPServer::MCPServer("test", "1.0.0")
+  let response = handle_tools_list(server, @types.RequestId::Int(42))
   let json = @json.parse(response) catch { _ => panic() }
   match json {
     Object(obj) =>
       match obj.get("id") {
         Some(Number(n, ..)) => assert_eq(n.to_int(), 42)
-        _ => panic()
-      }
-    _ => panic()
-  }
-}
-
-///| =====================================================
-
-///| initialize
-
-///|
-/// =====================================================
-test "compliance: initialize returns protocolVersion 2025-11-25" {
-  let server = MCPServer::MCPServer("test", "1.0.0")
-  let result = parse_result(handle_initialize(server, @types.RequestId::Int(1)))
-  assert_eq(json_field_str(result, "protocolVersion"), "2025-11-25")
-}
-
-///|
-test "compliance: initialize returns serverInfo with name and version" {
-  let server = MCPServer::MCPServer("test-server", "2.0.0")
-  let result = parse_result(handle_initialize(server, @types.RequestId::Int(1)))
-  let info = json_get(result, "serverInfo")
-  assert_eq(json_field_str(info, "name"), "test-server")
-  assert_eq(json_field_str(info, "version"), "2.0.0")
-}
-
-///|
-test "compliance: initialize returns capabilities with tools/resources/prompts" {
-  let server = MCPServer::MCPServer("test", "1.0.0")
-  let result = parse_result(handle_initialize(server, @types.RequestId::Int(1)))
-  let caps = json_get(result, "capabilities")
-  assert_true(json_has(caps, "tools"))
-  assert_true(json_has(caps, "resources"))
-  assert_true(json_has(caps, "prompts"))
-}
-
-///|
-test "compliance: initialize capabilities.tools has listChanged" {
-  let server = MCPServer::MCPServer("test", "1.0.0")
-  let result = parse_result(handle_initialize(server, @types.RequestId::Int(1)))
-  let tools_cap = json_get(json_get(result, "capabilities"), "tools")
-  assert_true(json_has(tools_cap, "listChanged"))
-}
-
-///|
-test "compliance: initialize capabilities.resources has subscribe and listChanged" {
-  let server = MCPServer::MCPServer("test", "1.0.0")
-  let result = parse_result(handle_initialize(server, @types.RequestId::Int(1)))
-  let res_cap = json_get(json_get(result, "capabilities"), "resources")
-  assert_true(json_has(res_cap, "subscribe"))
-  assert_true(json_has(res_cap, "listChanged"))
-}
-
-///|
-test "compliance: initialize capabilities.prompts has listChanged" {
-  let server = MCPServer::MCPServer("test", "1.0.0")
-  let result = parse_result(handle_initialize(server, @types.RequestId::Int(1)))
-  let prompts_cap = json_get(json_get(result, "capabilities"), "prompts")
-  assert_true(json_has(prompts_cap, "listChanged"))
-}
-
-///| =====================================================
-
-///| ping
-
-///|
-/// =====================================================
-test "compliance: ping returns empty result object" {
-  let response = handle_ping(@types.RequestId::Int(5))
-  let json = @json.parse(response) catch { _ => panic() }
-  assert_true(json_has(json, "result"))
-  let result = json_get(json, "result")
-  if result is Object(obj) {
-    assert_eq(obj.length(), 0)
-  } else {
-    panic()
-  }
-}
-
-///|
-test "compliance: ping response has correct id" {
-  let response = handle_ping(@types.RequestId::Int(99))
-  let json = @json.parse(response) catch { _ => panic() }
-  match json {
-    Object(obj) =>
-      match obj.get("id") {
-        Some(Number(n, ..)) => assert_eq(n.to_int(), 99)
         _ => panic()
       }
     _ => panic()
@@ -305,52 +202,6 @@ test "compliance: resources/list includes description when present" {
   } else {
     panic()
   }
-}
-
-///| =====================================================
-
-///| resources/subscribe and resources/unsubscribe
-
-///|
-/// =====================================================
-test "compliance: resources/subscribe returns empty result" {
-  let server = MCPServer::MCPServer("test", "1.0.0")
-  server.register_resource("file:///test.txt", "Test", "desc", "text/plain", fn() {
-    Ok({ uri: "file:///test.txt", content: @resource.Text("hello") })
-  })
-  let response = handle_resources_subscribe(
-    server,
-    @types.RequestId::Int(1),
-    Json::object({ "uri": Json::string("file:///test.txt") }),
-  )
-  let result = parse_result(response)
-  if result is Object(obj) {
-    assert_eq(obj.length(), 0)
-  } else {
-    panic()
-  }
-}
-
-///|
-test "compliance: resources/subscribe missing uri returns error" {
-  let server = MCPServer::MCPServer("test", "1.0.0")
-  let response = handle_resources_subscribe(
-    server,
-    @types.RequestId::Int(1),
-    Json::object({}),
-  )
-  assert_eq(parse_error_code(response), -32602)
-}
-
-///|
-test "compliance: resources/unsubscribe missing uri returns error" {
-  let server = MCPServer::MCPServer("test", "1.0.0")
-  let response = handle_resources_unsubscribe(
-    server,
-    @types.RequestId::Int(1),
-    Json::object({}),
-  )
-  assert_eq(parse_error_code(response), -32602)
 }
 
 ///| =====================================================

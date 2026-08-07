@@ -34,7 +34,6 @@ pub struct MCPServer {
   title : String?
   description : String?
   instructions : String?
-  mut log_level : String?
   auth_config : @transport.AuthConfig?
   registry : ToolRegistry
   resource_registry : ResourceRegistry

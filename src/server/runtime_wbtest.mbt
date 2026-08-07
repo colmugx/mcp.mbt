@@ -14,8 +14,6 @@ test "parse_request_message accepts formatted JSON-RPC requests" {
 
 ///|
 test "is_fast_method distinguishes concurrent handlers" {
-  assert_true(is_fast_method("initialize"))
-  assert_true(is_fast_method("ping"))
   assert_true(is_fast_method("tools/list"))
   assert_true(is_fast_method("resources/list"))
   assert_true(is_fast_method("prompts/list"))
