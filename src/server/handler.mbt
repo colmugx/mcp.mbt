@@ -61,7 +61,7 @@ fn handle_initialize(server : MCPServer, id : @types.RequestId) -> String {
     "prompts": Json::object({ "listChanged": Json::boolean(true) }),
     "logging": Json::object({}),
   })
-  let info_map : Map[String, Json] = {}
+  let info_map : Map[String, Json] = Default::default()
   info_map.set("name", Json::string(server.name))
   info_map.set("version", Json::string(server.version))
   match server.title {
@@ -73,7 +73,7 @@ fn handle_initialize(server : MCPServer, id : @types.RequestId) -> String {
     None => ()
   }
   let server_info = Json::object(info_map)
-  let result_map : Map[String, Json] = {}
+  let result_map : Map[String, Json] = Default::default()
   result_map.set("protocolVersion", Json::string("2025-11-25"))
   result_map.set("capabilities", capabilities)
   result_map.set("serverInfo", server_info)
@@ -135,7 +135,7 @@ async fn handle_tools_call(
               @types.EmbeddedResource(content) =>
                 match content {
                   @types.Text(text, uri~, mime_type~) => {
-                    let map : Map[String, Json] = {}
+                    let map : Map[String, Json] = Default::default()
                     map.set("type", Json::string("resource"))
                     map.set("uri", Json::string(uri))
                     map.set("text", Json::string(text))
@@ -171,7 +171,7 @@ async fn handle_tools_call(
 fn handle_resources_list(server : MCPServer, id : @types.RequestId) -> String {
   let resources = server.resource_registry.list_resources()
   let resource_jsons = resources.map(fn(resource) {
-    let map : Map[String, Json] = {}
+    let map : Map[String, Json] = Default::default()
     map.set("uri", Json::string(resource.uri))
     map.set("name", Json::string(resource.name))
     match resource.description {
@@ -263,7 +263,7 @@ fn handle_resources_unsubscribe(
 fn handle_prompts_list(server : MCPServer, id : @types.RequestId) -> String {
   let prompts = server.prompt_registry.list_prompts()
   let prompt_jsons = prompts.map(fn(prompt) {
-    let map : Map[String, Json] = {}
+    let map : Map[String, Json] = Default::default()
     map.set("name", Json::string(prompt.name))
     match prompt.description {
       Some(desc) => map.set("description", Json::string(desc))
@@ -272,7 +272,7 @@ fn handle_prompts_list(server : MCPServer, id : @types.RequestId) -> String {
     match prompt.arguments {
       Some(args) => {
         let arg_jsons = args.map(fn(arg) {
-          let arg_map : Map[String, Json] = {}
+          let arg_map : Map[String, Json] = Default::default()
           arg_map.set("name", Json::string(arg.name))
           match arg.description {
             Some(d) => arg_map.set("description", Json::string(d))
@@ -319,7 +319,7 @@ async fn handle_prompts_get(
             }
             Json::object({ "role": Json::string(msg.role), "content": content })
           })
-          let result_map : Map[String, Json] = {}
+          let result_map : Map[String, Json] = Default::default()
           match prompt_result.description {
             Some(d) => result_map.set("description", Json::string(d))
             None => ()

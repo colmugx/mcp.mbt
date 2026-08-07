@@ -606,7 +606,7 @@ fn MCPClient::handle_server_request(
                   "result": Json::object({
                     "roots": Json::array(
                       roots.map(fn(r) {
-                        let root_map : Map[String, Json] = {}
+                        let root_map : Map[String, Json] = Default::default()
                         root_map.set("uri", Json::string(r.uri))
                         match r.name {
                           Some(n) => root_map.set("name", Json::string(n))
@@ -1121,7 +1121,7 @@ fn jsonrpc_error_str(id_json : Json, code : Int, message : String) -> String {
 
 ///|
 fn serialize_create_message_result(result : @types.CreateMessageResult) -> Json {
-  let obj_map : Map[String, Json] = {}
+  let obj_map : Map[String, Json] = Default::default()
   obj_map.set("role", Json::string(result.role))
   obj_map.set("model", Json::string(result.model))
   obj_map.set("content", serialize_content_item(result.content))
@@ -1151,7 +1151,7 @@ fn serialize_content_item(item : @types.ContentItem) -> Json {
     EmbeddedResource(content) =>
       match content {
         Text(t, uri~, mime_type~) => {
-          let res_map : Map[String, Json] = {}
+          let res_map : Map[String, Json] = Default::default()
           res_map.set("uri", Json::string(uri))
           res_map.set("text", Json::string(t))
           match mime_type {

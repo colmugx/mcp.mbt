@@ -14,7 +14,7 @@ struct ToolRegistry {
 
 ///|
 fn ToolRegistry::ToolRegistry() -> ToolRegistry {
-  { tools: Map::default() }
+  { tools: Default::default() }
 }
 
 ///|

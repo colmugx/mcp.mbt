@@ -15,7 +15,7 @@ struct PromptRegistry {
 
 ///|
 fn PromptRegistry::PromptRegistry() -> PromptRegistry {
-  { prompts: Map::default() }
+  { prompts: Default::default() }
 }
 
 ///|

@@ -1,8 +1,8 @@
 ///|
 fn expand_params_to_json(params : Array[@tool.ParamDef]) -> Json {
-  let properties_map : Map[String, Json] = Map::default()
+  let properties_map : Map[String, Json] = Default::default()
   for param in params {
-    let prop_map : Map[String, Json] = Map::default()
+    let prop_map : Map[String, Json] = Default::default()
     prop_map.set("type", Json::string(param.type_))
     if !param.description.is_empty() {
       prop_map.set("description", Json::string(param.description))
@@ -15,7 +15,7 @@ fn expand_params_to_json(params : Array[@tool.ParamDef]) -> Json {
       required_list.push(Json::string(param.name))
     }
   }
-  let schema_map : Map[String, Json] = Map::default()
+  let schema_map : Map[String, Json] = Default::default()
   schema_map.set("type", Json::string("object"))
   schema_map.set("properties", Json::object(properties_map))
   schema_map.set("required", Json::array(required_list))
