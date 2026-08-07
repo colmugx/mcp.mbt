@@ -1,0 +1,19 @@
+name: source-export
+
+on:
+  push:
+    branches:
+      - agent/source-export
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mcp-source
+          path: |
+            .
+            !.git
+          include-hidden-files: true
