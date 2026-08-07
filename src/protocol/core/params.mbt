@@ -113,14 +113,14 @@ pub fn obj_schema(
 
 ///|
 pub fn JsonSchema::to_json(self : JsonSchema) -> Json {
-  let obj = {}
+  let obj : Map[String, Json] = Default::default()
   obj["type"] = Json::string(self.type_name)
   if self.description != "" {
     obj["description"] = Json::string(self.description)
   }
   match self.properties {
     Some(props) => {
-      let props_obj = {}
+      let props_obj : Map[String, Json] = Default::default()
       for name, schema in props {
         props_obj[name] = schema.to_json()
       }

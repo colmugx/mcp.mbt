@@ -48,7 +48,7 @@ pub fn HttpClientTransport::HttpClientTransport(
 async fn HttpClientTransport::establish_sse(
   self : HttpClientTransport,
 ) -> Unit raise @types.TransportError {
-  let headers : Map[String, String] = {}
+  let headers : Map[String, String] = Default::default()
   headers["Accept"] = "text/event-stream"
   headers["Cache-Control"] = "no-cache"
   headers["MCP-Protocol-Version"] = self.protocol_version
@@ -138,7 +138,7 @@ pub async fn HttpClientTransport::send(
     }
   }
   let body_bytes = @utf8.encode(message)
-  let headers : Map[String, String] = {}
+  let headers : Map[String, String] = Default::default()
   headers["Content-Type"] = "application/json"
   headers["Accept"] = "application/json, text/event-stream"
   headers["Content-Length"] = body_bytes.length().to_string()
@@ -310,7 +310,7 @@ pub async fn HttpClientTransport::send_notification(
   }
   let json_body = notification.to_jsonrpc_string()
   let body_bytes = @utf8.encode(json_body)
-  let headers : Map[String, String] = {}
+  let headers : Map[String, String] = Default::default()
   headers["Content-Type"] = "application/json"
   headers["Content-Length"] = body_bytes.length().to_string()
   headers["MCP-Protocol-Version"] = self.protocol_version
@@ -366,7 +366,7 @@ pub async fn HttpClientTransport::close_session(
   }
   match self.session_id {
     Some(_) => {
-      let headers : Map[String, String] = {}
+      let headers : Map[String, String] = Default::default()
       headers["MCP-Protocol-Version"] = self.protocol_version
       match self.session_id {
         Some(id) => headers["Mcp-Session-Id"] = id

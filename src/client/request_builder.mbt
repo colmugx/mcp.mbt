@@ -5,7 +5,7 @@ fn build_initialize_request(
   client_version : String,
   capabilities~ : @types.ClientCapabilities,
 ) -> String {
-  let caps_map : Map[String, Json] = {}
+  let caps_map : Map[String, Json] = Default::default()
   match capabilities.roots {
     Some(roots_cap) =>
       caps_map.set(
@@ -81,7 +81,7 @@ fn build_tools_call_request(
   progress_token? : String = "",
 ) -> String {
   let arguments_json = @json.parse(arguments) catch { _ => Json::object({}) }
-  let params_map : Map[String, Json] = {}
+  let params_map : Map[String, Json] = Default::default()
   params_map.set("name", Json::string(name))
   params_map.set("arguments", arguments_json)
   if progress_token != "" {

@@ -71,7 +71,7 @@ pub fn progress_notification(
   progress : Double,
   total? : Double,
 ) -> Notification {
-  let params_map : Map[String, Json] = Map::default()
+  let params_map : Map[String, Json] = Default::default()
   params_map.set("progressToken", Json::string(token))
   params_map.set("progress", Json::number(progress))
   match total {
@@ -90,7 +90,7 @@ pub fn cancelled_notification(
   request_id : String,
   reason? : String,
 ) -> Notification {
-  let params_map : Map[String, Json] = Map::default()
+  let params_map : Map[String, Json] = Default::default()
   params_map.set("requestId", Json::string(request_id))
   match reason {
     Some(r) => params_map.set("reason", Json::string(r))

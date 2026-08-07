@@ -49,7 +49,7 @@ pub fn SchemaBuilder::build(
   self : SchemaBuilder,
   desc? : String = "",
 ) -> JsonSchema {
-  let properties_map : Map[String, JsonSchema] = Map::default()
+  let properties_map : Map[String, JsonSchema] = Default::default()
   let required_fields : Array[String] = []
   for field_def in self.fields {
     let field_schema = type_to_schema(

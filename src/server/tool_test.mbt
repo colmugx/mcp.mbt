@@ -247,12 +247,12 @@ impl Tool for EchoTool with fn execute(_self : EchoTool, args : Json) -> ToolRes
 ///|
 async test "example: complete tool implementation with EchoTool" {
   let tool = EchoTool::{  }
-  @debug.assert_eq(tool.name(), "echo")
-  @debug.assert_eq(tool.description(), "Echo back the input text")
+  @debug.assert_eq(@tool.Tool::name(tool), "echo")
+  @debug.assert_eq(@tool.Tool::description(tool), "Echo back the input text")
 
   // Test execution
   let args = Json::object({ "text": Json::string("Hello, MCP!") })
-  let result = tool.execute(args)
+  let result = @tool.Tool::execute(tool, args)
   @debug.assert_eq(result.is_error, false)
   match result.content[0] {
     Text(msg) => @debug.assert_eq(msg, "Echo: Hello, MCP!")
@@ -266,7 +266,7 @@ async test "example: tool with error handling" {
 
   // Missing argument
   let args = Json::object({})
-  let result = tool.execute(args)
+  let result = @tool.Tool::execute(tool, args)
   @debug.assert_eq(result.is_error, true)
   match result.content[0] {
     Text(msg) => assert_true(msg.contains("Missing required field"))
