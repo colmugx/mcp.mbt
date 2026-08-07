@@ -10,10 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Checkout official async 0.19.4
-        run: git clone --depth 1 --branch v0.19.4 https://github.com/moonbitlang/async.git async-0.19.4
+      - name: Checkout official async 0.20.3
+        run: git clone --depth 1 --branch v0.20.3 https://github.com/moonbitlang/async.git async-0.20.3
       - uses: actions/upload-artifact@v4
         with:
-          name: async-0.19.4-source
-          path: async-0.19.4
+          name: async-0.20.3-source
+          path: async-0.20.3
           include-hidden-files: true
