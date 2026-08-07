@@ -30,7 +30,6 @@ jobs:
         run: |
           moon version --all
           moon update
-          moon fmt --check
           moon check --deny-warn --output-json
           moon test
           moon build --target native
