@@ -1,10 +1,7 @@
 ///|
-fn build_initialize_request(
-  id : Int,
-  client_name : String,
-  client_version : String,
-  capabilities~ : @types.ClientCapabilities,
-) -> String {
+fn client_capabilities_to_json(
+  capabilities : @types.ClientCapabilities,
+) -> Json {
   let caps_map : Map[String, Json] = Default::default()
   match capabilities.roots {
     Some(roots_cap) =>
@@ -23,13 +20,59 @@ fn build_initialize_request(
       caps_map.set("elicitation", Json::object({ "form": Json::object({}) }))
     None => ()
   }
+  Json::object(caps_map)
+}
+
+///|
+/// Build the `_meta` object every modern request carries in its `params`.
+/// Contains the required `io.modelcontextprotocol/protocolVersion` and
+/// `clientCapabilities`, plus the recommended `clientInfo`. An optional
+/// `logLevel` mirrors the legacy `logging/setLevel` RPC into per-request
+/// metadata (per spec, `logging/setLevel` is removed).
+fn build_request_meta(
+  client_name : String,
+  client_version : String,
+  capabilities : @types.ClientCapabilities,
+  log_level? : String? = None,
+) -> Json {
+  let meta : Map[String, Json] = Default::default()
+  meta.set(
+    "io.modelcontextprotocol/protocolVersion",
+    Json::string(@types.ProtocolVersion),
+  )
+  meta.set(
+    "io.modelcontextprotocol/clientCapabilities",
+    client_capabilities_to_json(capabilities),
+  )
+  meta.set(
+    "io.modelcontextprotocol/clientInfo",
+    Json::object({
+      "name": Json::string(client_name),
+      "version": Json::string(client_version),
+    }),
+  )
+  match log_level {
+    Some(level) =>
+      meta.set("io.modelcontextprotocol/logLevel", Json::string(level))
+    None => ()
+  }
+  Json::object(meta)
+}
+
+///|
+fn build_initialize_request(
+  id : Int,
+  client_name : String,
+  client_version : String,
+  capabilities~ : @types.ClientCapabilities,
+) -> String {
   Json::object({
     "jsonrpc": Json::string("2.0"),
     "id": Json::number(id.to_double()),
     "method": Json::string("initialize"),
     "params": Json::object({
       "protocolVersion": Json::string("2025-11-25"),
-      "capabilities": Json::object(caps_map),
+      "capabilities": client_capabilities_to_json(capabilities),
       "clientInfo": Json::object({
         "name": Json::string(client_name),
         "version": Json::string(client_version),
@@ -56,27 +99,29 @@ fn build_ping_request(id : Int) -> String {
 }
 
 ///|
-fn build_tools_list_request(id : Int, cursor? : String = "") -> String {
-  if cursor == "" {
-    Json::object({
-      "jsonrpc": Json::string("2.0"),
-      "id": Json::number(id.to_double()),
-      "method": Json::string("tools/list"),
-    }).stringify()
-  } else {
-    Json::object({
-      "jsonrpc": Json::string("2.0"),
-      "id": Json::number(id.to_double()),
-      "method": Json::string("tools/list"),
-      "params": Json::object({ "cursor": Json::string(cursor) }),
-    }).stringify()
+fn build_tools_list_request(
+  id : Int,
+  meta : Json,
+  cursor? : String = "",
+) -> String {
+  let params : Map[String, Json] = Default::default()
+  params.set("_meta", meta)
+  if cursor != "" {
+    params.set("cursor", Json::string(cursor))
   }
+  Json::object({
+    "jsonrpc": Json::string("2.0"),
+    "id": Json::number(id.to_double()),
+    "method": Json::string("tools/list"),
+    "params": Json::object(params),
+  }).stringify()
 }
 
 ///|
 fn build_tools_call_request(
   id : Int,
   name : String,
+  meta : Json,
   arguments? : String = "{}",
   progress_token? : String = "",
 ) -> String {
@@ -84,11 +129,15 @@ fn build_tools_call_request(
   let params_map : Map[String, Json] = Default::default()
   params_map.set("name", Json::string(name))
   params_map.set("arguments", arguments_json)
-  if progress_token != "" {
-    params_map.set(
-      "_meta",
-      Json::object({ "progressToken": Json::string(progress_token) }),
-    )
+  // Merge progressToken into the request _meta alongside protocol-level fields.
+  match meta {
+    Object(obj) => {
+      if progress_token != "" {
+        obj.set("progressToken", Json::string(progress_token))
+      }
+      params_map.set("_meta", meta)
+    }
+    _ => params_map.set("_meta", meta)
   }
   Json::object({
     "jsonrpc": Json::string("2.0"),
@@ -99,55 +148,58 @@ fn build_tools_call_request(
 }
 
 ///|
-fn build_resources_list_request(id : Int, cursor? : String = "") -> String {
-  if cursor == "" {
-    Json::object({
-      "jsonrpc": Json::string("2.0"),
-      "id": Json::number(id.to_double()),
-      "method": Json::string("resources/list"),
-    }).stringify()
-  } else {
-    Json::object({
-      "jsonrpc": Json::string("2.0"),
-      "id": Json::number(id.to_double()),
-      "method": Json::string("resources/list"),
-      "params": Json::object({ "cursor": Json::string(cursor) }),
-    }).stringify()
+fn build_resources_list_request(
+  id : Int,
+  meta : Json,
+  cursor? : String = "",
+) -> String {
+  let params : Map[String, Json] = Default::default()
+  params.set("_meta", meta)
+  if cursor != "" {
+    params.set("cursor", Json::string(cursor))
   }
-}
-
-///|
-fn build_resources_read_request(id : Int, uri : String) -> String {
   Json::object({
     "jsonrpc": Json::string("2.0"),
     "id": Json::number(id.to_double()),
-    "method": Json::string("resources/read"),
-    "params": Json::object({ "uri": Json::string(uri) }),
+    "method": Json::string("resources/list"),
+    "params": Json::object(params),
   }).stringify()
 }
 
 ///|
-fn build_prompts_list_request(id : Int, cursor? : String = "") -> String {
-  if cursor == "" {
-    Json::object({
-      "jsonrpc": Json::string("2.0"),
-      "id": Json::number(id.to_double()),
-      "method": Json::string("prompts/list"),
-    }).stringify()
-  } else {
-    Json::object({
-      "jsonrpc": Json::string("2.0"),
-      "id": Json::number(id.to_double()),
-      "method": Json::string("prompts/list"),
-      "params": Json::object({ "cursor": Json::string(cursor) }),
-    }).stringify()
+fn build_resources_read_request(id : Int, uri : String, meta : Json) -> String {
+  Json::object({
+    "jsonrpc": Json::string("2.0"),
+    "id": Json::number(id.to_double()),
+    "method": Json::string("resources/read"),
+    "params": Json::object({ "uri": Json::string(uri), "_meta": meta }),
+  }).stringify()
+}
+
+///|
+fn build_prompts_list_request(
+  id : Int,
+  meta : Json,
+  cursor? : String = "",
+) -> String {
+  let params : Map[String, Json] = Default::default()
+  params.set("_meta", meta)
+  if cursor != "" {
+    params.set("cursor", Json::string(cursor))
   }
+  Json::object({
+    "jsonrpc": Json::string("2.0"),
+    "id": Json::number(id.to_double()),
+    "method": Json::string("prompts/list"),
+    "params": Json::object(params),
+  }).stringify()
 }
 
 ///|
 fn build_prompts_get_request(
   id : Int,
   name : String,
+  meta : Json,
   arguments? : String = "{}",
 ) -> String {
   let arguments_json = @json.parse(arguments) catch { _ => Json::object({}) }
@@ -158,6 +210,7 @@ fn build_prompts_get_request(
     "params": Json::object({
       "name": Json::string(name),
       "arguments": arguments_json,
+      "_meta": meta,
     }),
   }).stringify()
 }
@@ -195,27 +248,26 @@ fn build_resources_unsubscribe_request(id : Int, uri : String) -> String {
 ///|
 fn build_resources_templates_list_request(
   id : Int,
+  meta : Json,
   cursor? : String = "",
 ) -> String {
-  if cursor == "" {
-    Json::object({
-      "jsonrpc": Json::string("2.0"),
-      "id": Json::number(id.to_double()),
-      "method": Json::string("resources/templates/list"),
-    }).stringify()
-  } else {
-    Json::object({
-      "jsonrpc": Json::string("2.0"),
-      "id": Json::number(id.to_double()),
-      "method": Json::string("resources/templates/list"),
-      "params": Json::object({ "cursor": Json::string(cursor) }),
-    }).stringify()
+  let params : Map[String, Json] = Default::default()
+  params.set("_meta", meta)
+  if cursor != "" {
+    params.set("cursor", Json::string(cursor))
   }
+  Json::object({
+    "jsonrpc": Json::string("2.0"),
+    "id": Json::number(id.to_double()),
+    "method": Json::string("resources/templates/list"),
+    "params": Json::object(params),
+  }).stringify()
 }
 
 ///|
 fn build_completion_complete_request(
   id : Int,
+  meta : Json,
   ref_type~ : String,
   ref_name~ : String,
   argument_name~ : String,
@@ -234,6 +286,7 @@ fn build_completion_complete_request(
         "name": Json::string(argument_name),
         "value": Json::string(argument_value),
       }),
+      "_meta": meta,
     }),
   }).stringify()
 }

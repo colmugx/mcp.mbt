@@ -9,11 +9,47 @@ fn request_id_to_json(id : @types.RequestId) -> Json {
 }
 
 ///|
-fn jsonrpc_success_str(id : @types.RequestId, result : Json) -> String {
+/// Build the `_meta.io.modelcontextprotocol/serverInfo` value for a response.
+fn server_info_meta(server : MCPServer) -> Json {
+  let info : Map[String, Json] = {}
+  info.set("name", Json::string(server.name))
+  info.set("version", Json::string(server.version))
+  match server.title {
+    Some(t) => info.set("title", Json::string(t))
+    None => ()
+  }
+  Json::object(info)
+}
+
+///|
+/// Attach `_meta` (carrying `serverInfo`) to a result object. If `result`
+/// is not a JSON object, it is returned unchanged — `_meta` is only defined
+/// on object results per the spec.
+fn with_server_meta(server : MCPServer, result : Json) -> Json {
+  match result {
+    Object(obj) => {
+      obj.set(
+        "_meta",
+        Json::object({
+          "io.modelcontextprotocol/serverInfo": server_info_meta(server),
+        }),
+      )
+      result
+    }
+    _ => result
+  }
+}
+
+///|
+fn jsonrpc_success_str(
+  server : MCPServer,
+  id : @types.RequestId,
+  result : Json,
+) -> String {
   Json::object({
     "jsonrpc": Json::string("2.0"),
     "id": request_id_to_json(id),
-    "result": result,
+    "result": with_server_meta(server, result),
   }).stringify()
 }
 
@@ -55,7 +91,11 @@ fn handle_tools_list(server : MCPServer, id : @types.RequestId) -> String {
       "inputSchema": tool.input_schema,
     })
   })
-  jsonrpc_success_str(id, Json::object({ "tools": Json::array(tool_jsons) }))
+  jsonrpc_success_str(
+    server,
+    id,
+    Json::object({ "tools": Json::array(tool_jsons) }),
+  )
 }
 
 ///|
@@ -120,7 +160,7 @@ async fn handle_tools_call(
             "content": Json::array(content_items),
             "isError": Json::boolean(tool_result.is_error),
           })
-          jsonrpc_success_str(id, result)
+          jsonrpc_success_str(server, id, result)
         }
         Err(e) => jsonrpc_error_str(id, e.to_error_code(), e.message())
       }
@@ -146,6 +186,7 @@ fn handle_resources_list(server : MCPServer, id : @types.RequestId) -> String {
     Json::object(map)
   })
   jsonrpc_success_str(
+    server,
     id,
     Json::object({ "resources": Json::array(resource_jsons) }),
   )
@@ -177,6 +218,7 @@ async fn handle_resources_read(
               })
           }
           jsonrpc_success_str(
+            server,
             id,
             Json::object({ "contents": Json::array([content_json]) }),
           )
@@ -218,6 +260,7 @@ fn handle_prompts_list(server : MCPServer, id : @types.RequestId) -> String {
     Json::object(map)
   })
   jsonrpc_success_str(
+    server,
     id,
     Json::object({ "prompts": Json::array(prompt_jsons) }),
   )
@@ -252,7 +295,7 @@ async fn handle_prompts_get(
             None => ()
           }
           result_map.set("messages", Json::array(messages_json))
-          jsonrpc_success_str(id, Json::object(result_map))
+          jsonrpc_success_str(server, id, Json::object(result_map))
         }
         Err(e) => jsonrpc_error_str(id, e.to_error_code(), e.message())
       }

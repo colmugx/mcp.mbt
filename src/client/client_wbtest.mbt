@@ -1,4 +1,15 @@
 ///|
+/// Fixed `_meta` used by request-builder tests below. Kept stable so the
+/// expected JSON snapshots remain deterministic.
+fn test_meta() -> Json {
+  build_request_meta("test-client", "1.0.0", {
+    roots: None,
+    sampling: None,
+    elicitation: None,
+  })
+}
+
+///|
 test "MCPClient creates client with info" {
   let transport = @transport.AnyTransport::Stdio(
     @transport.StdioTransport::StdioTransport(),
@@ -82,10 +93,10 @@ test "build_ping_request format" {
 
 ///|
 test "build_tools_list_request format" {
-  let req = build_tools_list_request(1)
+  let req = build_tools_list_request(1, test_meta())
   let actual = @json.parse(req) catch { _ => Json::null() }
   let expected = @json.parse(
-    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}",
+    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":\"2026-07-28\",\"io.modelcontextprotocol/clientCapabilities\":{},\"io.modelcontextprotocol/clientInfo\":{\"name\":\"test-client\",\"version\":\"1.0.0\"}}}}",
   ) catch {
     _ => Json::null()
   }
@@ -94,10 +105,15 @@ test "build_tools_list_request format" {
 
 ///|
 test "build_tools_call_request format" {
-  let req = build_tools_call_request(1, "my_tool", arguments="{\"x\": 1}")
+  let req = build_tools_call_request(
+    1,
+    "my_tool",
+    test_meta(),
+    arguments="{\"x\": 1}",
+  )
   let actual = @json.parse(req) catch { _ => Json::null() }
   let expected = @json.parse(
-    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"my_tool\",\"arguments\":{\"x\":1}}}",
+    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"my_tool\",\"arguments\":{\"x\":1},\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":\"2026-07-28\",\"io.modelcontextprotocol/clientCapabilities\":{},\"io.modelcontextprotocol/clientInfo\":{\"name\":\"test-client\",\"version\":\"1.0.0\"}}}}",
   ) catch {
     _ => Json::null()
   }
@@ -118,10 +134,10 @@ test "build_initialized_notification format" {
 
 ///|
 test "build_resources_list_request format" {
-  let req = build_resources_list_request(1)
+  let req = build_resources_list_request(1, test_meta())
   let actual = @json.parse(req) catch { _ => Json::null() }
   let expected = @json.parse(
-    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"resources/list\"}",
+    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"resources/list\",\"params\":{\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":\"2026-07-28\",\"io.modelcontextprotocol/clientCapabilities\":{},\"io.modelcontextprotocol/clientInfo\":{\"name\":\"test-client\",\"version\":\"1.0.0\"}}}}",
   ) catch {
     _ => Json::null()
   }
@@ -130,10 +146,10 @@ test "build_resources_list_request format" {
 
 ///|
 test "build_resources_read_request format" {
-  let req = build_resources_read_request(1, "file:///test.txt")
+  let req = build_resources_read_request(1, "file:///test.txt", test_meta())
   let actual = @json.parse(req) catch { _ => Json::null() }
   let expected = @json.parse(
-    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"resources/read\",\"params\":{\"uri\":\"file:///test.txt\"}}",
+    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"resources/read\",\"params\":{\"uri\":\"file:///test.txt\",\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":\"2026-07-28\",\"io.modelcontextprotocol/clientCapabilities\":{},\"io.modelcontextprotocol/clientInfo\":{\"name\":\"test-client\",\"version\":\"1.0.0\"}}}}",
   ) catch {
     _ => Json::null()
   }
@@ -142,10 +158,10 @@ test "build_resources_read_request format" {
 
 ///|
 test "build_prompts_list_request format" {
-  let req = build_prompts_list_request(1)
+  let req = build_prompts_list_request(1, test_meta())
   let actual = @json.parse(req) catch { _ => Json::null() }
   let expected = @json.parse(
-    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"prompts/list\"}",
+    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"prompts/list\",\"params\":{\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":\"2026-07-28\",\"io.modelcontextprotocol/clientCapabilities\":{},\"io.modelcontextprotocol/clientInfo\":{\"name\":\"test-client\",\"version\":\"1.0.0\"}}}}",
   ) catch {
     _ => Json::null()
   }
@@ -157,11 +173,12 @@ test "build_prompts_get_request format" {
   let req = build_prompts_get_request(
     1,
     "my_prompt",
+    test_meta(),
     arguments="{\"key\": \"val\"}",
   )
   let actual = @json.parse(req) catch { _ => Json::null() }
   let expected = @json.parse(
-    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"prompts/get\",\"params\":{\"name\":\"my_prompt\",\"arguments\":{\"key\":\"val\"}}}",
+    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"prompts/get\",\"params\":{\"name\":\"my_prompt\",\"arguments\":{\"key\":\"val\"},\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":\"2026-07-28\",\"io.modelcontextprotocol/clientCapabilities\":{},\"io.modelcontextprotocol/clientInfo\":{\"name\":\"test-client\",\"version\":\"1.0.0\"}}}}",
   ) catch {
     _ => Json::null()
   }

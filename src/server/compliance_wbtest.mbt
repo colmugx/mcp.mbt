@@ -325,11 +325,27 @@ test "compliance: jsonrpc_error format has code and message" {
 
 ///|
 test "compliance: jsonrpc_success format has result" {
-  let response = jsonrpc_success_str(@types.RequestId::Int(1), Json::object({}))
+  let server = MCPServer::MCPServer("test", "1.0.0")
+  let response = jsonrpc_success_str(
+    server,
+    @types.RequestId::Int(1),
+    Json::object({}),
+  )
   let json = @json.parse(response) catch { _ => panic() }
   assert_eq(json_field_str(json, "jsonrpc"), "2.0")
   assert_true(json_has(json, "result"))
   assert_true(!json_has(json, "error"))
+}
+
+///|
+test "compliance: response _meta carries serverInfo" {
+  let server = MCPServer::MCPServer("test-server", "2.0.0")
+  let response = handle_tools_list(server, @types.RequestId::Int(1))
+  let result = parse_result(response)
+  let meta = json_get(result, "_meta")
+  let info = json_get(meta, "io.modelcontextprotocol/serverInfo")
+  assert_eq(json_field_str(info, "name"), "test-server")
+  assert_eq(json_field_str(info, "version"), "2.0.0")
 }
 
 ///| =====================================================

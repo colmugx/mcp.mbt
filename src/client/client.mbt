@@ -117,6 +117,20 @@ pub fn MCPClient::next_request_id(self : MCPClient) -> Int {
 }
 
 ///|
+/// Build the `_meta` object this client attaches to every modern request.
+fn MCPClient::request_meta(
+  self : MCPClient,
+  log_level? : String? = None,
+) -> Json {
+  build_request_meta(
+    self.client_name,
+    self.client_version,
+    self.capabilities,
+    log_level~,
+  )
+}
+
+///|
 async fn MCPClient::send_request(
   self : MCPClient,
   request : String,
@@ -261,7 +275,7 @@ pub async fn MCPClient::list_tools(
   cursor? : String = "",
 ) -> Result[ListToolsResult, @types.MCPError] {
   let id = self.next_request_id()
-  let request = build_tools_list_request(id, cursor~)
+  let request = build_tools_list_request(id, self.request_meta(), cursor~)
   match self.send_request(request) {
     Err(e) => return Err(e)
     Ok(response_str) =>
@@ -279,7 +293,12 @@ pub async fn MCPClient::call_tool(
   arguments? : String = "{}",
 ) -> Result[CallToolResult, @types.MCPError] {
   let id = self.next_request_id()
-  let request = build_tools_call_request(id, name, arguments~)
+  let request = build_tools_call_request(
+    id,
+    name,
+    self.request_meta(),
+    arguments~,
+  )
   match self.send_request(request) {
     Err(e) => return Err(e)
     Ok(response_str) =>
@@ -296,7 +315,7 @@ pub async fn MCPClient::list_resources(
   cursor? : String = "",
 ) -> Result[ListResourcesResult, @types.MCPError] {
   let id = self.next_request_id()
-  let request = build_resources_list_request(id, cursor~)
+  let request = build_resources_list_request(id, self.request_meta(), cursor~)
   match self.send_request(request) {
     Err(e) => return Err(e)
     Ok(response_str) =>
@@ -313,7 +332,7 @@ pub async fn MCPClient::read_resource(
   uri : String,
 ) -> Result[ReadResourceResult, @types.MCPError] {
   let id = self.next_request_id()
-  let request = build_resources_read_request(id, uri)
+  let request = build_resources_read_request(id, uri, self.request_meta())
   match self.send_request(request) {
     Err(e) => return Err(e)
     Ok(response_str) =>
@@ -330,7 +349,7 @@ pub async fn MCPClient::list_prompts(
   cursor? : String = "",
 ) -> Result[ListPromptsResult, @types.MCPError] {
   let id = self.next_request_id()
-  let request = build_prompts_list_request(id, cursor~)
+  let request = build_prompts_list_request(id, self.request_meta(), cursor~)
   match self.send_request(request) {
     Err(e) => return Err(e)
     Ok(response_str) =>
@@ -348,7 +367,12 @@ pub async fn MCPClient::get_prompt(
   arguments? : String = "{}",
 ) -> Result[@types.GetPromptResult, @types.MCPError] {
   let id = self.next_request_id()
-  let request = build_prompts_get_request(id, name, arguments~)
+  let request = build_prompts_get_request(
+    id,
+    name,
+    self.request_meta(),
+    arguments~,
+  )
   match self.send_request(request) {
     Err(e) => return Err(e)
     Ok(response_str) =>
@@ -414,7 +438,11 @@ pub async fn MCPClient::list_resource_templates(
   cursor? : String = "",
 ) -> Result[ListResourceTemplatesResult, @types.MCPError] {
   let id = self.next_request_id()
-  let request = build_resources_templates_list_request(id, cursor~)
+  let request = build_resources_templates_list_request(
+    id,
+    self.request_meta(),
+    cursor~,
+  )
   match self.send_request(request) {
     Err(e) => return Err(e)
     Ok(response_str) =>
@@ -436,6 +464,7 @@ pub async fn MCPClient::complete(
   let id = self.next_request_id()
   let request = build_completion_complete_request(
     id,
+    self.request_meta(),
     ref_type~,
     ref_name~,
     argument_name~,
