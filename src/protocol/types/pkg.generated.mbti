@@ -6,6 +6,8 @@ import {
 }
 
 // Values
+pub const ProtocolVersion : String = "2026-07-28"
+
 pub fn cancelled_notification(String, reason? : String) -> Notification
 
 pub fn progress_notification(String, Double, total? : Double) -> Notification
@@ -229,4 +231,3 @@ pub(all) struct ToolDefinition {
 // Type aliases
 
 // Traits
-

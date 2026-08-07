@@ -1,4 +1,12 @@
 ///|
+/// MCP protocol version implemented by this SDK.
+///
+/// Single source of truth for the `MCP-Protocol-Version` header and the
+/// `_meta.io.modelcontextprotocol/protocolVersion` field. Per the 2026-07-28
+/// revision, every request carries its own version; there is no handshake.
+pub const ProtocolVersion : String = "2026-07-28"
+
+///|
 pub(all) struct ServerInfo {
   name : String
   title : String?

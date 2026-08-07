@@ -123,4 +123,3 @@ pub(all) struct ResourceTemplate {
 // Type aliases
 
 // Traits
-

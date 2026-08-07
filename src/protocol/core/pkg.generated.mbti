@@ -113,4 +113,3 @@ pub impl ToToolResult for Int
 pub impl ToToolResult for Double
 pub impl ToToolResult for String
 pub impl ToToolResult for @tool.ToolResult
-

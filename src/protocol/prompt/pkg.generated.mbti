@@ -26,4 +26,3 @@ pub(open) trait Prompt {
   fn arguments(Self) -> Array[@types.PromptArgument]
   async fn get(Self, Json) -> Result[@types.GetPromptResult, @types.MCPError]
 }
-

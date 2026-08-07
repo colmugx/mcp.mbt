@@ -125,4 +125,3 @@ pub(open) trait Transport {
   fn supports_streaming(Self) -> Bool
   fn close(Self) -> Unit
 }
-

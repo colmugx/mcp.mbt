@@ -1,6 +1,6 @@
 ///| Resource Core Types - MCP Protocol Implementation
 
-///| Based on: MCP Protocol 2025-06-18 specification
+///| Based on: MCP Protocol 2026-07-28 specification
 
 ///|=====================================================
 

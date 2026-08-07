@@ -51,4 +51,3 @@ pub(open) trait Tool {
   fn params(Self) -> Array[ParamDef]
   async fn execute(Self, Json) -> ToolResult
 }
-

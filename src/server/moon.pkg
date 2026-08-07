@@ -8,6 +8,8 @@ import {
   "moonbitlang/core/json",
   "moonbitlang/async",
   "moonbitlang/async/aqueue",
+  "cc06b/mooncry/lib" @mooncry,
+  "Tigls/mb-getrandom/lib" @getrandom,
 }
 
 import {

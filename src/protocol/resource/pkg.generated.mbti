@@ -38,4 +38,3 @@ pub(open) trait Resource {
   fn mime_type(Self) -> String
   async fn read(Self) -> Result[ResourceReadResult, @types.MCPError]
 }
-
