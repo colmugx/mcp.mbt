@@ -5,24 +5,39 @@ on:
     branches:
       - agent/source-export
 
+permissions:
+  contents: write
+
 jobs:
-  export:
+  rewrite-pr:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Checkout integration sources
-        run: |
-          git clone https://github.com/colmugx/posoco.git posoco
-          git -C posoco checkout 2c2dd09648323f83f62c8f3dc509053e644a8067
-          git clone https://github.com/colmugx/posoco-extension.git posoco-extension
-          git -C posoco-extension checkout fa8ca09cca1064606f78a702640180337f76bf3d
-          git clone --branch agent/connect-existing-client-transport https://github.com/colmugx/mcp.mbt.git mcp-pr1
-          git -C mcp-pr1 checkout 57da149fafe8055830bbd0cdb68b1a67956a3e96
-      - uses: actions/upload-artifact@v4
         with:
-          name: ext-mcp-integration-sources
-          path: |
-            posoco
-            posoco-extension
-            mcp-pr1
-          include-hidden-files: true
+          fetch-depth: 0
+      - name: Prepare clean PR tree
+        run: |
+          cp .github/agent/pr2.patch /tmp/pr2.patch
+          git fetch origin main agent/connect-existing-client-transport
+          git checkout -B agent/pr2-rewrite origin/main
+          git apply /tmp/pr2.patch
+          git diff --check
+      - name: Install MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Verify
+        run: |
+          moon version --all
+          moon update
+          moon fmt --check
+          moon check --deny-warn --output-json
+          moon test
+          moon build --target native
+      - name: Rewrite PR branch
+        run: |
+          git config user.name "colmugx"
+          git config user.email "colmugx@qq.com"
+          git add moon.mod src
+          git commit -m "chore:Align async dependency"
+          git push --force origin HEAD:agent/connect-existing-client-transport
