@@ -1,0 +1,321 @@
+diff --git a/moon.mod b/moon.mod
+index 153ede3..405de17 100644
+--- a/moon.mod
++++ b/moon.mod
+@@ -3,7 +3,7 @@ name = "colmugx/mcp"
+ version = "0.14.1"
+ 
+ import {
+-  "moonbitlang/async@0.19.4",
++  "moonbitlang/async@0.20.3",
+ }
+ 
+ readme = "README.mbt.md"
+diff --git a/src/client/client.mbt b/src/client/client.mbt
+index 741d35e..8d3ea1c 100644
+--- a/src/client/client.mbt
++++ b/src/client/client.mbt
+@@ -606,7 +606,7 @@ fn MCPClient::handle_server_request(
+                   "result": Json::object({
+                     "roots": Json::array(
+                       roots.map(fn(r) {
+-                        let root_map : Map[String, Json] = {}
++                        let root_map : Map[String, Json] = Default::default()
+                         root_map.set("uri", Json::string(r.uri))
+                         match r.name {
+                           Some(n) => root_map.set("name", Json::string(n))
+@@ -1121,7 +1121,7 @@ fn jsonrpc_error_str(id_json : Json, code : Int, message : String) -> String {
+ 
+ ///|
+ fn serialize_create_message_result(result : @types.CreateMessageResult) -> Json {
+-  let obj_map : Map[String, Json] = {}
++  let obj_map : Map[String, Json] = Default::default()
+   obj_map.set("role", Json::string(result.role))
+   obj_map.set("model", Json::string(result.model))
+   obj_map.set("content", serialize_content_item(result.content))
+@@ -1151,7 +1151,7 @@ fn serialize_content_item(item : @types.ContentItem) -> Json {
+     EmbeddedResource(content) =>
+       match content {
+         Text(t, uri~, mime_type~) => {
+-          let res_map : Map[String, Json] = {}
++          let res_map : Map[String, Json] = Default::default()
+           res_map.set("uri", Json::string(uri))
+           res_map.set("text", Json::string(t))
+           match mime_type {
+diff --git a/src/client/request_builder.mbt b/src/client/request_builder.mbt
+index 220c6df..c28522c 100644
+--- a/src/client/request_builder.mbt
++++ b/src/client/request_builder.mbt
+@@ -5,7 +5,7 @@ fn build_initialize_request(
+   client_version : String,
+   capabilities~ : @types.ClientCapabilities,
+ ) -> String {
+-  let caps_map : Map[String, Json] = {}
++  let caps_map : Map[String, Json] = Default::default()
+   match capabilities.roots {
+     Some(roots_cap) =>
+       caps_map.set(
+@@ -81,7 +81,7 @@ fn build_tools_call_request(
+   progress_token? : String = "",
+ ) -> String {
+   let arguments_json = @json.parse(arguments) catch { _ => Json::object({}) }
+-  let params_map : Map[String, Json] = {}
++  let params_map : Map[String, Json] = Default::default()
+   params_map.set("name", Json::string(name))
+   params_map.set("arguments", arguments_json)
+   if progress_token != "" {
+diff --git a/src/protocol/core/params.mbt b/src/protocol/core/params.mbt
+index 7d6b6fc..8ca8b93 100644
+--- a/src/protocol/core/params.mbt
++++ b/src/protocol/core/params.mbt
+@@ -113,14 +113,14 @@ pub fn obj_schema(
+ 
+ ///|
+ pub fn JsonSchema::to_json(self : JsonSchema) -> Json {
+-  let obj = {}
++  let obj : Map[String, Json] = Default::default()
+   obj["type"] = Json::string(self.type_name)
+   if self.description != "" {
+     obj["description"] = Json::string(self.description)
+   }
+   match self.properties {
+     Some(props) => {
+-      let props_obj = {}
++      let props_obj : Map[String, Json] = Default::default()
+       for name, schema in props {
+         props_obj[name] = schema.to_json()
+       }
+diff --git a/src/protocol/core/schema_builder.mbt b/src/protocol/core/schema_builder.mbt
+index 8e18379..95b13ad 100644
+--- a/src/protocol/core/schema_builder.mbt
++++ b/src/protocol/core/schema_builder.mbt
+@@ -49,7 +49,7 @@ pub fn SchemaBuilder::build(
+   self : SchemaBuilder,
+   desc? : String = "",
+ ) -> JsonSchema {
+-  let properties_map : Map[String, JsonSchema] = Map::default()
++  let properties_map : Map[String, JsonSchema] = Default::default()
+   let required_fields : Array[String] = []
+   for field_def in self.fields {
+     let field_schema = type_to_schema(
+diff --git a/src/protocol/types/notification.mbt b/src/protocol/types/notification.mbt
+index bd9ddde..a8a6365 100644
+--- a/src/protocol/types/notification.mbt
++++ b/src/protocol/types/notification.mbt
+@@ -71,7 +71,7 @@ pub fn progress_notification(
+   progress : Double,
+   total? : Double,
+ ) -> Notification {
+-  let params_map : Map[String, Json] = Map::default()
++  let params_map : Map[String, Json] = Default::default()
+   params_map.set("progressToken", Json::string(token))
+   params_map.set("progress", Json::number(progress))
+   match total {
+@@ -90,7 +90,7 @@ pub fn cancelled_notification(
+   request_id : String,
+   reason? : String,
+ ) -> Notification {
+-  let params_map : Map[String, Json] = Map::default()
++  let params_map : Map[String, Json] = Default::default()
+   params_map.set("requestId", Json::string(request_id))
+   match reason {
+     Some(r) => params_map.set("reason", Json::string(r))
+diff --git a/src/server/handler.mbt b/src/server/handler.mbt
+index ceb3020..7f9df50 100644
+--- a/src/server/handler.mbt
++++ b/src/server/handler.mbt
+@@ -61,7 +61,7 @@ fn handle_initialize(server : MCPServer, id : @types.RequestId) -> String {
+     "prompts": Json::object({ "listChanged": Json::boolean(true) }),
+     "logging": Json::object({}),
+   })
+-  let info_map : Map[String, Json] = {}
++  let info_map : Map[String, Json] = Default::default()
+   info_map.set("name", Json::string(server.name))
+   info_map.set("version", Json::string(server.version))
+   match server.title {
+@@ -73,7 +73,7 @@ fn handle_initialize(server : MCPServer, id : @types.RequestId) -> String {
+     None => ()
+   }
+   let server_info = Json::object(info_map)
+-  let result_map : Map[String, Json] = {}
++  let result_map : Map[String, Json] = Default::default()
+   result_map.set("protocolVersion", Json::string("2025-11-25"))
+   result_map.set("capabilities", capabilities)
+   result_map.set("serverInfo", server_info)
+@@ -135,7 +135,7 @@ async fn handle_tools_call(
+               @types.EmbeddedResource(content) =>
+                 match content {
+                   @types.Text(text, uri~, mime_type~) => {
+-                    let map : Map[String, Json] = {}
++                    let map : Map[String, Json] = Default::default()
+                     map.set("type", Json::string("resource"))
+                     map.set("uri", Json::string(uri))
+                     map.set("text", Json::string(text))
+@@ -171,7 +171,7 @@ async fn handle_tools_call(
+ fn handle_resources_list(server : MCPServer, id : @types.RequestId) -> String {
+   let resources = server.resource_registry.list_resources()
+   let resource_jsons = resources.map(fn(resource) {
+-    let map : Map[String, Json] = {}
++    let map : Map[String, Json] = Default::default()
+     map.set("uri", Json::string(resource.uri))
+     map.set("name", Json::string(resource.name))
+     match resource.description {
+@@ -263,7 +263,7 @@ fn handle_resources_unsubscribe(
+ fn handle_prompts_list(server : MCPServer, id : @types.RequestId) -> String {
+   let prompts = server.prompt_registry.list_prompts()
+   let prompt_jsons = prompts.map(fn(prompt) {
+-    let map : Map[String, Json] = {}
++    let map : Map[String, Json] = Default::default()
+     map.set("name", Json::string(prompt.name))
+     match prompt.description {
+       Some(desc) => map.set("description", Json::string(desc))
+@@ -272,7 +272,7 @@ fn handle_prompts_list(server : MCPServer, id : @types.RequestId) -> String {
+     match prompt.arguments {
+       Some(args) => {
+         let arg_jsons = args.map(fn(arg) {
+-          let arg_map : Map[String, Json] = {}
++          let arg_map : Map[String, Json] = Default::default()
+           arg_map.set("name", Json::string(arg.name))
+           match arg.description {
+             Some(d) => arg_map.set("description", Json::string(d))
+@@ -319,7 +319,7 @@ async fn handle_prompts_get(
+             }
+             Json::object({ "role": Json::string(msg.role), "content": content })
+           })
+-          let result_map : Map[String, Json] = {}
++          let result_map : Map[String, Json] = Default::default()
+           match prompt_result.description {
+             Some(d) => result_map.set("description", Json::string(d))
+             None => ()
+diff --git a/src/server/prompt_registry.mbt b/src/server/prompt_registry.mbt
+index 601005f..8a8e36a 100644
+--- a/src/server/prompt_registry.mbt
++++ b/src/server/prompt_registry.mbt
+@@ -15,7 +15,7 @@ struct PromptRegistry {
+ 
+ ///|
+ fn PromptRegistry::PromptRegistry() -> PromptRegistry {
+-  { prompts: Map::default() }
++  { prompts: Default::default() }
+ }
+ 
+ ///|
+diff --git a/src/server/registry.mbt b/src/server/registry.mbt
+index a795732..bf00806 100644
+--- a/src/server/registry.mbt
++++ b/src/server/registry.mbt
+@@ -14,7 +14,7 @@ struct ToolRegistry {
+ 
+ ///|
+ fn ToolRegistry::ToolRegistry() -> ToolRegistry {
+-  { tools: Map::default() }
++  { tools: Default::default() }
+ }
+ 
+ ///|
+diff --git a/src/server/resource_registry.mbt b/src/server/resource_registry.mbt
+index eeea6de..d6c9cfc 100644
+--- a/src/server/resource_registry.mbt
++++ b/src/server/resource_registry.mbt
+@@ -17,7 +17,7 @@ struct ResourceRegistry {
+ 
+ ///|
+ fn ResourceRegistry::ResourceRegistry() -> ResourceRegistry {
+-  { resources: Map::default(), subscriptions: [] }
++  { resources: Default::default(), subscriptions: [] }
+ }
+ 
+ ///|
+diff --git a/src/server/tool_bridge.mbt b/src/server/tool_bridge.mbt
+index 77943b8..0dc4b25 100644
+--- a/src/server/tool_bridge.mbt
++++ b/src/server/tool_bridge.mbt
+@@ -1,8 +1,8 @@
+ ///|
+ fn expand_params_to_json(params : Array[@tool.ParamDef]) -> Json {
+-  let properties_map : Map[String, Json] = Map::default()
++  let properties_map : Map[String, Json] = Default::default()
+   for param in params {
+-    let prop_map : Map[String, Json] = Map::default()
++    let prop_map : Map[String, Json] = Default::default()
+     prop_map.set("type", Json::string(param.type_))
+     if !param.description.is_empty() {
+       prop_map.set("description", Json::string(param.description))
+@@ -15,7 +15,7 @@ fn expand_params_to_json(params : Array[@tool.ParamDef]) -> Json {
+       required_list.push(Json::string(param.name))
+     }
+   }
+-  let schema_map : Map[String, Json] = Map::default()
++  let schema_map : Map[String, Json] = Default::default()
+   schema_map.set("type", Json::string("object"))
+   schema_map.set("properties", Json::object(properties_map))
+   schema_map.set("required", Json::array(required_list))
+diff --git a/src/server/tool_test.mbt b/src/server/tool_test.mbt
+index 0330a0c..a5f4249 100644
+--- a/src/server/tool_test.mbt
++++ b/src/server/tool_test.mbt
+@@ -247,12 +247,12 @@ impl Tool for EchoTool with fn execute(_self : EchoTool, args : Json) -> ToolRes
+ ///|
+ async test "example: complete tool implementation with EchoTool" {
+   let tool = EchoTool::{  }
+-  @debug.assert_eq(tool.name(), "echo")
+-  @debug.assert_eq(tool.description(), "Echo back the input text")
++  @debug.assert_eq(@tool.Tool::name(tool), "echo")
++  @debug.assert_eq(@tool.Tool::description(tool), "Echo back the input text")
+ 
+   // Test execution
+   let args = Json::object({ "text": Json::string("Hello, MCP!") })
+-  let result = tool.execute(args)
++  let result = @tool.Tool::execute(tool, args)
+   @debug.assert_eq(result.is_error, false)
+   match result.content[0] {
+     Text(msg) => @debug.assert_eq(msg, "Echo: Hello, MCP!")
+@@ -266,7 +266,7 @@ async test "example: tool with error handling" {
+ 
+   // Missing argument
+   let args = Json::object({})
+-  let result = tool.execute(args)
++  let result = @tool.Tool::execute(tool, args)
+   @debug.assert_eq(result.is_error, true)
+   match result.content[0] {
+     Text(msg) => assert_true(msg.contains("Missing required field"))
+diff --git a/src/transport/http_client.mbt b/src/transport/http_client.mbt
+index 20a5d9c..01478af 100644
+--- a/src/transport/http_client.mbt
++++ b/src/transport/http_client.mbt
+@@ -48,7 +48,7 @@ pub fn HttpClientTransport::HttpClientTransport(
+ async fn HttpClientTransport::establish_sse(
+   self : HttpClientTransport,
+ ) -> Unit raise @types.TransportError {
+-  let headers : Map[String, String] = {}
++  let headers : Map[String, String] = Default::default()
+   headers["Accept"] = "text/event-stream"
+   headers["Cache-Control"] = "no-cache"
+   headers["MCP-Protocol-Version"] = self.protocol_version
+@@ -138,7 +138,7 @@ pub async fn HttpClientTransport::send(
+     }
+   }
+   let body_bytes = @utf8.encode(message)
+-  let headers : Map[String, String] = {}
++  let headers : Map[String, String] = Default::default()
+   headers["Content-Type"] = "application/json"
+   headers["Accept"] = "application/json, text/event-stream"
+   headers["Content-Length"] = body_bytes.length().to_string()
+@@ -310,7 +310,7 @@ pub async fn HttpClientTransport::send_notification(
+   }
+   let json_body = notification.to_jsonrpc_string()
+   let body_bytes = @utf8.encode(json_body)
+-  let headers : Map[String, String] = {}
++  let headers : Map[String, String] = Default::default()
+   headers["Content-Type"] = "application/json"
+   headers["Content-Length"] = body_bytes.length().to_string()
+   headers["MCP-Protocol-Version"] = self.protocol_version
+@@ -366,7 +366,7 @@ pub async fn HttpClientTransport::close_session(
+   }
+   match self.session_id {
+     Some(_) => {
+-      let headers : Map[String, String] = {}
++      let headers : Map[String, String] = Default::default()
+       headers["MCP-Protocol-Version"] = self.protocol_version
+       match self.session_id {
+         Some(id) => headers["Mcp-Session-Id"] = id
