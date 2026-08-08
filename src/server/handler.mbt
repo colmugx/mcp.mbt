@@ -58,15 +58,33 @@ fn jsonrpc_error_str(
   id : @types.RequestId,
   code : Int,
   message : String,
+  data? : Json? = None,
 ) -> String {
+  let error_map : Map[String, Json] = Default::default()
+  error_map.set("code", Json::number(code.to_double()))
+  error_map.set("message", Json::string(message))
+  match data {
+    Some(d) => error_map.set("data", d)
+    None => ()
+  }
   Json::object({
     "jsonrpc": Json::string("2.0"),
     "id": request_id_to_json(id),
-    "error": Json::object({
-      "code": Json::number(code.to_double()),
-      "message": Json::string(message),
-    }),
+    "error": Json::object(error_map),
   }).stringify()
+}
+
+///|
+/// Build a JSON-RPC error response from an `MCPError`, automatically
+/// populating the `data` member for spec-defined errors
+/// (`UnsupportedProtocolVersion`, `MissingRequiredClientCapability`).
+fn jsonrpc_error_from(id : @types.RequestId, err : @types.MCPError) -> String {
+  jsonrpc_error_str(
+    id,
+    err.to_error_code(),
+    err.message(),
+    data=err.to_error_data(),
+  )
 }
 
 ///|
@@ -162,7 +180,7 @@ async fn handle_tools_call(
           })
           jsonrpc_success_str(server, id, result)
         }
-        Err(e) => jsonrpc_error_str(id, e.to_error_code(), e.message())
+        Err(e) => jsonrpc_error_from(id, e)
       }
     }
   }
@@ -223,7 +241,7 @@ async fn handle_resources_read(
             Json::object({ "contents": Json::array([content_json]) }),
           )
         }
-        Err(e) => jsonrpc_error_str(id, e.to_error_code(), e.message())
+        Err(e) => jsonrpc_error_from(id, e)
       }
   }
 }
@@ -297,7 +315,7 @@ async fn handle_prompts_get(
           result_map.set("messages", Json::array(messages_json))
           jsonrpc_success_str(server, id, Json::object(result_map))
         }
-        Err(e) => jsonrpc_error_str(id, e.to_error_code(), e.message())
+        Err(e) => jsonrpc_error_from(id, e)
       }
   }
 }

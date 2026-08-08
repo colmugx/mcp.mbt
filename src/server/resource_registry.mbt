@@ -62,7 +62,9 @@ async fn ResourceRegistry::read_resource(
       let handler = entry.handler
       handler()
     }
-    None => Err(@types.MethodNotFound("Resource not found: " + uri))
+    // Per 2026-07-28 spec, resource-not-found is InvalidParams (-32602),
+    // not the old -32002 or MethodNotFound.
+    None => Err(@types.InvalidParams("Resource not found: " + uri))
   }
 }
 
@@ -79,7 +81,7 @@ fn ResourceRegistry::subscribe(
       }
       Ok(())
     }
-    None => Err(@types.MethodNotFound("Resource not found: " + uri))
+    None => Err(@types.InvalidParams("Resource not found: " + uri))
   }
 }
 

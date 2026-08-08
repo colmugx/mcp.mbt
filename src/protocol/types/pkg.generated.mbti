@@ -29,9 +29,13 @@ pub(all) suberror MCPError {
   InternalError(String)
   TransportError(TransportError)
   ToolError(String)
+  HeaderMismatch(String)
+  MissingRequiredClientCapability(String, required~ : Array[String])
+  UnsupportedProtocolVersion(String, supported~ : Array[String], requested~ : String)
 } derive(Eq, @debug.Debug)
 pub fn MCPError::message(Self) -> String
 pub fn MCPError::to_error_code(Self) -> Int
+pub fn MCPError::to_error_data(Self) -> Json?
 
 pub(all) suberror TransportError {
   ConnectionClosed

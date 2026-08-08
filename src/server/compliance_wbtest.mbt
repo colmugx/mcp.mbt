@@ -439,3 +439,68 @@ test "compliance: error codes match JSON-RPC 2.0 spec" {
 test "compliance: tool error uses custom code -32000" {
   assert_eq(@types.ToolError("x").to_error_code(), -32000)
 }
+
+///|
+test "compliance: spec-defined error codes in -3202x range" {
+  assert_eq(@types.HeaderMismatch("x").to_error_code(), -32020)
+  assert_eq(
+    @types.MissingRequiredClientCapability("x", required=["elicitation"]).to_error_code(),
+    -32021,
+  )
+  assert_eq(
+    @types.UnsupportedProtocolVersion(
+      "x",
+      supported=["2026-07-28"],
+      requested="1999-01-01",
+    ).to_error_code(),
+    -32022,
+  )
+}
+
+///|
+test "compliance: UnsupportedProtocolVersion serializes supported/requested in data" {
+  let server = MCPServer::MCPServer("test", "1.0.0")
+  let err = @types.UnsupportedProtocolVersion(
+    "unsupported version",
+    supported=["2026-07-28", "2025-11-25"],
+    requested="1999-01-01",
+  )
+  let response = jsonrpc_error_from(@types.RequestId::Int(1), err)
+  // Reference `server` so the meta-bearing success builder stays in scope
+  // (keeps the test file consistent with the node-2 signature change).
+  ignore(server)
+  let json = @json.parse(response) catch { _ => panic() }
+  let err_obj = json_get(json, "error")
+  assert_eq(json_field_str(err_obj, "message"), "unsupported version")
+  let data = json_get(err_obj, "data")
+  assert_eq(json_field_str(data, "requested"), "1999-01-01")
+  // `supported` is a 2-element array of version strings
+  let supported = json_get(data, "supported")
+  if supported is Array(arr) {
+    assert_eq(arr.length(), 2)
+  } else {
+    panic()
+  }
+}
+
+///|
+test "compliance: MissingRequiredClientCapability serializes requiredCapabilities in data" {
+  let err = @types.MissingRequiredClientCapability("needs elicitation", required=[
+    "elicitation", "roots",
+  ])
+  let response = jsonrpc_error_from(@types.RequestId::Int(1), err)
+  let json = @json.parse(response) catch { _ => panic() }
+  let data = json_get(json_get(json, "error"), "data")
+  let required = json_get(data, "requiredCapabilities")
+  if required is Array(arr) {
+    assert_eq(arr.length(), 2)
+  } else {
+    panic()
+  }
+}
+
+///|
+test "compliance: HeaderMismatch carries no structured data" {
+  let err = @types.HeaderMismatch("Mcp-Name mismatch")
+  assert_true(err.to_error_data().is_empty())
+}

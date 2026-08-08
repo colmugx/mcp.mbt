@@ -82,7 +82,7 @@ test "ResourceRegistry::subscribe returns error for non-existent resource" {
   @debug.debug_inspect(
     result,
     content=(
-      #|Err(MethodNotFound("Resource not found: file:///nonexistent.txt"))
+      #|Err(InvalidParams("Resource not found: file:///nonexistent.txt"))
     ),
   )
 }
