@@ -175,6 +175,252 @@ async fn MCPClient::send_request(
 }
 
 ///|
+/// Send a request and transparently handle MRTR (Multi Round-Trip Requests).
+///
+/// If the server returns `resultType: "input_required"`, this fulfills the
+/// requested inputs via the client's sampling/roots/elicitation handlers and
+/// retries the original request with `inputResponses` + the echoed
+/// `requestState`, using a new JSON-RPC id. Repeats until a `complete` result
+/// (or an error) is returned. A missing `resultType` is treated as `complete`
+/// per spec (back-compat with older servers).
+///
+/// `max_rounds` bounds the retry count to prevent infinite loops if the server
+/// keeps requesting input.
+async fn MCPClient::send_with_mrtr(
+  self : MCPClient,
+  request : String,
+  max_rounds? : Int = 8,
+) -> Result[String, @types.MCPError] {
+  let mut current_request = request
+  let mut rounds = 0
+  while rounds < max_rounds {
+    rounds = rounds + 1
+    match self.send_request(current_request) {
+      Err(e) => return Err(e)
+      Ok(response) =>
+        match self.check_input_required(response) {
+          None => return Ok(response)
+          Some(input_req) =>
+            match self.fulfill_input_requests(input_req.input_requests) {
+              Err(e) => return Err(e)
+              Ok(responses) => {
+                // Build the retry: original params + inputResponses + requestState, new id.
+                let new_id = self.next_request_id()
+                current_request = build_retry_request(
+                  current_request,
+                  new_id,
+                  responses,
+                  input_req.request_state,
+                )
+              }
+            }
+        }
+    }
+  }
+  Err(@types.InternalError("MRTR exceeded max rounds"))
+}
+
+///|
+/// If `response` is an `input_required` result, extract the `inputRequests`
+/// map and `requestState`; otherwise return None (complete or error).
+priv struct InputRequiredInfo {
+  input_requests : Map[String, (String, Json)] // key -> (method, params)
+  request_state : String?
+} derive(Show)
+
+///|
+fn MCPClient::check_input_required(
+  self : MCPClient,
+  response : String,
+) -> InputRequiredInfo? {
+  ignore(self)
+  let json = @json.parse(response) catch { _ => return None }
+  if not(json is Object(_)) {
+    return None
+  }
+  let result = if json is Object(obj) {
+    match obj.get("result") {
+      Some(Object(r)) => r
+      _ => return None
+    }
+  } else {
+    return None
+  }
+  let result_type = match result.get("resultType") {
+    Some(String(s)) => s
+    _ => return None // absent => "complete"
+  }
+  if result_type != "input_required" {
+    return None
+  }
+  let reqs : Map[String, (String, Json)] = Default::default()
+  match result.get("inputRequests") {
+    Some(Object(map)) =>
+      map.each(fn(key, val) {
+        if val is Object(entry) {
+          let method = match entry.get("method") {
+            Some(String(m)) => m
+            _ => ""
+          }
+          let params = entry.get("params").unwrap_or(Json::null())
+          reqs.set(key, (method, params))
+        }
+      })
+    _ => ()
+  }
+  let request_state = match result.get("requestState") {
+    Some(String(s)) => Some(s)
+    _ => None
+  }
+  Some({ input_requests: reqs, request_state })
+}
+
+///|
+/// Fulfill each input request by dispatching to the matching client handler.
+/// Returns a map of key → response JSON (the `inputResponses` field).
+async fn MCPClient::fulfill_input_requests(
+  self : MCPClient,
+  input_requests : Map[String, (String, Json)],
+) -> Result[Map[String, Json], @types.MCPError] {
+  let responses : Map[String, Json] = Default::default()
+  let mut error : @types.MCPError? = None
+  input_requests.each(fn(key, entry) {
+    if error is Some(_) {
+      return
+    }
+    let (method, params) = entry
+    match method {
+      "elicitation/create" =>
+        match self.elicitation_handler {
+          Some(handler) =>
+            match handler(params) {
+              Ok(r) => responses.set(key, elicitation_result_to_json(r))
+              Err(e) => error = Some(e)
+            }
+          None =>
+            error = Some(
+              @types.MissingRequiredClientCapability(
+                "no elicitation handler registered",
+                required=["elicitation"],
+              ),
+            )
+        }
+      "sampling/createMessage" =>
+        match self.sampling_handler {
+          Some(handler) =>
+            match handler(params) {
+              Ok(r) => responses.set(key, sampling_result_to_json(r))
+              Err(e) => error = Some(e)
+            }
+          None =>
+            error = Some(
+              @types.MissingRequiredClientCapability(
+                "no sampling handler registered",
+                required=["sampling"],
+              ),
+            )
+        }
+      "roots/list" =>
+        match self.roots_handler {
+          Some(handler) =>
+            match handler() {
+              Ok(roots) => responses.set(key, roots_to_json(roots))
+              Err(e) => error = Some(e)
+            }
+          None =>
+            error = Some(
+              @types.MissingRequiredClientCapability(
+                "no roots handler registered",
+                required=["roots"],
+              ),
+            )
+        }
+      _ =>
+        error = Some(
+          @types.MethodNotFound("Unknown input request method: " + method),
+        )
+    }
+  })
+  match error {
+    Some(e) => Err(e)
+    None => Ok(responses)
+  }
+}
+
+///|
+/// Build a retry request: take the original request's params, attach
+/// `inputResponses` and `requestState`, and assign a new JSON-RPC id.
+fn build_retry_request(
+  original : String,
+  new_id : Int,
+  responses : Map[String, Json],
+  request_state : String?,
+) -> String {
+  let orig = @json.parse(original) catch { _ => return original }
+  if not(orig is Object(_)) {
+    return original
+  }
+  if orig is Object(obj) {
+    let params = match obj.get("params") {
+      Some(Object(p)) => p
+      _ => {
+        let p : Map[String, Json] = {}
+        obj.set("params", Json::object(p))
+        p
+      }
+    }
+    params.set("inputResponses", Json::object(responses))
+    match request_state {
+      Some(rs) => params.set("requestState", Json::string(rs))
+      None => ()
+    }
+    obj.set("id", Json::number(new_id.to_double()))
+    orig.stringify()
+  } else {
+    original
+  }
+}
+
+///|
+fn elicitation_result_to_json(r : @types.ElicitationResult) -> Json {
+  let map : Map[String, Json] = Default::default()
+  map.set("action", Json::string(r.action))
+  match r.content {
+    Some(c) => map.set("content", c)
+    None => ()
+  }
+  Json::object(map)
+}
+
+///|
+fn sampling_result_to_json(r : @types.CreateMessageResult) -> Json {
+  let map : Map[String, Json] = Default::default()
+  map.set("role", Json::string(r.role))
+  map.set("model", Json::string(r.model))
+  // content is a ContentItem; serialize via its to_json if available, else stringify
+  map.set("content", serialize_content_item(r.content))
+  match r.stop_reason {
+    Some(s) => map.set("stopReason", Json::string(s))
+    None => ()
+  }
+  Json::object(map)
+}
+
+///|
+fn roots_to_json(roots : Array[@types.Root]) -> Json {
+  let arr = roots.map(fn(r) {
+    let map : Map[String, Json] = Default::default()
+    map.set("uri", Json::string(r.uri))
+    match r.name {
+      Some(n) => map.set("name", Json::string(n))
+      None => ()
+    }
+    Json::object(map)
+  })
+  Json::object({ "roots": Json::array(arr) })
+}
+
+///|
 fn extract_request_id(request : String) -> Int {
   let json = @json.parse(request) catch { _ => return 0 }
   match json {
@@ -327,7 +573,7 @@ pub async fn MCPClient::call_tool(
     self.request_meta(),
     arguments~,
   )
-  match self.send_request(request) {
+  match self.send_with_mrtr(request) {
     Err(e) => return Err(e)
     Ok(response_str) =>
       match parse_jsonrpc_response(response_str) {
@@ -361,7 +607,7 @@ pub async fn MCPClient::read_resource(
 ) -> Result[ReadResourceResult, @types.MCPError] {
   let id = self.next_request_id()
   let request = build_resources_read_request(id, uri, self.request_meta())
-  match self.send_request(request) {
+  match self.send_with_mrtr(request) {
     Err(e) => return Err(e)
     Ok(response_str) =>
       match parse_jsonrpc_response(response_str) {
@@ -401,7 +647,7 @@ pub async fn MCPClient::get_prompt(
     self.request_meta(),
     arguments~,
   )
-  match self.send_request(request) {
+  match self.send_with_mrtr(request) {
     Err(e) => return Err(e)
     Ok(response_str) =>
       match parse_jsonrpc_response(response_str) {
