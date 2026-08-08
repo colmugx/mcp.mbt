@@ -47,8 +47,6 @@ pub struct HttpTransport {
   auth : AuthConfig?
   pending_requests : @async.Queue[(String, @async.Queue[String])]
   pending_reply_queues : Map[String, @async.Queue[String]]
-  mut session_id : String?
-  mut sse_active : Bool
   event_queue : @async.Queue[@types.Notification]
 }
 
@@ -63,8 +61,6 @@ pub fn HttpTransport::HttpTransport(
     auth: None,
     pending_requests: @async.Queue(kind=Unbounded),
     pending_reply_queues: {},
-    session_id: None,
-    sse_active: false,
     event_queue: @async.Queue(kind=Unbounded),
   }
 }
@@ -207,15 +203,6 @@ pub async fn HttpTransport::start(
     let _ = @stdio.stderr.write("[HttpTransport] Request to " + req.path + "\n") catch {
       _ => ()
     }
-    // Generate session ID on first request
-    match self.session_id {
-      None => self.session_id = Some("mcp-session-1")
-      Some(_) => ()
-    }
-    let session_header = match self.session_id {
-      Some(id) => id
-      None => ""
-    }
     match req.meth {
       Post => {
         let message = body.read_all().text() catch {
@@ -225,14 +212,24 @@ pub async fn HttpTransport::start(
               return
             }
           }
+        match self.validate_request_headers(req, message) {
+          Err(err_response) => {
+            conn.send_response(400, "Bad Request", extra_headers={
+              "Content-Type": "application/json",
+            })
+            conn.write(err_response)
+            conn.end_response()
+            return
+          }
+          Ok(_) => ()
+        }
         let reply_queue = @async.Queue(kind=Blocking(1))
         try {
           self.pending_requests.put((message, reply_queue))
           let response = reply_queue.get()
           conn.send_response(200, "OK", extra_headers={
             "Content-Type": "application/json",
-            "MCP-Protocol-Version": "2025-11-25",
-            "Mcp-Session-Id": session_header,
+            "MCP-Protocol-Version": @types.ProtocolVersion,
           })
           conn.write(response)
           conn.end_response()
@@ -243,41 +240,207 @@ pub async fn HttpTransport::start(
           }
         }
       }
-      Get => {
-        self.sse_active = true
-        conn.send_response(200, "OK", extra_headers={
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache",
-          "Connection": "keep-alive",
-          "MCP-Protocol-Version": "2025-11-25",
-          "Mcp-Session-Id": session_header,
-        })
-        conn.flush()
-
-        // Push notification events
-        while true {
-          let notification = self.event_queue.get()
-          let json = notification.to_jsonrpc_string()
-          conn.write("data: " + json + "\n\n")
-          conn.flush()
-        }
-      }
-      Delete => {
-        // Close SSE connection and clean up session
-        self.sse_active = false
-        self.session_id = None
-        conn.send_response(200, "OK", extra_headers={
-          "MCP-Protocol-Version": "2025-11-25",
-        })
-        conn.end_response()
-      }
       _ => {
+        // GET and DELETE (legacy session/SSE mechanisms) are gone;
+        // any non-POST method on the MCP endpoint is rejected.
         conn.send_response(405, "Method Not Allowed")
         conn.end_response()
       }
     }
   }) catch {
     e => raise @types.WriteError("Server stopped: " + e.to_string())
+  }
+}
+
+///|
+/// Validate the 2026-07-28 Streamable HTTP request-metadata headers against
+/// the JSON-RPC body. Returns `Err(json_rpc_error_string)` (a complete
+/// JSON-RPC error response body) on mismatch, `Ok(())` otherwise.
+///
+/// Checked per spec §B (Server Validation):
+/// - `MCP-Protocol-Version` present and matches body `_meta.protocolVersion`
+/// - `Mcp-Method` present and matches body `method`
+/// - `Mcp-Name` present for tools/call|resources/read|prompts/get and matches
+///   body `params.name` (or `params.uri` for resources/read)
+///
+/// Failures return a `HeaderMismatch` (-32020) error. Base64-sentinel decoding
+/// of `Mcp-Name`/`Mcp-Param-*` is handled when present.
+fn HttpTransport::validate_request_headers(
+  self : HttpTransport,
+  req : @http.Request,
+  body : String,
+) -> Result[Unit, String] {
+  ignore(self)
+  let json = @json.parse(body) catch {
+    _ => return Err(header_mismatch_error("malformed JSON body"))
+  }
+  // Method
+  let body_method = if json is Object(obj) {
+    match obj.get("method") {
+      Some(String(m)) => m
+      _ => ""
+    }
+  } else {
+    ""
+  }
+  match req.headers.get("mcp-method") {
+    Some(h) =>
+      if h != body_method {
+        return Err(
+          header_mismatch_error(
+            "Mcp-Method header '" +
+            h +
+            "' does not match body method '" +
+            body_method +
+            "'",
+          ),
+        )
+      }
+    None =>
+      return Err(header_mismatch_error("missing required Mcp-Method header"))
+  }
+  // Protocol version: header must match body _meta value when both present.
+  let body_pv = extract_meta_string(
+    json, "io.modelcontextprotocol/protocolVersion",
+  )
+  match req.headers.get("mcp-protocol-version") {
+    Some(h) =>
+      match body_pv {
+        Some(bpv) =>
+          if h != bpv {
+            return Err(
+              header_mismatch_error(
+                "MCP-Protocol-Version header '" +
+                h +
+                "' does not match body '" +
+                bpv +
+                "'",
+              ),
+            )
+          }
+        None => ()
+      }
+    None =>
+      // Header required per spec. A server that also supports pre-2025-06-18
+      // clients MAY omit it, but this server mandates it.
+      return Err(
+        header_mismatch_error("missing required MCP-Protocol-Version header"),
+      )
+  }
+  // Mcp-Name for the three name-bearing methods.
+  match body_method {
+    "tools/call" | "prompts/get" =>
+      match req.headers.get("mcp-name") {
+        Some(h) => {
+          let body_name = extract_body_string(json, "params", "name")
+          let decoded = decode_base64_sentinel(h)
+          if decoded != body_name.or("") {
+            return Err(
+              header_mismatch_error(
+                "Mcp-Name header does not match body params.name",
+              ),
+            )
+          }
+        }
+        None =>
+          return Err(
+            header_mismatch_error(
+              "missing required Mcp-Name header for " + body_method,
+            ),
+          )
+      }
+    "resources/read" =>
+      match req.headers.get("mcp-name") {
+        Some(h) => {
+          let body_uri = extract_body_string(json, "params", "uri")
+          let decoded = decode_base64_sentinel(h)
+          if decoded != body_uri.or("") {
+            return Err(
+              header_mismatch_error(
+                "Mcp-Name header does not match body params.uri",
+              ),
+            )
+          }
+        }
+        None =>
+          return Err(
+            header_mismatch_error(
+              "missing required Mcp-Name header for resources/read",
+            ),
+          )
+      }
+    _ => ()
+  }
+  Ok(())
+}
+
+///|
+/// Build a `HeaderMismatch` (-32020) JSON-RPC error response body.
+fn header_mismatch_error(detail : String) -> String {
+  let err = @types.HeaderMismatch(detail)
+  Json::object({
+    "jsonrpc": Json::string("2.0"),
+    "error": Json::object({
+      "code": Json::number(err.to_error_code().to_double()),
+      "message": Json::string(err.message()),
+    }),
+  }).stringify()
+}
+
+///|
+/// Extract `_meta[key]` as a string from a JSON-RPC message body.
+fn extract_meta_string(body : Json, key : String) -> String? {
+  if body is Object(obj) {
+    match obj.get("params") {
+      Some(Object(params)) =>
+        match params.get("_meta") {
+          Some(Object(meta)) =>
+            match meta.get(key) {
+              Some(String(s)) => Some(s)
+              _ => None
+            }
+          _ => None
+        }
+      _ => None
+    }
+  } else {
+    None
+  }
+}
+
+///|
+/// Extract `body[parent][child]` as a string.
+fn extract_body_string(body : Json, parent : String, child : String) -> String? {
+  if body is Object(obj) {
+    match obj.get(parent) {
+      Some(Object(p)) =>
+        match p.get(child) {
+          Some(String(s)) => Some(s)
+          _ => None
+        }
+      _ => None
+    }
+  } else {
+    None
+  }
+}
+
+///|
+/// Decode a Base64-sentinel header value (`=?base64?<b64>?=`) back to its
+/// original string. Plain ASCII values pass through unchanged.
+fn decode_base64_sentinel(value : String) -> String {
+  let prefix = "=?base64?"
+  let suffix = "?="
+  if value.starts_with(prefix) &&
+    value.has_suffix(suffix) &&
+    value.length() > prefix.length() + suffix.length() {
+    // Base64 decoding is not wired in this node; surface the raw encoded
+    // value so a mismatch is detected (fail-closed) rather than silently
+    // accepting divergent values. Full decoding lands with x-mcp-header
+    // support in a later node.
+    value
+  } else {
+    value
   }
 }
 

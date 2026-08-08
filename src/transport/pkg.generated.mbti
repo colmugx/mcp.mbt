@@ -68,8 +68,6 @@ pub struct HttpTransport {
   auth : AuthConfig?
   pending_requests : @aqueue.Queue[(String, @aqueue.Queue[String])]
   pending_reply_queues : Map[String, @aqueue.Queue[String]]
-  mut session_id : String?
-  mut sse_active : Bool
   event_queue : @aqueue.Queue[@types.Notification]
 }
 pub fn HttpTransport::HttpTransport(port? : Int, endpoint_path? : String) -> Self
