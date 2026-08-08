@@ -16,7 +16,7 @@ fn expand_params_to_json(params : Array[@tool.ParamDef]) -> Json {
     }
   }
   let schema_map : Map[String, Json] = Default::default()
-  schema_map.set("type", Json::string("object"))
+  schema_map.set("type", "object")
   schema_map.set("properties", Json::object(properties_map))
   schema_map.set("required", Json::array(required_list))
   Json::object(schema_map)

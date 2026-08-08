@@ -89,6 +89,40 @@ test "compliance: response id matches request id" {
 
 ///| =====================================================
 
+///| server/discover
+
+///|
+/// =====================================================
+test "compliance: discover returns supportedVersions and capabilities" {
+  let server = MCPServer::MCPServer("test", "1.0.0")
+  let result = parse_result(handle_discover(server, @types.RequestId::Int(1)))
+  let versions = json_get(result, "supportedVersions")
+  if versions is Array(arr) {
+    assert_eq(arr.length(), 1)
+    assert_eq(arr[0], Json::string("2026-07-28"))
+  } else {
+    panic()
+  }
+  let caps = json_get(result, "capabilities")
+  assert_true(json_has(caps, "tools"))
+  assert_true(json_has(caps, "resources"))
+  assert_true(json_has(caps, "prompts"))
+}
+
+///|
+test "compliance: discover carries serverInfo in _meta" {
+  let server = MCPServer::MCPServer("discover-server", "2.5.0")
+  let result = parse_result(handle_discover(server, @types.RequestId::Int(1)))
+  let info = json_get(
+    json_get(result, "_meta"),
+    "io.modelcontextprotocol/serverInfo",
+  )
+  assert_eq(json_field_str(info, "name"), "discover-server")
+  assert_eq(json_field_str(info, "version"), "2.5.0")
+}
+
+///| =====================================================
+
 ///| tools/list
 
 ///|
@@ -98,7 +132,7 @@ test "compliance: tools/list returns array with name/description/inputSchema" {
   server.register_tool(
     "echo",
     "Echo tool",
-    Json::object({ "type": Json::string("object") }),
+    Json::object({ "type": "object" }),
     fn(_args) { Ok(@tool.ToolResult::text("ok")) },
   )
   let result = parse_result(handle_tools_list(server, @types.RequestId::Int(1)))
@@ -120,7 +154,7 @@ test "compliance: tools/list preserves tool name" {
   server.register_tool(
     "my_tool",
     "My tool",
-    Json::object({ "type": Json::string("object") }),
+    Json::object({ "type": "object" }),
     fn(_args) { Ok(@tool.ToolResult::text("ok")) },
   )
   let result = parse_result(handle_tools_list(server, @types.RequestId::Int(1)))

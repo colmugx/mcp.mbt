@@ -117,7 +117,7 @@ pub fn MCPError::to_error_data(self : MCPError) -> Json? {
       Some(
         Json::object({
           "supported": Json::array(versions),
-          "requested": Json::string(requested),
+          "requested": requested,
         }),
       )
     }

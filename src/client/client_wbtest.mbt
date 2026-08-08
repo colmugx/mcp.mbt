@@ -242,3 +242,15 @@ test "handle_server_notification ignores unknown notification" {
   }
   handle_server_notification(handlers, notification)
 }
+
+///|
+test "build_discover_request format" {
+  let req = build_discover_request(1, test_meta())
+  let actual = @json.parse(req) catch { _ => Json::null() }
+  let expected = @json.parse(
+    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"server/discover\",\"params\":{\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":\"2026-07-28\",\"io.modelcontextprotocol/clientCapabilities\":{},\"io.modelcontextprotocol/clientInfo\":{\"name\":\"test-client\",\"version\":\"1.0.0\"}}}}",
+  ) catch {
+    _ => Json::null()
+  }
+  @debug.assert_eq(actual, expected)
+}

@@ -107,11 +107,7 @@ test "compliance: notification serializes as SSE data field" {
 /// =====================================================
 test "compliance: HTTP response uses application/json content type for regular responses" {
   // Verify our response format is valid JSON
-  let response = Json::object({
-    "jsonrpc": Json::string("2.0"),
-    "id": Json::number(1.0),
-    "result": Json::object({}),
-  }).stringify()
+  let response = Json::object({ "jsonrpc": "2.0", "id": 1.0, "result": {} }).stringify()
   let json = parse(response)
   @debug.assert_eq(jstr(json, "jsonrpc"), "2.0")
   assert_true(jhas(json, "result"))

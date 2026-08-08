@@ -47,7 +47,7 @@ fn jsonrpc_success_str(
   result : Json,
 ) -> String {
   Json::object({
-    "jsonrpc": Json::string("2.0"),
+    "jsonrpc": "2.0",
     "id": request_id_to_json(id),
     "result": with_server_meta(server, result),
   }).stringify()
@@ -68,7 +68,7 @@ fn jsonrpc_error_str(
     None => ()
   }
   Json::object({
-    "jsonrpc": Json::string("2.0"),
+    "jsonrpc": "2.0",
     "id": request_id_to_json(id),
     "error": Json::object(error_map),
   }).stringify()
@@ -88,6 +88,33 @@ fn jsonrpc_error_from(id : @types.RequestId, err : @types.MCPError) -> String {
 }
 
 ///|
+/// Handle `server/discover` — required by the 2026-07-28 spec. Returns the
+/// protocol versions this server supports, its capabilities, and optional
+/// instructions. Server identity is injected into `_meta` by
+/// `with_server_meta` (per spec, `serverInfo` lives in `_meta`, not at the
+/// result top level).
+fn handle_discover(server : MCPServer, id : @types.RequestId) -> String {
+  let result : Map[String, Json] = Default::default()
+  result.set(
+    "supportedVersions",
+    Json::array([Json::string(@types.ProtocolVersion)]),
+  )
+  result.set(
+    "capabilities",
+    Json::object({
+      "tools": { "listChanged": true },
+      "resources": { "listChanged": true },
+      "prompts": { "listChanged": true },
+    }),
+  )
+  match server.instructions {
+    Some(instr) => result.set("instructions", Json::string(instr))
+    None => ()
+  }
+  jsonrpc_success_str(server, id, Json::object(result))
+}
+
+///|
 fn extract_json_string(json : Json, field : String) -> String? {
   if json is Object(obj) {
     match obj.get(field) {
@@ -104,8 +131,8 @@ fn handle_tools_list(server : MCPServer, id : @types.RequestId) -> String {
   let tools = server.registry.list_tools()
   let tool_jsons = tools.map(fn(tool) {
     Json::object({
-      "name": Json::string(tool.name),
-      "description": Json::string(tool.description),
+      "name": tool.name,
+      "description": tool.description,
       "inputSchema": tool.input_schema,
     })
   })
@@ -136,26 +163,20 @@ async fn handle_tools_call(
           let content_items = tool_result.content.map(fn(item) {
             match item {
               @types.Text(text) =>
-                Json::object({
-                  "type": Json::string("text"),
-                  "text": Json::string(text),
-                })
+                Json::object({ "type": "text", "text": text })
               @types.Image(data, mime_type~) =>
                 Json::object({
-                  "type": Json::string("image"),
-                  "data": Json::string(data),
-                  "mimeType": Json::string(mime_type),
+                  "type": "image",
+                  "data": data,
+                  "mimeType": mime_type,
                 })
               @types.ResourceLink(uri) =>
-                Json::object({
-                  "type": Json::string("resource_link"),
-                  "uri": Json::string(uri),
-                })
+                Json::object({ "type": "resource_link", "uri": uri })
               @types.EmbeddedResource(content) =>
                 match content {
                   @types.Text(text, uri~, mime_type~) => {
                     let map : Map[String, Json] = Default::default()
-                    map.set("type", Json::string("resource"))
+                    map.set("type", "resource")
                     map.set("uri", Json::string(uri))
                     map.set("text", Json::string(text))
                     match mime_type {
@@ -166,17 +187,17 @@ async fn handle_tools_call(
                   }
                   @types.Blob(data, uri~, mime_type~) =>
                     Json::object({
-                      "type": Json::string("resource"),
-                      "uri": Json::string(uri),
-                      "blob": Json::string(data),
-                      "mimeType": Json::string(mime_type),
+                      "type": "resource",
+                      "uri": uri,
+                      "blob": data,
+                      "mimeType": mime_type,
                     })
                 }
             }
           })
           let result = Json::object({
             "content": Json::array(content_items),
-            "isError": Json::boolean(tool_result.is_error),
+            "isError": tool_result.is_error,
           })
           jsonrpc_success_str(server, id, result)
         }
@@ -224,15 +245,12 @@ async fn handle_resources_read(
         Ok(read_result) => {
           let content_json = match read_result.content {
             @resource.Text(text) =>
-              Json::object({
-                "uri": Json::string(read_result.uri),
-                "text": Json::string(text),
-              })
+              Json::object({ "uri": read_result.uri, "text": text })
             @resource.Blob(data, mime_type~) =>
               Json::object({
-                "uri": Json::string(read_result.uri),
-                "blob": Json::string(data.to_string()),
-                "mimeType": Json::string(mime_type),
+                "uri": read_result.uri,
+                "blob": data.to_string(),
+                "mimeType": mime_type,
               })
           }
           jsonrpc_success_str(
@@ -266,7 +284,7 @@ fn handle_prompts_list(server : MCPServer, id : @types.RequestId) -> String {
             None => ()
           }
           match arg.required {
-            Some(true) => arg_map.set("required", Json::boolean(true))
+            Some(true) => arg_map.set("required", true)
             _ => ()
           }
           Json::object(arg_map)
@@ -299,13 +317,10 @@ async fn handle_prompts_get(
           let messages_json = prompt_result.messages.map(fn(msg) {
             let content = match msg.content {
               @types.Text(text) =>
-                Json::object({
-                  "type": Json::string("text"),
-                  "text": Json::string(text),
-                })
+                Json::object({ "type": "text", "text": text })
               _ => Json::null()
             }
-            Json::object({ "role": Json::string(msg.role), "content": content })
+            Json::object({ "role": msg.role, "content": content })
           })
           let result_map : Map[String, Json] = Default::default()
           match prompt_result.description {

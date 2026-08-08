@@ -60,7 +60,7 @@ pub fn prompts_list_changed_notification() -> Notification {
 pub fn resources_updated_notification(uri : String) -> Notification {
   {
     method_name: "notifications/resources/updated",
-    params: Some(Json::object({ "uri": Json::string(uri) })),
+    params: Some(Json::object({ "uri": uri })),
   }
 }
 
@@ -107,15 +107,8 @@ pub fn cancelled_notification(
 pub fn Notification::to_jsonrpc_string(self : Notification) -> String {
   match self.params {
     Some(p) =>
-      Json::object({
-        "jsonrpc": Json::string("2.0"),
-        "method": Json::string(self.method_name),
-        "params": p,
-      }).stringify()
+      Json::object({ "jsonrpc": "2.0", "method": self.method_name, "params": p }).stringify()
     None =>
-      Json::object({
-        "jsonrpc": Json::string("2.0"),
-        "method": Json::string(self.method_name),
-      }).stringify()
+      Json::object({ "jsonrpc": "2.0", "method": self.method_name }).stringify()
   }
 }

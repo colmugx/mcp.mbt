@@ -96,7 +96,7 @@ test "ContentItem derive Eq and Show" {
 ///|
 /// Helper Function Tests
 test "get_string extracts valid string field" {
-  let json = Json::object({ "name": Json::string("MoonBit") })
+  let json = Json::object({ "name": "MoonBit" })
   match get_string(json, "name") {
     Ok(name) => @debug.assert_eq(name, "MoonBit")
     Err(_) => panic()
@@ -105,7 +105,7 @@ test "get_string extracts valid string field" {
 
 ///|
 test "get_string returns error for missing field" {
-  let json = Json::object({ "other": Json::string("value") })
+  let json = Json::object({ "other": "value" })
   match get_string(json, "name") {
     Err(result) => @debug.assert_eq(result.is_error, true)
     Ok(_) => panic()
@@ -114,7 +114,7 @@ test "get_string returns error for missing field" {
 
 ///|
 test "get_string returns error for wrong type" {
-  let json = Json::object({ "name": Json::number(42.0) })
+  let json = Json::object({ "name": 42.0 })
   match get_string(json, "name") {
     Err(result) => {
       @debug.assert_eq(result.is_error, true)
@@ -144,7 +144,7 @@ test "get_string returns error for non-object" {
 
 ///|
 test "get_number extracts valid number field" {
-  let json = Json::object({ "count": Json::number(42.5) })
+  let json = Json::object({ "count": 42.5 })
   match get_number(json, "count") {
     Ok(num) => @debug.assert_eq(num, 42.5)
     Err(_) => panic()
@@ -153,7 +153,7 @@ test "get_number extracts valid number field" {
 
 ///|
 test "get_number returns error for missing field" {
-  let json = Json::object({ "other": Json::number(1.0) })
+  let json = Json::object({ "other": 1.0 })
   match get_number(json, "count") {
     Err(result) => @debug.assert_eq(result.is_error, true)
     Ok(_) => panic()
@@ -162,7 +162,7 @@ test "get_number returns error for missing field" {
 
 ///|
 test "get_number returns error for wrong type" {
-  let json = Json::object({ "count": Json::string("42") })
+  let json = Json::object({ "count": "42" })
   match get_number(json, "count") {
     Err(result) => @debug.assert_eq(result.is_error, true)
     Ok(_) => panic()
@@ -171,7 +171,7 @@ test "get_number returns error for wrong type" {
 
 ///|
 test "get_optional_string returns Some for present field" {
-  let json = Json::object({ "value": Json::string("present") })
+  let json = Json::object({ "value": "present" })
   match get_optional_string(json, "value") {
     Ok(Some(value)) => @debug.assert_eq(value, "present")
     _ => panic()
@@ -189,7 +189,7 @@ test "get_optional_string returns None for explicit null" {
 
 ///|
 test "get_optional_string returns None for missing field" {
-  let json = Json::object({ "other": Json::string("value") })
+  let json = Json::object({ "other": "value" })
   match get_optional_string(json, "value") {
     Ok(None) => ()
     _ => panic()
@@ -198,7 +198,7 @@ test "get_optional_string returns None for missing field" {
 
 ///|
 test "get_optional_string returns error for wrong type" {
-  let json = Json::object({ "value": Json::number(42.0) })
+  let json = Json::object({ "value": 42.0 })
   match get_optional_string(json, "value") {
     Err(result) => @debug.assert_eq(result.is_error, true)
     Ok(_) => panic()
@@ -251,7 +251,7 @@ async test "example: complete tool implementation with EchoTool" {
   @debug.assert_eq(@tool.Tool::description(tool), "Echo back the input text")
 
   // Test execution
-  let args = Json::object({ "text": Json::string("Hello, MCP!") })
+  let args = Json::object({ "text": "Hello, MCP!" })
   let result = @tool.Tool::execute(tool, args)
   @debug.assert_eq(result.is_error, false)
   match result.content[0] {

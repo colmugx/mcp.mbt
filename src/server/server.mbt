@@ -151,6 +151,7 @@ fn parse_request_message(
 
 ///|
 fn is_fast_method(method_name : String) -> Bool {
+  method_name == "server/discover" ||
   method_name == "tools/list" ||
   method_name == "resources/list" ||
   method_name == "prompts/list"
@@ -162,6 +163,7 @@ async fn MCPServer::handle_parsed_request(
   request : @types.JsonRpcRequest,
 ) -> String {
   match request.method_name {
+    "server/discover" => handle_discover(self, request.id)
     "tools/list" => handle_tools_list(self, request.id)
     "tools/call" => handle_tools_call(self, request.id, request.params)
     "resources/list" => handle_resources_list(self, request.id)

@@ -21,7 +21,8 @@ pub struct MCPClient {
   capabilities : @types.ClientCapabilities
   transport : @transport.AnyTransport
   id_counter : RequestIdCounter
-  server_capabilities : @types.ServerCapabilities?
+  mut server_capabilities : @types.ServerCapabilities?
+  mut server_info : @types.ServerInfo?
   notification_handlers : NotificationHandlers
   sampling_handler : ((Json) -> Result[
     @types.CreateMessageResult,
@@ -50,6 +51,7 @@ fn MCPClient::MCPClient(
     transport,
     id_counter: RequestIdCounter::RequestIdCounter(),
     server_capabilities: None,
+    server_info: None,
     notification_handlers: NotificationHandlers::empty(),
     sampling_handler: None,
     roots_handler: None,
@@ -267,6 +269,32 @@ pub async fn MCPClient::initialize(
     Ok(_) => ()
   }
   Ok(server_info)
+}
+
+///|
+/// Query the server's supported versions, capabilities, and identity via
+/// `server/discover` (required by the 2026-07-28 spec). Stores the results
+/// in `server_capabilities` and `server_info` for later use. Optional for
+/// clients per spec, but recommended — and the primary era probe for legacy
+/// fallback.
+pub async fn MCPClient::discover(
+  self : MCPClient,
+) -> Result[@types.ServerCapabilities, @types.MCPError] {
+  let id = self.next_request_id()
+  let request = build_discover_request(id, self.request_meta())
+  match self.send_request(request) {
+    Err(e) => return Err(e)
+    Ok(response_str) =>
+      match parse_jsonrpc_response(response_str) {
+        Err(e) => return Err(e)
+        Ok(result_json) => {
+          let caps = parse_discover_capabilities(result_json)
+          self.server_capabilities = Some(caps)
+          self.server_info = parse_server_info_from_result(result_json)
+          Ok(caps)
+        }
+      }
+  }
 }
 
 ///|
@@ -615,7 +643,7 @@ fn MCPClient::handle_server_request(
             match handler(params) {
               Ok(result) =>
                 Json::object({
-                  "jsonrpc": Json::string("2.0"),
+                  "jsonrpc": "2.0",
                   "id": id_json,
                   "result": serialize_create_message_result(result),
                 }).stringify()
@@ -630,9 +658,9 @@ fn MCPClient::handle_server_request(
             match handler() {
               Ok(roots) =>
                 Json::object({
-                  "jsonrpc": Json::string("2.0"),
+                  "jsonrpc": "2.0",
                   "id": id_json,
-                  "result": Json::object({
+                  "result": {
                     "roots": Json::array(
                       roots.map(fn(r) {
                         let root_map : Map[String, Json] = Default::default()
@@ -644,7 +672,7 @@ fn MCPClient::handle_server_request(
                         Json::object(root_map)
                       }),
                     ),
-                  }),
+                  },
                 }).stringify()
               Err(e) =>
                 jsonrpc_error_str(id_json, e.to_error_code(), e.message())
@@ -657,15 +685,15 @@ fn MCPClient::handle_server_request(
             match handler(params) {
               Ok(result) =>
                 Json::object({
-                  "jsonrpc": Json::string("2.0"),
+                  "jsonrpc": "2.0",
                   "id": id_json,
-                  "result": Json::object({
-                    "action": Json::string(result.action),
+                  "result": {
+                    "action": result.action,
                     "content": match result.content {
                       Some(c) => c
                       None => Json::null()
                     },
-                  }),
+                  },
                 }).stringify()
               Err(e) =>
                 jsonrpc_error_str(id_json, e.to_error_code(), e.message())
@@ -734,6 +762,110 @@ fn parse_tool_def(json : Json) -> @types.ToolDefinition? {
       })
     }
     _ => None
+  }
+}
+
+///|
+/// Parse `server/discover` result capabilities into `ServerCapabilities`.
+/// The 2026-07-28 spec advertises `tools`/`resources`/`prompts` each with an
+/// optional `listChanged` flag. `subscribe` is a legacy field kept on the
+/// struct for back-compat; discover no longer advertises it.
+fn parse_discover_capabilities(result : Json) -> @types.ServerCapabilities {
+  let tools = if result is Object(obj) {
+    match obj.get("capabilities") {
+      Some(Object(caps)) =>
+        match caps.get("tools") {
+          Some(Object(t)) =>
+            Some(@types.ToolCapabilities::{
+              list_changed: t
+              .get("listChanged")
+              .unwrap_or(Json::boolean(false))
+              .as_bool()
+              .unwrap_or(false),
+            })
+          _ => None
+        }
+      _ => None
+    }
+  } else {
+    None
+  }
+  let resources = if result is Object(obj) {
+    match obj.get("capabilities") {
+      Some(Object(caps)) =>
+        match caps.get("resources") {
+          Some(Object(r)) =>
+            Some(@types.ResourceCapabilities::{
+              subscribe: false,
+              list_changed: r
+              .get("listChanged")
+              .unwrap_or(Json::boolean(false))
+              .as_bool()
+              .unwrap_or(false),
+            })
+          _ => None
+        }
+      _ => None
+    }
+  } else {
+    None
+  }
+  let prompts = if result is Object(obj) {
+    match obj.get("capabilities") {
+      Some(Object(caps)) =>
+        match caps.get("prompts") {
+          Some(Object(p)) =>
+            Some(@types.PromptCapabilities::{
+              list_changed: p
+              .get("listChanged")
+              .unwrap_or(Json::boolean(false))
+              .as_bool()
+              .unwrap_or(false),
+            })
+          _ => None
+        }
+      _ => None
+    }
+  } else {
+    None
+  }
+  { tools, resources, prompts }
+}
+
+///|
+/// Extract `serverInfo` from a result's `_meta.io.modelcontextprotocol/serverInfo`.
+/// Per the 2026-07-28 spec, server identity rides in `_meta`, not at the result
+/// top level (unlike the legacy initialize response).
+fn parse_server_info_from_result(result : Json) -> @types.ServerInfo? {
+  if result is Object(obj) {
+    match obj.get("_meta") {
+      Some(Object(meta)) =>
+        match meta.get("io.modelcontextprotocol/serverInfo") {
+          Some(Object(info)) =>
+            Some(@types.ServerInfo::{
+              name: match info.get("name") {
+                Some(String(s)) => s
+                _ => ""
+              },
+              title: match info.get("title") {
+                Some(String(t)) => Some(t)
+                _ => None
+              },
+              version: match info.get("version") {
+                Some(String(s)) => s
+                _ => ""
+              },
+              description: match info.get("description") {
+                Some(String(d)) => Some(d)
+                _ => None
+              },
+            })
+          _ => None
+        }
+      _ => None
+    }
+  } else {
+    None
   }
 }
 
@@ -1139,12 +1271,9 @@ fn request_id_to_json(id : @types.RequestId) -> Json {
 ///|
 fn jsonrpc_error_str(id_json : Json, code : Int, message : String) -> String {
   Json::object({
-    "jsonrpc": Json::string("2.0"),
+    "jsonrpc": "2.0",
     "id": id_json,
-    "error": Json::object({
-      "code": Json::number(code.to_double()),
-      "message": Json::string(message),
-    }),
+    "error": { "code": code, "message": message },
   }).stringify()
 }
 
@@ -1164,19 +1293,10 @@ fn serialize_create_message_result(result : @types.CreateMessageResult) -> Json 
 ///|
 fn serialize_content_item(item : @types.ContentItem) -> Json {
   match item {
-    Text(t) =>
-      Json::object({ "type": Json::string("text"), "text": Json::string(t) })
+    Text(t) => Json::object({ "type": "text", "text": t })
     Image(data, mime_type~) =>
-      Json::object({
-        "type": Json::string("image"),
-        "data": Json::string(data),
-        "mimeType": Json::string(mime_type),
-      })
-    ResourceLink(uri) =>
-      Json::object({
-        "type": Json::string("resource_link"),
-        "uri": Json::string(uri),
-      })
+      Json::object({ "type": "image", "data": data, "mimeType": mime_type })
+    ResourceLink(uri) => Json::object({ "type": "resource_link", "uri": uri })
     EmbeddedResource(content) =>
       match content {
         Text(t, uri~, mime_type~) => {
@@ -1187,19 +1307,12 @@ fn serialize_content_item(item : @types.ContentItem) -> Json {
             Some(m) => res_map.set("mimeType", Json::string(m))
             None => ()
           }
-          Json::object({
-            "type": Json::string("resource"),
-            "resource": Json::object(res_map),
-          })
+          Json::object({ "type": "resource", "resource": Json::object(res_map) })
         }
         Blob(b, uri~, mime_type~) =>
           Json::object({
-            "type": Json::string("resource"),
-            "resource": Json::object({
-              "uri": Json::string(uri),
-              "blob": Json::string(b),
-              "mimeType": Json::string(mime_type),
-            }),
+            "type": "resource",
+            "resource": { "uri": uri, "blob": b, "mimeType": mime_type },
           })
       }
   }

@@ -22,7 +22,7 @@ test "MCPServer register_tool adds to registry" {
   server.register_tool(
     "test_tool",
     "Test description",
-    Json::object({ "type": Json::string("object") }),
+    Json::object({ "type": "object" }),
     fn(_args) { Ok(@tool.ToolResult::text("test")) },
   )
   @debug.assert_eq(server.registry.list_tools().length(), 1)
@@ -47,13 +47,8 @@ test "MCPServer register_tool preserves order" {
 test "MCPServer tool metadata is stored correctly" {
   let server = MCPServer::MCPServer("test-server", "1.0.0")
   let schema = Json::object({
-    "type": Json::string("object"),
-    "properties": Json::object({
-      "value": Json::object({
-        "type": Json::string("string"),
-        "description": Json::string("Test value"),
-      }),
-    }),
+    "type": "object",
+    "properties": { "value": { "type": "string", "description": "Test value" } },
   })
   server.register_tool("test", "Test tool description", schema, fn(_args) {
     Ok(@tool.ToolResult::text("test"))
@@ -81,7 +76,7 @@ test "ToolRegistry::register adds tool entry" {
   registry.register(
     "test_tool",
     "Test tool description",
-    Json::object({ "type": Json::string("object") }),
+    Json::object({ "type": "object" }),
     fn(_args) { Ok(@tool.ToolResult::text("test")) },
   )
   @debug.assert_eq(registry.list_tools().length(), 1)
@@ -113,10 +108,8 @@ test "ToolRegistry::list_tools returns tool definitions" {
 test "ToolRegistry preserves input schemas" {
   let registry = ToolRegistry::ToolRegistry()
   let schema = Json::object({
-    "type": Json::string("object"),
-    "properties": Json::object({
-      "value": Json::object({ "type": Json::string("string") }),
-    }),
+    "type": "object",
+    "properties": { "value": { "type": "string" } },
   })
   registry.register("test", "Test tool", schema, fn(_args) {
     Ok(@tool.ToolResult::text("test"))
@@ -127,10 +120,7 @@ test "ToolRegistry preserves input schemas" {
 ///|
 test "ToolRegistry::list_tools includes all metadata" {
   let registry = ToolRegistry::ToolRegistry()
-  let schema = Json::object({
-    "type": Json::string("object"),
-    "properties": Json::object({}),
-  })
+  let schema = Json::object({ "type": "object", "properties": {} })
   registry.register("my_tool", "My tool description", schema, fn(_args) {
     Ok(@tool.ToolResult::text("result"))
   })
@@ -192,21 +182,12 @@ test "example: register multiple tools and verify" {
 test "example: server with complex schemas" {
   let server = MCPServer::MCPServer("complex-server", "1.0.0")
   let complex_schema = Json::object({
-    "type": Json::string("object"),
-    "properties": Json::object({
-      "query": Json::object({
-        "type": Json::string("string"),
-        "description": Json::string("Search query"),
-      }),
-      "limit": Json::object({
-        "type": Json::string("number"),
-        "description": Json::string("Result limit"),
-      }),
-      "filters": Json::object({
-        "type": Json::string("array"),
-        "description": Json::string("Filter options"),
-      }),
-    }),
+    "type": "object",
+    "properties": {
+      "query": { "type": "string", "description": "Search query" },
+      "limit": { "type": "number", "description": "Result limit" },
+      "filters": { "type": "array", "description": "Filter options" },
+    },
     "required": Json::array([Json::string("query")]),
   })
   server.register_tool(
