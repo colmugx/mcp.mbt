@@ -114,6 +114,23 @@ pub(all) struct GetPromptResult {
   messages : Array[PromptMessage]
 } derive(Eq, @debug.Debug)
 
+pub(all) struct InputRequestEntry {
+  method : InputRequestKind
+  params : Json
+} derive(Eq, @debug.Debug)
+
+pub(all) enum InputRequestKind {
+  ElicitationCreate
+  SamplingCreateMessage
+  RootsList
+} derive(Eq, @debug.Debug)
+pub fn InputRequestKind::from_method(String) -> Self?
+pub fn InputRequestKind::to_method(Self) -> String
+
+pub(all) struct InputResponse {
+  result : Json
+} derive(Eq, @debug.Debug)
+
 pub(all) struct JsonRpcError {
   code : Int
   message : String

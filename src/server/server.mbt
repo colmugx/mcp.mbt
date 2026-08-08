@@ -37,6 +37,9 @@ pub struct MCPServer {
   description : String?
   instructions : String?
   auth_config : @transport.AuthConfig?
+  /// Optional AEAD codec for MRTR `requestState`. When `None`, the server
+  /// does not issue `input_required` results (MRTR disabled).
+  request_state_codec : AesGcmStateCodec?
   registry : ToolRegistry
   resource_registry : ResourceRegistry
   prompt_registry : PromptRegistry
@@ -51,6 +54,7 @@ pub fn MCPServer::MCPServer(name : String, version : String) -> MCPServer {
     description: None,
     instructions: None,
     auth_config: None,
+    request_state_codec: None,
     registry: ToolRegistry::ToolRegistry(),
     resource_registry: ResourceRegistry::ResourceRegistry(),
     prompt_registry: PromptRegistry::PromptRegistry(),
@@ -379,6 +383,17 @@ pub fn MCPServer::with_auth(
   auth : @transport.AuthConfig,
 ) -> MCPServer {
   { ..self, auth_config: Some(auth) }
+}
+
+///|
+/// Enable MRTR (Multi Round-Trip Requests) by supplying a `requestState`
+/// codec. When set, handlers may return `input_required` results and verify
+/// `requestState` on retry. Without a codec, MRTR is disabled.
+pub fn MCPServer::with_request_state_codec(
+  self : MCPServer,
+  codec : AesGcmStateCodec,
+) -> MCPServer {
+  { ..self, request_state_codec: Some(codec) }
 }
 
 ///|

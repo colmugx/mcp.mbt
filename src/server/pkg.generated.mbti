@@ -41,6 +41,7 @@ pub struct MCPServer {
   description : String?
   instructions : String?
   auth_config : @transport.AuthConfig?
+  request_state_codec : AesGcmStateCodec?
   registry : ToolRegistry
   resource_registry : ResourceRegistry
   prompt_registry : PromptRegistry
@@ -56,6 +57,7 @@ pub fn MCPServer::with_auth(Self, @transport.AuthConfig) -> Self
 pub fn MCPServer::with_description(Self, String) -> Self
 pub fn MCPServer::with_instructions(Self, String) -> Self
 pub fn[T : @prompt.Prompt] MCPServer::with_prompt(Self, T) -> Self
+pub fn MCPServer::with_request_state_codec(Self, AesGcmStateCodec) -> Self
 pub fn[T : @resource.Resource] MCPServer::with_resource(Self, T) -> Self
 pub fn MCPServer::with_title(Self, String) -> Self
 pub fn[T : @tool.Tool] MCPServer::with_tool(Self, T) -> Self

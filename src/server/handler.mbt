@@ -22,12 +22,14 @@ fn server_info_meta(server : MCPServer) -> Json {
 }
 
 ///|
-/// Attach `_meta` (carrying `serverInfo`) to a result object. If `result`
-/// is not a JSON object, it is returned unchanged — `_meta` is only defined
-/// on object results per the spec.
+/// Attach `_meta` (carrying `serverInfo`) and `resultType: "complete"` to a
+/// result object. Per the 2026-07-28 spec every result carries a `resultType`;
+/// `input_required` results are built separately by `input_required_result`.
+/// If `result` is not a JSON object, it is returned unchanged.
 fn with_server_meta(server : MCPServer, result : Json) -> Json {
   match result {
     Object(obj) => {
+      obj.set("resultType", Json::string("complete"))
       obj.set(
         "_meta",
         Json::object({
@@ -38,6 +40,58 @@ fn with_server_meta(server : MCPServer, result : Json) -> Json {
     }
     _ => result
   }
+}
+
+///|
+/// Build an `InputRequiredResult` object: `resultType: "input_required"` with
+/// `inputRequests` (server→client requests the client must fulfill) and an
+/// optional `requestState` blob (opaque to the client, verified on retry).
+/// `_meta` carries `serverInfo` as usual.
+fn input_required_result(
+  server : MCPServer,
+  input_requests : Map[String, @types.InputRequestEntry],
+  request_state? : String? = None,
+) -> Json {
+  let reqs_map : Map[String, Json] = Default::default()
+  input_requests.each(fn(key, entry) {
+    reqs_map.set(
+      key,
+      Json::object({
+        "method": Json::string(entry.method.to_method()),
+        "params": entry.params,
+      }),
+    )
+  })
+  let result : Map[String, Json] = Default::default()
+  result.set("resultType", Json::string("input_required"))
+  result.set("inputRequests", Json::object(reqs_map))
+  match request_state {
+    Some(rs) => result.set("requestState", Json::string(rs))
+    None => ()
+  }
+  result.set(
+    "_meta",
+    Json::object({
+      "io.modelcontextprotocol/serverInfo": server_info_meta(server),
+    }),
+  )
+  Json::object(result)
+}
+
+///|
+/// Serialize an `InputRequiredResult` Json into a full JSON-RPC success response.
+fn jsonrpc_input_required_str(
+  server : MCPServer,
+  id : @types.RequestId,
+  input_requests : Map[String, @types.InputRequestEntry],
+  request_state? : String? = None,
+) -> String {
+  let result = input_required_result(server, input_requests, request_state~)
+  Json::object({
+    "jsonrpc": Json::string("2.0"),
+    "id": request_id_to_json(id),
+    "result": result,
+  }).stringify()
 }
 
 ///|
@@ -119,6 +173,38 @@ fn extract_json_string(json : Json, field : String) -> String? {
   if json is Object(obj) {
     match obj.get(field) {
       Some(String(s)) => Some(s)
+      _ => None
+    }
+  } else {
+    None
+  }
+}
+
+///|
+/// Extract the echoed `requestState` blob from a retry request's params.
+/// Presence indicates this is an MRTR retry (not an initial request).
+fn extract_request_state(params : Json) -> String? {
+  if params is Object(obj) {
+    match obj.get("requestState") {
+      Some(String(s)) => Some(s)
+      _ => None
+    }
+  } else {
+    None
+  }
+}
+
+///|
+/// Extract `inputResponses` from a retry request's params as a map of
+/// server-key → client result JSON. Returns None if absent (initial request).
+fn extract_input_responses(params : Json) -> Map[String, Json]? {
+  if params is Object(obj) {
+    match obj.get("inputResponses") {
+      Some(Object(responses)) => {
+        let out : Map[String, Json] = Default::default()
+        responses.each(fn(k, v) { out.set(k, v) })
+        Some(out)
+      }
       _ => None
     }
   } else {

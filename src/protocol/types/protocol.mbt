@@ -161,3 +161,57 @@ pub fn JsonRpcRequest::from_json(
     Err(InvalidRequest("Request must be a JSON object"))
   }
 }
+
+///|
+/// MRTR (Multi Round-Trip Requests) — 2026-07-28 spec §E.
+///
+/// When a server needs client input (sampling/elicitation/roots) to finish a
+/// request, it returns an `InputRequiredResult` whose `inputRequests` lists
+/// what it needs and `requestState` carries server-side continuation state.
+/// The client fulfills the inputs and retries the original request with
+/// `inputResponses` + the echoed `requestState`.
+
+///|
+/// The three server→client input request methods. Servers MUST NOT send an
+/// input request the client did not declare support for in its capabilities.
+pub(all) enum InputRequestKind {
+  ElicitationCreate
+  SamplingCreateMessage
+  RootsList
+} derive(Eq, Debug)
+
+///|
+/// One entry in an `inputRequests` map: a server-assigned key plus the
+/// request method and params the client must fulfill.
+pub(all) struct InputRequestEntry {
+  method : InputRequestKind
+  params : Json
+} derive(Eq, Debug)
+
+///|
+/// A client's response to one input request, keyed to match `inputRequests`.
+pub(all) struct InputResponse {
+  /// Parsed result JSON the client returned for this input request.
+  result : Json
+} derive(Eq, Debug)
+
+///|
+/// Convert an `InputRequestKind` to its JSON-RPC method string.
+pub fn InputRequestKind::to_method(self : InputRequestKind) -> String {
+  match self {
+    ElicitationCreate => "elicitation/create"
+    SamplingCreateMessage => "sampling/createMessage"
+    RootsList => "roots/list"
+  }
+}
+
+///|
+/// Parse a JSON-RPC method string into an `InputRequestKind`, if recognized.
+pub fn InputRequestKind::from_method(method : String) -> InputRequestKind? {
+  match method {
+    "elicitation/create" => Some(ElicitationCreate)
+    "sampling/createMessage" => Some(SamplingCreateMessage)
+    "roots/list" => Some(RootsList)
+    _ => None
+  }
+}

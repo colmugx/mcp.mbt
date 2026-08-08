@@ -123,6 +123,47 @@ test "compliance: discover carries serverInfo in _meta" {
 
 ///| =====================================================
 
+///| MRTR (resultType)
+
+///|
+/// =====================================================
+test "compliance: result resultType is complete for normal responses" {
+  let server = MCPServer::MCPServer("test", "1.0.0")
+  let result = parse_result(handle_tools_list(server, @types.RequestId::Int(1)))
+  assert_eq(json_field_str(result, "resultType"), "complete")
+}
+
+///|
+test "compliance: input_required result carries inputRequests and requestState" {
+  let server = MCPServer::MCPServer("test", "1.0.0")
+  let reqs : Map[String, @types.InputRequestEntry] = Default::default()
+  reqs.set("login", {
+    method: @types.InputRequestKind::ElicitationCreate,
+    params: Json::object({ "message": Json::string("Enter username") }),
+  })
+  let response = jsonrpc_input_required_str(
+    server,
+    @types.RequestId::Int(1),
+    reqs,
+    request_state=Some("opaque-blob"),
+  )
+  let result = parse_result(response)
+  assert_eq(json_field_str(result, "resultType"), "input_required")
+  assert_eq(json_field_str(result, "requestState"), "opaque-blob")
+  let input_reqs = json_get(result, "inputRequests")
+  if input_reqs is Object(obj) {
+    let login = obj.get("login")
+    match login {
+      Some(Object(_)) => ()
+      _ => panic()
+    }
+  } else {
+    panic()
+  }
+}
+
+///| =====================================================
+
 ///| tools/list
 
 ///|
