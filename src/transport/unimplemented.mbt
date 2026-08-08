@@ -258,13 +258,6 @@ pub fn HttpClientTransport::supports_streaming(
 }
 
 ///|
-pub async fn HttpClientTransport::close_session(
-  self : HttpClientTransport,
-) -> Unit {
-  abort("HttpClientTransport is not available on wasm-gc target")
-}
-
-///|
 pub fn HttpClientTransport::close(self : HttpClientTransport) -> Unit {
   abort("HttpClientTransport is not available on wasm-gc target")
 }

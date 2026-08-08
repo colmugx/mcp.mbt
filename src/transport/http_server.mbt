@@ -431,7 +431,7 @@ fn extract_body_string(body : Json, parent : String, child : String) -> String? 
 fn decode_base64_sentinel(value : String) -> String {
   let prefix = "=?base64?"
   let suffix = "?="
-  if value.starts_with(prefix) &&
+  if value.has_prefix(prefix) &&
     value.has_suffix(suffix) &&
     value.length() > prefix.length() + suffix.length() {
     // Base64 decoding is not wired in this node; surface the raw encoded

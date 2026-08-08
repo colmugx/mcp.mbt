@@ -5,7 +5,6 @@ import {
   "colmugx/mcp/protocol/types",
   "moonbitlang/async",
   "moonbitlang/async/aqueue",
-  "moonbitlang/async/http",
   "moonbitlang/async/io",
   "moonbitlang/async/process",
   "moonbitlang/async/stdio",
@@ -42,20 +41,11 @@ pub fn AuthConfig::AuthConfig(verify_token~ : (String) -> Bool, resource_metadat
 pub struct HttpClientTransport {
   base_url : String
   auth_token : String?
-  mut session_id : String?
-  mut last_response : String?
-  mut last_response_status : Int
-  mut sse_client : @http.Client?
-  mut sse_connected : Bool
   mut closed : Bool
-  mut last_event_id : String?
-  mut sse_pending_responses : Array[String]?
-  mut sse_pending_index : Int
-  protocol_version : String
+  pending_responses : @aqueue.Queue[String]
 }
 pub fn HttpClientTransport::HttpClientTransport(String, auth_token? : String) -> Self
 pub fn HttpClientTransport::close(Self) -> Unit
-pub async fn HttpClientTransport::close_session(Self) -> Unit
 pub async fn HttpClientTransport::receive(Self) -> String? raise @types.TransportError
 pub async fn HttpClientTransport::send(Self, String) -> Unit raise @types.TransportError
 pub fn HttpClientTransport::send_event(Self, event_type~ : String, data~ : String) -> Unit
