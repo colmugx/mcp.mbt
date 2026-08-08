@@ -28,6 +28,12 @@ pub fn[Args : @core.Params, Ret : @core.ToToolResult] tool_fn((Args) -> Ret, nam
 // Errors
 
 // Types and methods
+pub struct AesGcmStateCodec {
+  key : Bytes
+}
+pub fn AesGcmStateCodec::AesGcmStateCodec() -> Self
+pub fn AesGcmStateCodec::with_key(Bytes) -> Self
+
 pub struct MCPServer {
   name : String
   version : String
@@ -55,6 +61,20 @@ pub fn MCPServer::with_title(Self, String) -> Self
 pub fn[T : @tool.Tool] MCPServer::with_tool(Self, T) -> Self
 
 type PromptRegistry
+
+pub(all) struct RequestStateContext {
+  principal : String?
+  request_method : String
+  params : Json
+}
+
+pub(all) struct RequestStatePayload {
+  principal : String?
+  expires_at : Int
+  request_method : String
+  params_digest : String
+  state : Json
+}
 
 type ResourceRegistry
 
@@ -92,3 +112,7 @@ pub using @core {trait Params}
 pub using @tool {trait Tool}
 
 // Traits
+pub trait RequestStateCodec {
+  fn seal(Self, RequestStatePayload, now~ : Int) -> String
+  fn open(Self, String, RequestStateContext, now~ : Int) -> RequestStatePayload?
+}
