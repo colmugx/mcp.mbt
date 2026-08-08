@@ -215,3 +215,12 @@ pub fn InputRequestKind::from_method(method : String) -> InputRequestKind? {
     _ => None
   }
 }
+
+///|
+/// Which kind of change notification a subscription filter should match.
+/// Used internally by the server to route notifications to the right streams.
+pub(all) enum SubscriptionNotificationKind {
+  ToolsListChanged
+  PromptsListChanged
+  ResourcesListChanged
+} derive(Eq, Debug)

@@ -8,6 +8,7 @@ import {
   "colmugx/mcp/protocol/tool",
   "colmugx/mcp/protocol/types",
   "colmugx/mcp/transport",
+  "moonbitlang/async/aqueue",
 }
 
 // Values
@@ -28,6 +29,11 @@ pub fn[Args : @core.Params, Ret : @core.ToToolResult] tool_fn((Args) -> Ret, nam
 // Errors
 
 // Types and methods
+pub(all) struct ActiveSubscription {
+  filter : SubscriptionFilter
+  reply : ReplyHandle
+}
+
 pub struct AesGcmStateCodec {
   key : Bytes
 }
@@ -46,9 +52,13 @@ pub struct MCPServer {
   registry : ToolRegistry
   resource_registry : ResourceRegistry
   prompt_registry : PromptRegistry
+  subscriptions : Map[String, ActiveSubscription]
 }
 pub fn MCPServer::MCPServer(String, String) -> Self
 pub async fn MCPServer::handle_request(Self, String) -> String
+pub async fn MCPServer::notify_prompts_list_changed(Self) -> Unit
+pub async fn MCPServer::notify_resources_list_changed(Self) -> Unit
+pub async fn MCPServer::notify_tools_list_changed(Self) -> Unit
 pub fn MCPServer::prompt(Self, String, String, Array[@types.PromptArgument], async (Json) -> Result[@types.GetPromptResult, @types.MCPError]) -> Self
 pub fn MCPServer::resource(Self, String, String, String, String, async () -> Result[@resource.ResourceReadResult, @types.MCPError]) -> Self
 pub async fn MCPServer::run_http(Self, port? : Int, path? : String) -> Unit raise @types.TransportError
@@ -66,6 +76,11 @@ pub fn[T : @tool.Tool] MCPServer::with_tool(Self, T) -> Self
 
 type PromptRegistry
 
+pub(all) enum ReplyHandle {
+  Stdio(@aqueue.Queue[String])
+  Http(@aqueue.Queue[String])
+}
+
 pub(all) struct RequestStateContext {
   principal : String?
   request_method : String
@@ -81,6 +96,20 @@ pub(all) struct RequestStatePayload {
 }
 
 type ResourceRegistry
+
+pub(all) struct ServerRequest {
+  message : String
+  reply : ReplyHandle
+}
+
+pub(all) struct SubscriptionFilter {
+  mut tools_list_changed : Bool
+  mut prompts_list_changed : Bool
+  mut resources_list_changed : Bool
+  mut resource_subscriptions : Array[String]
+}
+pub fn SubscriptionFilter::empty() -> Self
+pub fn SubscriptionFilter::matches(Self, @types.SubscriptionNotificationKind) -> Bool
 
 type ToolRegistry
 

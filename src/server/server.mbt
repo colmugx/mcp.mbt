@@ -1,13 +1,13 @@
 ///| MCPServer - Main Server Implementation
 
 ///|
-priv enum ReplyHandle {
+pub(all) enum ReplyHandle {
   Stdio(@aqueue.Queue[String])
   Http(@async.Queue[String])
 }
 
 ///|
-priv struct ServerRequest {
+pub(all) struct ServerRequest {
   message : String
   reply : ReplyHandle
 }
@@ -30,6 +30,87 @@ async fn ReplyHandle::send(
 }
 
 ///|
+/// One active `subscriptions/listen` stream. The server holds these so it can
+/// route change notifications to the right client stream. Keyed by the
+/// subscription id (the listen request's JSON-RPC id, stringified).
+pub(all) struct ActiveSubscription {
+  /// Which notification types this subscription opted into.
+  filter : SubscriptionFilter
+  /// Where to send notifications for this subscription.
+  reply : ReplyHandle
+}
+
+///|
+/// A `subscriptions/listen` notification filter (spec §subscriptions). Each
+/// field is optional; omitting a field means "not subscribed to that type".
+pub(all) struct SubscriptionFilter {
+  mut tools_list_changed : Bool
+  mut prompts_list_changed : Bool
+  mut resources_list_changed : Bool
+  mut resource_subscriptions : Array[String]
+}
+
+///|
+/// An empty filter (subscribe to nothing) — the default when fields are absent.
+pub fn SubscriptionFilter::empty() -> SubscriptionFilter {
+  {
+    tools_list_changed: false,
+    prompts_list_changed: false,
+    resources_list_changed: false,
+    resource_subscriptions: [],
+  }
+}
+
+///|
+/// Does this filter opt into the given notification kind?
+pub fn SubscriptionFilter::matches(
+  self : SubscriptionFilter,
+  kind : @types.SubscriptionNotificationKind,
+) -> Bool {
+  match kind {
+    ToolsListChanged => self.tools_list_changed
+    PromptsListChanged => self.prompts_list_changed
+    ResourcesListChanged => self.resources_list_changed
+  }
+}
+
+///|
+/// Inject `io.modelcontextprotocol/subscriptionId` into a notification's
+/// `_meta`, so the client can demultiplex it to the originating stream.
+/// `id_str` is the stringified JSON-RPC id of the listen request. If the
+/// notification has no `params` or `_meta`, they are created.
+fn tag_notification_with_subscription(
+  notification_json : String,
+  id_str : String,
+) -> String {
+  let json = @json.parse(notification_json) catch {
+    _ => return notification_json
+  }
+  if json is Object(obj) {
+    let params = match obj.get("params") {
+      Some(Object(p)) => p
+      _ => {
+        let p : Map[String, Json] = {}
+        obj.set("params", Json::object(p))
+        p
+      }
+    }
+    let meta = match params.get("_meta") {
+      Some(Object(m)) => m
+      _ => {
+        let m : Map[String, Json] = {}
+        params.set("_meta", Json::object(m))
+        m
+      }
+    }
+    meta.set("io.modelcontextprotocol/subscriptionId", Json::string(id_str))
+    json.stringify()
+  } else {
+    notification_json
+  }
+}
+
+///|
 pub struct MCPServer {
   name : String
   version : String
@@ -47,6 +128,9 @@ pub struct MCPServer {
   registry : ToolRegistry
   resource_registry : ResourceRegistry
   prompt_registry : PromptRegistry
+  /// Active `subscriptions/listen` streams, keyed by subscription id (the
+  /// listen request's JSON-RPC id, stringified).
+  subscriptions : Map[String, ActiveSubscription]
 }
 
 ///|
@@ -63,6 +147,7 @@ pub fn MCPServer::MCPServer(name : String, version : String) -> MCPServer {
     registry: ToolRegistry::ToolRegistry(),
     resource_registry: ResourceRegistry::ResourceRegistry(),
     prompt_registry: PromptRegistry::PromptRegistry(),
+    subscriptions: {},
   }
 }
 
@@ -194,6 +279,158 @@ fn internal_error_response(id : @types.RequestId) -> String {
 }
 
 ///|
+/// Build the `notifications/subscriptions/acknowledged` message: the first
+/// message on a listen stream, carrying the subscription id (the listen
+/// request's JSON-RPC id) and the agreed-upon filter subset.
+fn subscriptions_acknowledged_str(
+  id : @types.RequestId,
+  filter : SubscriptionFilter,
+) -> String {
+  let acked : Map[String, Json] = Default::default()
+  if filter.tools_list_changed {
+    acked.set("toolsListChanged", Json::boolean(true))
+  }
+  if filter.prompts_list_changed {
+    acked.set("promptsListChanged", Json::boolean(true))
+  }
+  if filter.resources_list_changed {
+    acked.set("resourcesListChanged", Json::boolean(true))
+  }
+  if !filter.resource_subscriptions.is_empty() {
+    acked.set(
+      "resourceSubscriptions",
+      Json::array(
+        filter.resource_subscriptions.map(fn(uri) { Json::string(uri) }),
+      ),
+    )
+  }
+  Json::object({
+    "jsonrpc": Json::string("2.0"),
+    "method": Json::string("notifications/subscriptions/acknowledged"),
+    "params": Json::object({
+      "_meta": Json::object({
+        "io.modelcontextprotocol/subscriptionId": request_id_to_json(id),
+      }),
+      "notifications": Json::object(acked),
+    }),
+  }).stringify()
+}
+
+///|
+/// Parse the `notifications` filter from a `subscriptions/listen` request's
+/// params. Absent fields default to false / empty.
+fn parse_subscription_filter(params : Json) -> SubscriptionFilter {
+  let filter = SubscriptionFilter::empty()
+  if params is Object(obj) {
+    match obj.get("notifications") {
+      Some(Object(n)) => {
+        match n.get("toolsListChanged") {
+          Some(True) => filter.tools_list_changed = true
+          _ => ()
+        }
+        match n.get("promptsListChanged") {
+          Some(True) => filter.prompts_list_changed = true
+          _ => ()
+        }
+        match n.get("resourcesListChanged") {
+          Some(True) => filter.resources_list_changed = true
+          _ => ()
+        }
+        match n.get("resourceSubscriptions") {
+          Some(Array(uris)) =>
+            for uri in uris {
+              if uri is String(s) {
+                filter.resource_subscriptions.push(s)
+              }
+            }
+          _ => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  filter
+}
+
+///|
+/// Handle `subscriptions/listen` (spec §subscriptions). Registers the
+/// subscription, sends the acknowledgment (the first message on the stream),
+/// and keeps the subscription registered so later `notify_*` calls route
+/// matching notifications to this stream. The stream ends when the client
+/// cancels or the transport closes.
+async fn MCPServer::handle_subscriptions_listen(
+  self : MCPServer,
+  request : @types.JsonRpcRequest,
+  reply : ReplyHandle,
+) -> Unit {
+  let filter = parse_subscription_filter(request.params)
+  let sub_id = request.id.to_json_string()
+  // Register before acknowledging so notifications aren't lost.
+  self.subscriptions.set(sub_id, { filter, reply })
+  // Send the acknowledgment as the first stream message.
+  let ack = subscriptions_acknowledged_str(request.id, filter)
+  reply.send(ack) catch {
+    _ => self.subscriptions.remove(sub_id)
+  }
+}
+
+///|
+/// Push a change notification to every active subscription whose filter
+/// matches the given kind. `notification_json` is the full JSON-RPC
+/// notification string; `subscription_id` is attached to `_meta` per spec.
+/// Subscriptions whose reply has failed are dropped.
+async fn MCPServer::notify_subscriptions(
+  self : MCPServer,
+  kind : @types.SubscriptionNotificationKind,
+  notification_json : String,
+) -> Unit {
+  // Snapshot the ids to avoid mutating the map during iteration.
+  let ids : Array[String] = []
+  self.subscriptions.each(fn(k, _) { ids.push(k) })
+  for id in ids {
+    match self.subscriptions.get(id) {
+      Some(sub) =>
+        if SubscriptionFilter::matches(sub.filter, kind) {
+          let tagged = tag_notification_with_subscription(notification_json, id)
+          sub.reply.send(tagged) catch {
+            _ => self.subscriptions.remove(id)
+          }
+        }
+      None => ()
+    }
+  }
+}
+
+///|
+/// Public server-side notification triggers. Each routes to matching
+/// `subscriptions/listen` streams.
+pub async fn MCPServer::notify_tools_list_changed(self : MCPServer) -> Unit {
+  let n = @types.tools_list_changed_notification().to_jsonrpc_string()
+  self.notify_subscriptions(
+    @types.SubscriptionNotificationKind::ToolsListChanged,
+    n,
+  )
+}
+
+///|
+pub async fn MCPServer::notify_resources_list_changed(self : MCPServer) -> Unit {
+  let n = @types.resources_list_changed_notification().to_jsonrpc_string()
+  self.notify_subscriptions(
+    @types.SubscriptionNotificationKind::ResourcesListChanged,
+    n,
+  )
+}
+
+///|
+pub async fn MCPServer::notify_prompts_list_changed(self : MCPServer) -> Unit {
+  let n = @types.prompts_list_changed_notification().to_jsonrpc_string()
+  self.notify_subscriptions(
+    @types.SubscriptionNotificationKind::PromptsListChanged,
+    n,
+  )
+}
+
+///|
 async fn MCPServer::handle_server_request(
   self : MCPServer,
   request : ServerRequest,
@@ -202,7 +439,17 @@ async fn MCPServer::handle_server_request(
   match parse_request_message(request.message) {
     Err(response) => request.reply.send(response) catch { _ => () }
     Ok(parsed_request) =>
-      if is_fast_method(parsed_request.method_name) {
+      // subscriptions/listen is a long-lived request: it registers a
+      // subscription, sends an acknowledgment, and stays open for future
+      // notifications. Handle it specially (not via handle_parsed_request,
+      // which returns a single response string).
+      if parsed_request.method_name == "subscriptions/listen" {
+        group.spawn_bg(() => {
+          self.handle_subscriptions_listen(parsed_request, request.reply) catch {
+            _ => ()
+          }
+        })
+      } else if is_fast_method(parsed_request.method_name) {
         let response = self.handle_parsed_request(parsed_request) catch {
           _ => internal_error_response(parsed_request.id)
         }

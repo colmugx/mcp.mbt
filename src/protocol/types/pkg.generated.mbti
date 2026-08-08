@@ -237,6 +237,12 @@ pub(all) struct ServerInfo {
   description : String?
 } derive(Eq, @debug.Debug)
 
+pub(all) enum SubscriptionNotificationKind {
+  ToolsListChanged
+  PromptsListChanged
+  ResourcesListChanged
+} derive(Eq, @debug.Debug)
+
 pub(all) struct ToolCapabilities {
   list_changed : Bool
 } derive(Eq, @debug.Debug)
