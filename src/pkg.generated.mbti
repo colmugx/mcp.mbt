@@ -63,6 +63,8 @@ pub using @types {type ServerCapabilities}
 
 pub using @types {type ServerInfo}
 
+pub using @tool {type ToolCallOutcome}
+
 pub using @types {type ToolDefinition}
 
 pub using @core {type ToolError}

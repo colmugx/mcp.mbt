@@ -42,6 +42,7 @@ pub struct MCPServer {
   instructions : String?
   auth_config : @transport.AuthConfig?
   request_state_codec : AesGcmStateCodec?
+  clock : () -> Int
   registry : ToolRegistry
   resource_registry : ResourceRegistry
   prompt_registry : PromptRegistry
@@ -54,6 +55,7 @@ pub async fn MCPServer::run_http(Self, port? : Int, path? : String) -> Unit rais
 pub async fn MCPServer::run_stdio(Self) -> Unit raise @types.TransportError
 pub fn MCPServer::tool(Self, String, String, Json, async (Json) -> Result[@tool.ToolResult, @types.MCPError]) -> Self
 pub fn MCPServer::with_auth(Self, @transport.AuthConfig) -> Self
+pub fn MCPServer::with_clock(Self, () -> Int) -> Self
 pub fn MCPServer::with_description(Self, String) -> Self
 pub fn MCPServer::with_instructions(Self, String) -> Self
 pub fn[T : @prompt.Prompt] MCPServer::with_prompt(Self, T) -> Self
@@ -100,6 +102,8 @@ pub using @types {type RequestId}
 pub using @types {type ServerCapabilities}
 
 pub using @types {type ServerInfo}
+
+pub using @tool {type ToolCallOutcome}
 
 pub using @types {type ToolDefinition}
 

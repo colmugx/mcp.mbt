@@ -6,6 +6,25 @@ pub struct ToolResult {
 } derive(Eq, Debug)
 
 ///|
+/// Outcome of a tool execution. Per the 2026-07-28 MRTR pattern, a tool may
+/// either complete normally (`Complete`) or request additional client input
+/// (`InputRequired`). On retry, the client resubmits with `inputResponses`
+/// and the echoed `requestState`; the tool then receives those responses via
+/// its arguments and returns `Complete`.
+pub(all) enum ToolCallOutcome {
+  /// Normal completion — the tool finished and produced a result.
+  Complete(ToolResult)
+  /// The tool needs client input before it can finish. `input_requests`
+  /// maps server-assigned keys to elicitation/sampling/roots requests;
+  /// `state` is the server's continuation data (sealed into `requestState`
+  /// by the handler before being sent to the client).
+  InputRequired(
+    input_requests~ : Map[String, @types.InputRequestEntry],
+    state~ : Json
+  )
+} derive(Eq, Debug)
+
+///|
 /// Create a successful result with text content
 pub fn ToolResult::text(text : String) -> ToolResult {
   { content: [@types.ContentItem::Text(text)], is_error: false }
@@ -76,7 +95,10 @@ pub(open) trait Tool {
   fn name(Self) -> String
   fn description(Self) -> String
   fn params(Self) -> Array[ParamDef]
-  async fn execute(Self, Json) -> ToolResult
+  /// Execute the tool. Returns `Complete` for a normal result, or
+  /// `InputRequired` to trigger an MRTR round-trip (the client will be asked
+  /// for input and the request retried with `inputResponses`).
+  async fn execute(Self, Json) -> ToolCallOutcome
 }
 
 ///|

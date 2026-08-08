@@ -23,7 +23,9 @@ test "MCPServer register_tool adds to registry" {
     "test_tool",
     "Test description",
     Json::object({ "type": "object" }),
-    fn(_args) { Ok(@tool.ToolResult::text("test")) },
+    fn(_args) {
+      Ok(@tool.ToolCallOutcome::Complete(@tool.ToolResult::text("test")))
+    },
   )
   @debug.assert_eq(server.registry.list_tools().length(), 1)
   @debug.assert_eq(server.registry.list_tools()[0].name, "test_tool")
@@ -33,10 +35,10 @@ test "MCPServer register_tool adds to registry" {
 test "MCPServer register_tool preserves order" {
   let server = MCPServer::MCPServer("test-server", "1.0.0")
   server.register_tool("tool1", "First tool", Json::object({}), fn(_args) {
-    Ok(@tool.ToolResult::text("test1"))
+    Ok(@tool.ToolCallOutcome::Complete(@tool.ToolResult::text("test1")))
   })
   server.register_tool("tool2", "Second tool", Json::object({}), fn(_args) {
-    Ok(@tool.ToolResult::text("test2"))
+    Ok(@tool.ToolCallOutcome::Complete(@tool.ToolResult::text("test2")))
   })
   @debug.assert_eq(server.registry.list_tools().length(), 2)
   @debug.assert_eq(server.registry.list_tools()[0].name, "tool1")
@@ -51,7 +53,7 @@ test "MCPServer tool metadata is stored correctly" {
     "properties": { "value": { "type": "string", "description": "Test value" } },
   })
   server.register_tool("test", "Test tool description", schema, fn(_args) {
-    Ok(@tool.ToolResult::text("test"))
+    Ok(@tool.ToolCallOutcome::Complete(@tool.ToolResult::text("test")))
   })
   let tool_entry = server.registry.list_tools()[0]
   @debug.assert_eq(tool_entry.name, "test")
@@ -77,7 +79,9 @@ test "ToolRegistry::register adds tool entry" {
     "test_tool",
     "Test tool description",
     Json::object({ "type": "object" }),
-    fn(_args) { Ok(@tool.ToolResult::text("test")) },
+    fn(_args) {
+      Ok(@tool.ToolCallOutcome::Complete(@tool.ToolResult::text("test")))
+    },
   )
   @debug.assert_eq(registry.list_tools().length(), 1)
   @debug.assert_eq(registry.list_tools()[0].name, "test_tool")
@@ -91,10 +95,10 @@ test "ToolRegistry::register adds tool entry" {
 test "ToolRegistry::list_tools returns tool definitions" {
   let registry = ToolRegistry::ToolRegistry()
   registry.register("tool1", "Description 1", Json::object({}), fn(_args) {
-    Ok(@tool.ToolResult::text("test"))
+    Ok(@tool.ToolCallOutcome::Complete(@tool.ToolResult::text("test")))
   })
   registry.register("tool2", "Description 2", Json::object({}), fn(_args) {
-    Ok(@tool.ToolResult::text("test"))
+    Ok(@tool.ToolCallOutcome::Complete(@tool.ToolResult::text("test")))
   })
   let tools = registry.list_tools()
   @debug.assert_eq(tools.length(), 2)
@@ -112,7 +116,7 @@ test "ToolRegistry preserves input schemas" {
     "properties": { "value": { "type": "string" } },
   })
   registry.register("test", "Test tool", schema, fn(_args) {
-    Ok(@tool.ToolResult::text("test"))
+    Ok(@tool.ToolCallOutcome::Complete(@tool.ToolResult::text("test")))
   })
   @debug.assert_eq(registry.list_tools()[0].input_schema, schema)
 }
@@ -122,7 +126,7 @@ test "ToolRegistry::list_tools includes all metadata" {
   let registry = ToolRegistry::ToolRegistry()
   let schema = Json::object({ "type": "object", "properties": {} })
   registry.register("my_tool", "My tool description", schema, fn(_args) {
-    Ok(@tool.ToolResult::text("result"))
+    Ok(@tool.ToolCallOutcome::Complete(@tool.ToolResult::text("result")))
   })
   let tools = registry.list_tools()
   @debug.assert_eq(tools.length(), 1)
@@ -145,17 +149,17 @@ test "example: register multiple tools and verify" {
   server.register_tool("tool_a", "Tool A description", Json::object({}), fn(
     _args,
   ) {
-    Ok(@tool.ToolResult::text("A"))
+    Ok(@tool.ToolCallOutcome::Complete(@tool.ToolResult::text("A")))
   })
   server.register_tool("tool_b", "Tool B description", Json::object({}), fn(
     _args,
   ) {
-    Ok(@tool.ToolResult::text("B"))
+    Ok(@tool.ToolCallOutcome::Complete(@tool.ToolResult::text("B")))
   })
   server.register_tool("tool_c", "Tool C description", Json::object({}), fn(
     _args,
   ) {
-    Ok(@tool.ToolResult::text("C"))
+    Ok(@tool.ToolCallOutcome::Complete(@tool.ToolResult::text("C")))
   })
 
   // Verify server metadata
@@ -194,7 +198,13 @@ test "example: server with complex schemas" {
     "search",
     "Search with complex parameters",
     complex_schema,
-    fn(_args) { Ok(@tool.ToolResult::text("search results")) },
+    fn(_args) {
+      Ok(
+        @tool.ToolCallOutcome::Complete(
+          @tool.ToolResult::text("search results"),
+        ),
+      )
+    },
   )
 
   // Verify schema is preserved

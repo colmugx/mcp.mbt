@@ -40,6 +40,10 @@ pub struct MCPServer {
   /// Optional AEAD codec for MRTR `requestState`. When `None`, the server
   /// does not issue `input_required` results (MRTR disabled).
   request_state_codec : AesGcmStateCodec?
+  /// Wall-clock source (unix seconds) for MRTR expiry. Defaults to a stub
+  /// returning 0; production servers inject a real clock so `requestState`
+  /// expiry is enforced. Test servers inject a fixed value.
+  clock : () -> Int
   registry : ToolRegistry
   resource_registry : ResourceRegistry
   prompt_registry : PromptRegistry
@@ -55,6 +59,7 @@ pub fn MCPServer::MCPServer(name : String, version : String) -> MCPServer {
     instructions: None,
     auth_config: None,
     request_state_codec: None,
+    clock: fn() { 0 },
     registry: ToolRegistry::ToolRegistry(),
     resource_registry: ResourceRegistry::ResourceRegistry(),
     prompt_registry: PromptRegistry::PromptRegistry(),
@@ -67,7 +72,7 @@ fn MCPServer::register_tool(
   name : String,
   description : String,
   input_schema : Json,
-  handler : async (Json) -> Result[@tool.ToolResult, @types.MCPError],
+  handler : async (Json) -> Result[@tool.ToolCallOutcome, @types.MCPError],
 ) -> Unit {
   self.registry.register(name, description, input_schema, handler)
 }
@@ -309,7 +314,17 @@ pub fn MCPServer::tool(
   input_schema : Json,
   handler : async (Json) -> Result[@tool.ToolResult, @types.MCPError],
 ) -> MCPServer {
-  self.register_tool(name, description, input_schema, handler)
+  // Convenience: simple tools return ToolResult and always complete.
+  // Wrap into ToolCallOutcome for the registry.
+  let wrapped = async fn(
+    args : Json,
+  ) -> Result[@tool.ToolCallOutcome, @types.MCPError] {
+    match handler(args) {
+      Ok(r) => Ok(@tool.ToolCallOutcome::Complete(r))
+      Err(e) => Err(e)
+    }
+  }
+  self.register_tool(name, description, input_schema, wrapped)
   self
 }
 
@@ -394,6 +409,14 @@ pub fn MCPServer::with_request_state_codec(
   codec : AesGcmStateCodec,
 ) -> MCPServer {
   { ..self, request_state_codec: Some(codec) }
+}
+
+///|
+/// Inject a wall-clock source (unix seconds) for MRTR `requestState` expiry.
+/// Production servers should pass a real clock; the default returns 0, which
+/// disables expiry enforcement (blobs never expire).
+pub fn MCPServer::with_clock(self : MCPServer, clock : () -> Int) -> MCPServer {
+  { ..self, clock, }
 }
 
 ///|

@@ -236,12 +236,12 @@ impl Tool for EchoTool with fn params(_self : EchoTool) -> Array[ParamDef] {
 }
 
 ///|
-impl Tool for EchoTool with fn execute(_self : EchoTool, args : Json) -> ToolResult {
+impl Tool for EchoTool with fn execute(_self : EchoTool, args : Json) -> ToolCallOutcome {
   let text = match get_string(args, "text") {
     Ok(t) => t
-    Err(err) => return err
+    Err(err) => return Complete(err)
   }
-  ToolResult::text("Echo: " + text)
+  Complete(ToolResult::text("Echo: " + text))
 }
 
 ///|
@@ -253,9 +253,14 @@ async test "example: complete tool implementation with EchoTool" {
   // Test execution
   let args = Json::object({ "text": "Hello, MCP!" })
   let result = @tool.Tool::execute(tool, args)
-  @debug.assert_eq(result.is_error, false)
-  match result.content[0] {
-    Text(msg) => @debug.assert_eq(msg, "Echo: Hello, MCP!")
+  match result {
+    Complete(tool_result) => {
+      @debug.assert_eq(tool_result.is_error, false)
+      match tool_result.content[0] {
+        Text(msg) => @debug.assert_eq(msg, "Echo: Hello, MCP!")
+        _ => panic()
+      }
+    }
     _ => panic()
   }
 }
@@ -267,9 +272,14 @@ async test "example: tool with error handling" {
   // Missing argument
   let args = Json::object({})
   let result = @tool.Tool::execute(tool, args)
-  @debug.assert_eq(result.is_error, true)
-  match result.content[0] {
-    Text(msg) => assert_true(msg.contains("Missing required field"))
+  match result {
+    Complete(tool_result) => {
+      @debug.assert_eq(tool_result.is_error, true)
+      match tool_result.content[0] {
+        Text(msg) => assert_true(msg.contains("Missing required field"))
+        _ => panic()
+      }
+    }
     _ => panic()
   }
 }

@@ -33,7 +33,7 @@ fn[T : @tool.Tool] ToolRegistry::register_trait_tool(
   let input_schema = expand_params_to_json(params)
   let handler = async fn(
     args : Json,
-  ) -> Result[@tool.ToolResult, @types.MCPError] {
+  ) -> Result[@tool.ToolCallOutcome, @types.MCPError] {
     Ok(tool.execute(args))
   }
   self.register(name, description, input_schema, handler)

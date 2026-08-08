@@ -7,7 +7,12 @@ pub using @tool {
 }
 
 ///|
-pub using @tool {trait Tool, type ToolResult, type ParamDef}
+pub using @tool {
+  trait Tool,
+  type ToolResult,
+  type ToolCallOutcome,
+  type ParamDef,
+}
 
 ///|
 pub using @core {trait Params, type JsonSchema, type ToolError}

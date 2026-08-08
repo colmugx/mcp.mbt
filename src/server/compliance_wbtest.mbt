@@ -174,7 +174,9 @@ test "compliance: tools/list returns array with name/description/inputSchema" {
     "echo",
     "Echo tool",
     Json::object({ "type": "object" }),
-    fn(_args) { Ok(@tool.ToolResult::text("ok")) },
+    fn(_args) {
+      Ok(@tool.ToolCallOutcome::Complete(@tool.ToolResult::text("ok")))
+    },
   )
   let result = parse_result(handle_tools_list(server, @types.RequestId::Int(1)))
   let tools = json_get(result, "tools")
@@ -196,7 +198,9 @@ test "compliance: tools/list preserves tool name" {
     "my_tool",
     "My tool",
     Json::object({ "type": "object" }),
-    fn(_args) { Ok(@tool.ToolResult::text("ok")) },
+    fn(_args) {
+      Ok(@tool.ToolCallOutcome::Complete(@tool.ToolResult::text("ok")))
+    },
   )
   let result = parse_result(handle_tools_list(server, @types.RequestId::Int(1)))
   if json_get(result, "tools") is Array(arr) {

@@ -24,10 +24,14 @@ impl @mcp.Tool for EchoTool with fn params(_) -> Array[@mcp.ParamDef] {
 }
 
 ///|
-impl @mcp.Tool for EchoTool with fn execute(_, args : Json) -> @mcp.ToolResult {
+impl @mcp.Tool for EchoTool with fn execute(_, args : Json) -> @mcp.ToolCallOutcome {
   match @mcp.get_string(args, "text") {
-    Ok(text) => @mcp.ToolResult::text("Echo: \{text}")
-    Err(_) => @mcp.ToolResult::error("Missing 'text' parameter")
+    Ok(text) =>
+      @mcp.ToolCallOutcome::Complete(@mcp.ToolResult::text("Echo: \{text}"))
+    Err(_) =>
+      @mcp.ToolCallOutcome::Complete(
+        @mcp.ToolResult::error("Missing 'text' parameter"),
+      )
   }
 }
 
@@ -53,16 +57,24 @@ impl @mcp.Tool for AddTool with fn params(_) -> Array[@mcp.ParamDef] {
 }
 
 ///|
-impl @mcp.Tool for AddTool with fn execute(_, args : Json) -> @mcp.ToolResult {
+impl @mcp.Tool for AddTool with fn execute(_, args : Json) -> @mcp.ToolCallOutcome {
   let a = match @mcp.get_number(args, "a") {
     Ok(n) => n
-    Err(_) => return @mcp.ToolResult::error("Missing 'a' parameter")
+    Err(_) =>
+      return @mcp.ToolCallOutcome::Complete(
+        @mcp.ToolResult::error("Missing 'a' parameter"),
+      )
   }
   let b = match @mcp.get_number(args, "b") {
     Ok(n) => n
-    Err(_) => return @mcp.ToolResult::error("Missing 'b' parameter")
+    Err(_) =>
+      return @mcp.ToolCallOutcome::Complete(
+        @mcp.ToolResult::error("Missing 'b' parameter"),
+      )
   }
-  @mcp.ToolResult::text("\{a} + \{b} = \{a + b}")
+  @mcp.ToolCallOutcome::Complete(
+    @mcp.ToolResult::text("\{a} + \{b} = \{a + b}"),
+  )
 }
 
 ///|

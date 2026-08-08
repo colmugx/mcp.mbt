@@ -230,6 +230,57 @@ fn handle_tools_list(server : MCPServer, id : @types.RequestId) -> String {
 }
 
 ///|
+/// Serialize a `ToolResult` into the JSON object shape used in `tools/call`
+/// responses (`{ content: [...], isError: bool }`).
+fn tool_result_to_json(tool_result : @tool.ToolResult) -> Json {
+  let content_items = tool_result.content.map(fn(item) {
+    match item {
+      @types.Text(text) =>
+        Json::object({
+          "type": Json::string("text"),
+          "text": Json::string(text),
+        })
+      @types.Image(data, mime_type~) =>
+        Json::object({
+          "type": Json::string("image"),
+          "data": Json::string(data),
+          "mimeType": Json::string(mime_type),
+        })
+      @types.ResourceLink(uri) =>
+        Json::object({
+          "type": Json::string("resource_link"),
+          "uri": Json::string(uri),
+        })
+      @types.EmbeddedResource(content) =>
+        match content {
+          @types.Text(text, uri~, mime_type~) => {
+            let map : Map[String, Json] = Default::default()
+            map.set("type", Json::string("resource"))
+            map.set("uri", Json::string(uri))
+            map.set("text", Json::string(text))
+            match mime_type {
+              Some(mt) => map.set("mimeType", Json::string(mt))
+              None => ()
+            }
+            Json::object(map)
+          }
+          @types.Blob(data, uri~, mime_type~) =>
+            Json::object({
+              "type": Json::string("resource"),
+              "uri": Json::string(uri),
+              "blob": Json::string(data),
+              "mimeType": Json::string(mime_type),
+            })
+        }
+    }
+  })
+  Json::object({
+    "content": Json::array(content_items),
+    "isError": Json::boolean(tool_result.is_error),
+  })
+}
+
+///|
 async fn handle_tools_call(
   server : MCPServer,
   id : @types.RequestId,
@@ -245,48 +296,37 @@ async fn handle_tools_call(
         null
       }
       match server.registry.call_tool(name, arguments) {
-        Ok(tool_result) => {
-          let content_items = tool_result.content.map(fn(item) {
-            match item {
-              @types.Text(text) =>
-                Json::object({ "type": "text", "text": text })
-              @types.Image(data, mime_type~) =>
-                Json::object({
-                  "type": "image",
-                  "data": data,
-                  "mimeType": mime_type,
-                })
-              @types.ResourceLink(uri) =>
-                Json::object({ "type": "resource_link", "uri": uri })
-              @types.EmbeddedResource(content) =>
-                match content {
-                  @types.Text(text, uri~, mime_type~) => {
-                    let map : Map[String, Json] = Default::default()
-                    map.set("type", "resource")
-                    map.set("uri", Json::string(uri))
-                    map.set("text", Json::string(text))
-                    match mime_type {
-                      Some(mt) => map.set("mimeType", Json::string(mt))
-                      None => ()
-                    }
-                    Json::object(map)
-                  }
-                  @types.Blob(data, uri~, mime_type~) =>
-                    Json::object({
-                      "type": "resource",
-                      "uri": uri,
-                      "blob": data,
-                      "mimeType": mime_type,
-                    })
-                }
-            }
-          })
-          let result = Json::object({
-            "content": Json::array(content_items),
-            "isError": tool_result.is_error,
-          })
+        Ok(@tool.Complete(tool_result)) => {
+          let result = tool_result_to_json(tool_result)
           jsonrpc_success_str(server, id, result)
         }
+        Ok(@tool.InputRequired(input_requests~, state~)) =>
+          // Tool requested client input via MRTR. Seal the continuation state
+          // into requestState if a codec is configured; otherwise we cannot
+          // safely round-trip state and must error.
+          match server.request_state_codec {
+            Some(codec) => {
+              let now = (server.clock)()
+              let payload : RequestStatePayload = {
+                principal: None,
+                expires_at: now + 300,
+                request_method: "tools/call",
+                params_digest: params_digest(arguments),
+                state,
+              }
+              let blob = codec.seal(payload, now~)
+              jsonrpc_input_required_str(
+                server,
+                id,
+                input_requests,
+                request_state=Some(blob),
+              )
+            }
+            None =>
+              jsonrpc_error_str(
+                id, -32603, "Tool requested client input but server has no requestState codec",
+              )
+          }
         Err(e) => jsonrpc_error_from(id, e)
       }
     }

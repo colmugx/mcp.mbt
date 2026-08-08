@@ -25,6 +25,11 @@ pub(all) struct ParamDef {
   required : Bool
 } derive(Eq, @debug.Debug)
 
+pub(all) enum ToolCallOutcome {
+  Complete(ToolResult)
+  InputRequired(input_requests~ : Map[String, @types.InputRequestEntry], state~ : Json)
+} derive(Eq, @debug.Debug)
+
 pub struct ToolResult {
   content : Array[@types.ContentItem]
   is_error : Bool
@@ -49,5 +54,5 @@ pub(open) trait Tool {
   fn name(Self) -> String
   fn description(Self) -> String
   fn params(Self) -> Array[ParamDef]
-  async fn execute(Self, Json) -> ToolResult
+  async fn execute(Self, Json) -> ToolCallOutcome
 }

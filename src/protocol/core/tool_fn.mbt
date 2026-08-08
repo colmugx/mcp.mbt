@@ -61,8 +61,10 @@ pub impl @tool.Tool for ToolWrapper with fn params(self) -> Array[
 }
 
 ///|
-pub impl @tool.Tool for ToolWrapper with fn execute(self, json) -> @tool.ToolResult {
-  (self.execute_impl)(json)
+pub impl @tool.Tool for ToolWrapper with fn execute(self, json) -> @tool.ToolCallOutcome {
+  // ToolWrapper wraps a simple complete-or-error handler; it never triggers
+  // MRTR input_required on its own.
+  @tool.ToolCallOutcome::Complete((self.execute_impl)(json))
 }
 
 ///|

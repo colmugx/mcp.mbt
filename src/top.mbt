@@ -16,6 +16,7 @@ pub using @ptypes {
 pub using @ptool {
   trait Tool,
   type ToolResult,
+  type ToolCallOutcome,
   type ParamDef,
   get_number,
   get_optional_number,
