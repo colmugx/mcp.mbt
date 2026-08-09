@@ -108,6 +108,36 @@ fn jsonrpc_success_str(
 }
 
 ///|
+/// Like `jsonrpc_success_str`, but also injects `ttlMs` + `cacheScope` into
+/// the result for cacheable endpoints (tools/list, prompts/list,
+/// resources/list, resources/read, server/discover) per spec §F.
+/// `ttl_ms` is a freshness hint in milliseconds (clients may cache the
+/// response up to that long); `cache_scope` is "public" or "private".
+fn jsonrpc_cacheable_success_str(
+  server : MCPServer,
+  id : @types.RequestId,
+  result : Json,
+  ttl_ms : Int,
+  cache_scope : String,
+) -> String {
+  // with_server_meta injects resultType + _meta by mutating result in place
+  // (when it is an Object); add the cache fields to the same object.
+  match with_server_meta(server, result) {
+    Object(obj) => {
+      obj.set("ttlMs", Json::number(ttl_ms.to_double()))
+      obj.set("cacheScope", Json::string(cache_scope))
+      ()
+    }
+    _ => ()
+  }
+  Json::object({
+    "jsonrpc": "2.0",
+    "id": request_id_to_json(id),
+    "result": result,
+  }).stringify()
+}
+
+///|
 fn jsonrpc_error_str(
   id : @types.RequestId,
   code : Int,
@@ -165,7 +195,13 @@ fn handle_discover(server : MCPServer, id : @types.RequestId) -> String {
     Some(instr) => result.set("instructions", Json::string(instr))
     None => ()
   }
-  jsonrpc_success_str(server, id, Json::object(result))
+  jsonrpc_cacheable_success_str(
+    server,
+    id,
+    Json::object(result),
+    3600000,
+    "public",
+  )
 }
 
 ///|
@@ -222,10 +258,12 @@ fn handle_tools_list(server : MCPServer, id : @types.RequestId) -> String {
       "inputSchema": tool.input_schema,
     })
   })
-  jsonrpc_success_str(
+  jsonrpc_cacheable_success_str(
     server,
     id,
     Json::object({ "tools": Json::array(tool_jsons) }),
+    60000,
+    "public",
   )
 }
 
@@ -350,10 +388,12 @@ fn handle_resources_list(server : MCPServer, id : @types.RequestId) -> String {
     }
     Json::object(map)
   })
-  jsonrpc_success_str(
+  jsonrpc_cacheable_success_str(
     server,
     id,
     Json::object({ "resources": Json::array(resource_jsons) }),
+    60000,
+    "public",
   )
 }
 
@@ -379,10 +419,12 @@ async fn handle_resources_read(
                 "mimeType": mime_type,
               })
           }
-          jsonrpc_success_str(
+          jsonrpc_cacheable_success_str(
             server,
             id,
             Json::object({ "contents": Json::array([content_json]) }),
+            30000,
+            "private",
           )
         }
         Err(e) => jsonrpc_error_from(id, e)
@@ -421,10 +463,12 @@ fn handle_prompts_list(server : MCPServer, id : @types.RequestId) -> String {
     }
     Json::object(map)
   })
-  jsonrpc_success_str(
+  jsonrpc_cacheable_success_str(
     server,
     id,
     Json::object({ "prompts": Json::array(prompt_jsons) }),
+    60000,
+    "public",
   )
 }
 

@@ -121,6 +121,22 @@ test "compliance: discover carries serverInfo in _meta" {
   assert_eq(json_field_str(info, "version"), "2.5.0")
 }
 
+///|
+test "compliance: cacheable results carry ttlMs and cacheScope" {
+  let server = MCPServer::MCPServer("test", "1.0.0")
+  let result = parse_result(handle_tools_list(server, @types.RequestId::Int(1)))
+  assert_eq(json_field_str(result, "cacheScope"), "public")
+  // ttlMs is a number field; verify it equals 60000.
+  if result is Object(obj) {
+    match obj.get("ttlMs") {
+      Some(Number(n, ..)) => assert_eq(n.to_int(), 60000)
+      _ => panic()
+    }
+  } else {
+    panic()
+  }
+}
+
 ///| =====================================================
 
 ///| MRTR (resultType)
