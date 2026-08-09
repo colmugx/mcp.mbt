@@ -36,62 +36,6 @@ test "MCPClient next_id increments" {
 }
 
 ///|
-test "build_initialize_request format" {
-  let caps : @types.ClientCapabilities = {
-    roots: Some({ list_changed: true }),
-    sampling: Some(@types.SamplingCapabilities::{  }),
-    elicitation: None,
-  }
-  let req = build_initialize_request(
-    1,
-    "test-client",
-    "1.0.0",
-    capabilities=caps,
-  )
-  let actual = @json.parse(req) catch { _ => Json::null() }
-  let expected = @json.parse(
-    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-11-25\",\"capabilities\":{\"roots\":{\"listChanged\":true},\"sampling\":{}},\"clientInfo\":{\"name\":\"test-client\",\"version\":\"1.0.0\"}}}",
-  ) catch {
-    _ => Json::null()
-  }
-  @debug.assert_eq(actual, expected)
-}
-
-///|
-test "build_initialize_request with elicitation uses empty object" {
-  let caps : @types.ClientCapabilities = {
-    roots: None,
-    sampling: None,
-    elicitation: Some(@types.ElicitationCapabilities::{ form: true }),
-  }
-  let req = build_initialize_request(
-    1,
-    "test-client",
-    "1.0.0",
-    capabilities=caps,
-  )
-  let actual = @json.parse(req) catch { _ => Json::null() }
-  let expected = @json.parse(
-    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-11-25\",\"capabilities\":{\"elicitation\":{\"form\":{}}},\"clientInfo\":{\"name\":\"test-client\",\"version\":\"1.0.0\"}}}",
-  ) catch {
-    _ => Json::null()
-  }
-  @debug.assert_eq(actual, expected)
-}
-
-///|
-test "build_ping_request format" {
-  let req = build_ping_request(42)
-  let actual = @json.parse(req) catch { _ => Json::null() }
-  let expected = @json.parse(
-    "{\"jsonrpc\":\"2.0\",\"id\":42,\"method\":\"ping\"}",
-  ) catch {
-    _ => Json::null()
-  }
-  @debug.assert_eq(actual, expected)
-}
-
-///|
 test "build_tools_list_request format" {
   let req = build_tools_list_request(1, test_meta())
   let actual = @json.parse(req) catch { _ => Json::null() }
@@ -114,18 +58,6 @@ test "build_tools_call_request format" {
   let actual = @json.parse(req) catch { _ => Json::null() }
   let expected = @json.parse(
     "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"my_tool\",\"arguments\":{\"x\":1},\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":\"2026-07-28\",\"io.modelcontextprotocol/clientCapabilities\":{},\"io.modelcontextprotocol/clientInfo\":{\"name\":\"test-client\",\"version\":\"1.0.0\"}}}}",
-  ) catch {
-    _ => Json::null()
-  }
-  @debug.assert_eq(actual, expected)
-}
-
-///|
-test "build_initialized_notification format" {
-  let notif = build_initialized_notification()
-  let actual = @json.parse(notif) catch { _ => Json::null() }
-  let expected = @json.parse(
-    "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}",
   ) catch {
     _ => Json::null()
   }
@@ -179,18 +111,6 @@ test "build_prompts_get_request format" {
   let actual = @json.parse(req) catch { _ => Json::null() }
   let expected = @json.parse(
     "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"prompts/get\",\"params\":{\"name\":\"my_prompt\",\"arguments\":{\"key\":\"val\"},\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":\"2026-07-28\",\"io.modelcontextprotocol/clientCapabilities\":{},\"io.modelcontextprotocol/clientInfo\":{\"name\":\"test-client\",\"version\":\"1.0.0\"}}}}",
-  ) catch {
-    _ => Json::null()
-  }
-  @debug.assert_eq(actual, expected)
-}
-
-///|
-test "build_set_log_level_request format" {
-  let req = build_set_log_level_request(1, "info")
-  let actual = @json.parse(req) catch { _ => Json::null() }
-  let expected = @json.parse(
-    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"logging/setLevel\",\"params\":{\"level\":\"info\"}}",
   ) catch {
     _ => Json::null()
   }

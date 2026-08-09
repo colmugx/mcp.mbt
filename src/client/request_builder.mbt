@@ -53,35 +53,6 @@ fn build_request_meta(
 }
 
 ///|
-fn build_initialize_request(
-  id : Int,
-  client_name : String,
-  client_version : String,
-  capabilities~ : @types.ClientCapabilities,
-) -> String {
-  Json::object({
-    "jsonrpc": "2.0",
-    "id": id,
-    "method": "initialize",
-    "params": {
-      "protocolVersion": "2025-11-25",
-      "capabilities": client_capabilities_to_json(capabilities),
-      "clientInfo": { "name": client_name, "version": client_version },
-    },
-  }).stringify()
-}
-
-///|
-fn build_initialized_notification() -> String {
-  Json::object({ "jsonrpc": "2.0", "method": "notifications/initialized" }).stringify()
-}
-
-///|
-fn build_ping_request(id : Int) -> String {
-  Json::object({ "jsonrpc": "2.0", "id": id, "method": "ping" }).stringify()
-}
-
-///|
 fn build_tools_list_request(
   id : Int,
   meta : Json,
@@ -191,36 +162,6 @@ fn build_prompts_get_request(
     "id": id,
     "method": "prompts/get",
     "params": { "name": name, "arguments": arguments_json, "_meta": meta },
-  }).stringify()
-}
-
-///|
-fn build_set_log_level_request(id : Int, level : String) -> String {
-  Json::object({
-    "jsonrpc": "2.0",
-    "id": id,
-    "method": "logging/setLevel",
-    "params": { "level": level },
-  }).stringify()
-}
-
-///|
-fn build_resources_subscribe_request(id : Int, uri : String) -> String {
-  Json::object({
-    "jsonrpc": "2.0",
-    "id": id,
-    "method": "resources/subscribe",
-    "params": { "uri": uri },
-  }).stringify()
-}
-
-///|
-fn build_resources_unsubscribe_request(id : Int, uri : String) -> String {
-  Json::object({
-    "jsonrpc": "2.0",
-    "id": id,
-    "method": "resources/unsubscribe",
-    "params": { "uri": uri },
   }).stringify()
 }
 

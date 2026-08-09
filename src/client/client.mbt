@@ -68,14 +68,13 @@ pub async fn MCPClient::connect_http(
   version~ : String,
   auth_token? : String = "",
 ) -> Result[MCPClient, @types.MCPError] {
+  // 2026-07-28 is stateless: no initialize handshake. The client is ready to
+  // send per-request _meta immediately. (Era probing for legacy 2025-11-25
+  // servers lives in the legacy package; modern-only deployments use this.)
   let transport = @transport.AnyTransport::HttpClient(
     @transport.HttpClientTransport::HttpClientTransport(url, auth_token~),
   )
-  let client = MCPClient::MCPClient(name~, version~, transport~)
-  match client.initialize() {
-    Ok(_) => Ok(client)
-    Err(e) => Err(e)
-  }
+  Ok(MCPClient::MCPClient(name~, version~, transport~))
 }
 
 ///|
@@ -97,11 +96,7 @@ pub async fn MCPClient::connect_stdio(
       return Err(@types.InternalError("Stdio start failed: " + e.to_string()))
   }
   let transport = @transport.AnyTransport::StdioClient(stdio)
-  let client = MCPClient::MCPClient(name~, version~, transport~)
-  match client.initialize() {
-    Ok(_) => Ok(client)
-    Err(e) => Err(e)
-  }
+  Ok(MCPClient::MCPClient(name~, version~, transport~))
 }
 
 ///|
@@ -463,61 +458,6 @@ async fn MCPClient::send_notification(
 }
 
 ///|
-pub async fn MCPClient::initialize(
-  self : MCPClient,
-) -> Result[@types.ServerInfo, @types.MCPError] {
-  let id = self.next_request_id()
-  let request = build_initialize_request(
-    id,
-    self.client_name,
-    self.client_version,
-    capabilities=self.capabilities,
-  )
-  let response_str = match self.send_request(request) {
-    Err(e) => return Err(e)
-    Ok(r) => r
-  }
-  let result_json = match parse_jsonrpc_response(response_str) {
-    Err(e) => return Err(e)
-    Ok(r) => r
-  }
-  let server_info = match result_json {
-    Object(result_obj) =>
-      match result_obj.get("serverInfo") {
-        Some(Object(info)) => {
-          let name = match info.get("name") {
-            Some(String(n)) => n
-            _ => "unknown"
-          }
-          let version = match info.get("version") {
-            Some(String(v)) => v
-            _ => "unknown"
-          }
-          ({ name, title: None, version, description: None } : @types.ServerInfo)
-        }
-        _ =>
-          (
-            {
-              name: "unknown",
-              title: None,
-              version: "unknown",
-              description: None,
-            } : @types.ServerInfo)
-      }
-    _ =>
-      (
-        { name: "unknown", title: None, version: "unknown", description: None } :
-        @types.ServerInfo)
-  }
-  let notif = build_initialized_notification()
-  match self.send_notification(notif) {
-    Err(e) => return Err(e)
-    Ok(_) => ()
-  }
-  Ok(server_info)
-}
-
-///|
 /// Query the server's supported versions, capabilities, and identity via
 /// `server/discover` (required by the 2026-07-28 spec). Stores the results
 /// in `server_capabilities` and `server_info` for later use. Optional for
@@ -658,55 +598,6 @@ pub async fn MCPClient::get_prompt(
 }
 
 ///|
-pub async fn MCPClient::ping(self : MCPClient) -> Result[Unit, @types.MCPError] {
-  let id = self.next_request_id()
-  let request = build_ping_request(id)
-  match self.send_request(request) {
-    Err(e) => Err(e)
-    Ok(_) => Ok(())
-  }
-}
-
-///|
-pub async fn MCPClient::set_log_level(
-  self : MCPClient,
-  level : String,
-) -> Result[Unit, @types.MCPError] {
-  let id = self.next_request_id()
-  let request = build_set_log_level_request(id, level)
-  match self.send_request(request) {
-    Err(e) => Err(e)
-    Ok(_) => Ok(())
-  }
-}
-
-///|
-pub async fn MCPClient::subscribe_resource(
-  self : MCPClient,
-  uri : String,
-) -> Result[Unit, @types.MCPError] {
-  let id = self.next_request_id()
-  let request = build_resources_subscribe_request(id, uri)
-  match self.send_request(request) {
-    Err(e) => Err(e)
-    Ok(_) => Ok(())
-  }
-}
-
-///|
-pub async fn MCPClient::unsubscribe_resource(
-  self : MCPClient,
-  uri : String,
-) -> Result[Unit, @types.MCPError] {
-  let id = self.next_request_id()
-  let request = build_resources_unsubscribe_request(id, uri)
-  match self.send_request(request) {
-    Err(e) => Err(e)
-    Ok(_) => Ok(())
-  }
-}
-
-///|
 pub async fn MCPClient::list_resource_templates(
   self : MCPClient,
   cursor? : String = "",
@@ -798,10 +689,7 @@ pub async fn MCPClient::run(
   self : MCPClient,
   group : @async.TaskGroup[Unit],
 ) -> Unit {
-  match self.initialize() {
-    Ok(_) => ()
-    Err(_) => ()
-  }
+  // Stateless 2026-07-28: no initialize handshake before the event loop.
   self.event_loop_started = true
   while true {
     let msg_opt = self.transport.receive() catch { _ => None }

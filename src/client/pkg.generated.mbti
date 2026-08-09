@@ -69,7 +69,6 @@ pub async fn MCPClient::connect_http(url~ : String, name~ : String, version~ : S
 pub async fn MCPClient::connect_stdio(cmd~ : String, args? : Array[String], name~ : String, version~ : String, extra_env? : Map[String, String], group~ : @async.TaskGroup[Unit]) -> Result[Self, @types.MCPError]
 pub async fn MCPClient::discover(Self) -> Result[@types.ServerCapabilities, @types.MCPError]
 pub async fn MCPClient::get_prompt(Self, String, arguments? : String) -> Result[@types.GetPromptResult, @types.MCPError]
-pub async fn MCPClient::initialize(Self) -> Result[@types.ServerInfo, @types.MCPError]
 pub async fn MCPClient::list_prompts(Self, cursor? : String) -> Result[ListPromptsResult, @types.MCPError]
 pub async fn MCPClient::list_resource_templates(Self, cursor? : String) -> Result[ListResourceTemplatesResult, @types.MCPError]
 pub async fn MCPClient::list_resources(Self, cursor? : String) -> Result[ListResourcesResult, @types.MCPError]
@@ -79,12 +78,8 @@ pub fn MCPClient::on_elicitation(Self, (Json) -> Result[@types.ElicitationResult
 pub fn MCPClient::on_notification(Self, NotificationHandlers) -> Self
 pub fn MCPClient::on_roots(Self, () -> Result[Array[@types.Root], @types.MCPError]) -> Self
 pub fn MCPClient::on_sampling(Self, (Json) -> Result[@types.CreateMessageResult, @types.MCPError]) -> Self
-pub async fn MCPClient::ping(Self) -> Result[Unit, @types.MCPError]
 pub async fn MCPClient::read_resource(Self, String) -> Result[ReadResourceResult, @types.MCPError]
 pub async fn MCPClient::run(Self, @async.TaskGroup[Unit]) -> Unit
-pub async fn MCPClient::set_log_level(Self, String) -> Result[Unit, @types.MCPError]
-pub async fn MCPClient::subscribe_resource(Self, String) -> Result[Unit, @types.MCPError]
-pub async fn MCPClient::unsubscribe_resource(Self, String) -> Result[Unit, @types.MCPError]
 
 pub struct MCPHost {
   name : String

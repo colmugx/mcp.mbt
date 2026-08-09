@@ -1,0 +1,10 @@
+import {
+  "colmugx/mcp/protocol/types",
+  "colmugx/mcp/transport",
+  "moonbitlang/core/json",
+  "moonbitlang/async",
+}
+
+import {
+  "moonbitlang/core/debug",
+} for "wbtest"

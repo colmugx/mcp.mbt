@@ -1,0 +1,28 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/mcp/client/legacy"
+
+import {
+  "colmugx/mcp/protocol/types",
+  "colmugx/mcp/transport",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct LegacyClient {
+  client_name : String
+  client_version : String
+  transport : @transport.AnyTransport
+  mut next_id : Int
+  mut server_name : String
+  mut server_version : String
+}
+pub fn LegacyClient::LegacyClient(name~ : String, version~ : String, transport~ : @transport.AnyTransport) -> Self
+pub async fn LegacyClient::initialize(Self) -> Result[@types.ServerInfo, @types.MCPError]
+pub async fn LegacyClient::send_raw(Self, String) -> Result[String, @types.MCPError]
+
+// Type aliases
+
+// Traits
