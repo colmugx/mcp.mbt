@@ -62,7 +62,7 @@ fn MCPClient::MCPClient(
 }
 
 ///|
-pub async fn MCPClient::connect_http(
+pub fn MCPClient::connect_http(
   url~ : String,
   name~ : String,
   version~ : String,
@@ -221,7 +221,7 @@ async fn MCPClient::send_with_mrtr(
 priv struct InputRequiredInfo {
   input_requests : Map[String, (String, Json)] // key -> (method, params)
   request_state : String?
-} derive(Show)
+} derive(Debug)
 
 ///|
 fn MCPClient::check_input_required(
@@ -230,7 +230,7 @@ fn MCPClient::check_input_required(
 ) -> InputRequiredInfo? {
   ignore(self)
   let json = @json.parse(response) catch { _ => return None }
-  if not(json is Object(_)) {
+  if !(json is Object(_)) {
     return None
   }
   let result = if json is Object(obj) {
@@ -273,7 +273,7 @@ fn MCPClient::check_input_required(
 ///|
 /// Fulfill each input request by dispatching to the matching client handler.
 /// Returns a map of key → response JSON (the `inputResponses` field).
-async fn MCPClient::fulfill_input_requests(
+fn MCPClient::fulfill_input_requests(
   self : MCPClient,
   input_requests : Map[String, (String, Json)],
 ) -> Result[Map[String, Json], @types.MCPError] {
@@ -352,14 +352,14 @@ fn build_retry_request(
   request_state : String?,
 ) -> String {
   let orig = @json.parse(original) catch { _ => return original }
-  if not(orig is Object(_)) {
+  if !(orig is Object(_)) {
     return original
   }
   if orig is Object(obj) {
     let params = match obj.get("params") {
       Some(Object(p)) => p
       _ => {
-        let p : Map[String, Json] = {}
+        let p : Map[String, Json] = Map([])
         obj.set("params", Json::object(p))
         p
       }
@@ -911,11 +911,12 @@ fn parse_discover_capabilities(result : Json) -> @types.ServerCapabilities {
         match caps.get("tools") {
           Some(Object(t)) =>
             Some(@types.ToolCapabilities::{
-              list_changed: t
-              .get("listChanged")
-              .unwrap_or(Json::boolean(false))
-              .as_bool()
-              .unwrap_or(false),
+              list_changed: match
+                t.get("listChanged").unwrap_or(Json::boolean(false)) {
+                True => true
+                False => false
+                _ => false
+              },
             })
           _ => None
         }
@@ -931,11 +932,12 @@ fn parse_discover_capabilities(result : Json) -> @types.ServerCapabilities {
           Some(Object(r)) =>
             Some(@types.ResourceCapabilities::{
               subscribe: false,
-              list_changed: r
-              .get("listChanged")
-              .unwrap_or(Json::boolean(false))
-              .as_bool()
-              .unwrap_or(false),
+              list_changed: match
+                r.get("listChanged").unwrap_or(Json::boolean(false)) {
+                True => true
+                False => false
+                _ => false
+              },
             })
           _ => None
         }
@@ -950,11 +952,12 @@ fn parse_discover_capabilities(result : Json) -> @types.ServerCapabilities {
         match caps.get("prompts") {
           Some(Object(p)) =>
             Some(@types.PromptCapabilities::{
-              list_changed: p
-              .get("listChanged")
-              .unwrap_or(Json::boolean(false))
-              .as_bool()
-              .unwrap_or(false),
+              list_changed: match
+                p.get("listChanged").unwrap_or(Json::boolean(false)) {
+                True => true
+                False => false
+                _ => false
+              },
             })
           _ => None
         }

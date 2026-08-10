@@ -90,7 +90,7 @@ fn tag_notification_with_subscription(
     let params = match obj.get("params") {
       Some(Object(p)) => p
       _ => {
-        let p : Map[String, Json] = {}
+        let p : Map[String, Json] = Map([])
         obj.set("params", Json::object(p))
         p
       }
@@ -98,7 +98,7 @@ fn tag_notification_with_subscription(
     let meta = match params.get("_meta") {
       Some(Object(m)) => m
       _ => {
-        let m : Map[String, Json] = {}
+        let m : Map[String, Json] = Map([])
         params.set("_meta", Json::object(m))
         m
       }

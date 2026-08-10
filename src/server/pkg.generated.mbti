@@ -38,6 +38,8 @@ pub struct AesGcmStateCodec {
   key : Bytes
 }
 pub fn AesGcmStateCodec::AesGcmStateCodec() -> Self
+pub fn AesGcmStateCodec::open(Self, String, RequestStateContext, now~ : Int) -> RequestStatePayload?
+pub fn AesGcmStateCodec::seal(Self, RequestStatePayload, now~ : Int) -> String
 pub fn AesGcmStateCodec::with_key(Bytes) -> Self
 
 pub struct MCPServer {

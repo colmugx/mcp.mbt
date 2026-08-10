@@ -90,7 +90,10 @@ async test "subscriptions: notify_tools_list_changed routes to matching stream" 
           obj.get("method"),
           Some(Json::string("notifications/tools/list_changed")),
         )
-        let meta = obj.get("params").unwrap().as_object().unwrap().get("_meta")
+        let meta = match obj.get("params") {
+          Some(Object(params_map)) => params_map.get("_meta")
+          _ => panic()
+        }
         match meta {
           Some(Object(m)) =>
             assert_eq(

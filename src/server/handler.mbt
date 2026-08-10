@@ -11,7 +11,7 @@ fn request_id_to_json(id : @types.RequestId) -> Json {
 ///|
 /// Build the `_meta.io.modelcontextprotocol/serverInfo` value for a response.
 fn server_info_meta(server : MCPServer) -> Json {
-  let info : Map[String, Json] = {}
+  let info : Map[String, Json] = Map([])
   info.set("name", Json::string(server.name))
   info.set("version", Json::string(server.version))
   match server.title {

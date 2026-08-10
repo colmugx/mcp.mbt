@@ -62,7 +62,7 @@ pub async fn LegacyClient::initialize(
 ) -> Result[@types.ServerInfo, @types.MCPError] {
   let id = self.next_request_id()
   // Build the initialize request body for the 2025-11-25 shape.
-  let caps : Map[String, Json] = {}
+  let caps : Map[String, Json] = Map([])
   caps.set("roots", Json::object({ "listChanged": Json::boolean(true) }))
   caps.set("sampling", Json::object({}))
   let request = Json::object({

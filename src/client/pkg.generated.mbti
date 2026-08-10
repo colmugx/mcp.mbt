@@ -65,7 +65,7 @@ pub struct MCPClient {
 pub async fn MCPClient::call_tool(Self, String, arguments? : String) -> Result[CallToolResult, @types.MCPError]
 pub fn MCPClient::close(Self) -> Unit
 pub async fn MCPClient::complete(Self, ref_type~ : String, ref_name~ : String, argument_name~ : String, argument_value~ : String) -> Result[CompletionResult, @types.MCPError]
-pub async fn MCPClient::connect_http(url~ : String, name~ : String, version~ : String, auth_token? : String) -> Result[Self, @types.MCPError]
+pub fn MCPClient::connect_http(url~ : String, name~ : String, version~ : String, auth_token? : String) -> Result[Self, @types.MCPError]
 pub async fn MCPClient::connect_stdio(cmd~ : String, args? : Array[String], name~ : String, version~ : String, extra_env? : Map[String, String], group~ : @async.TaskGroup[Unit]) -> Result[Self, @types.MCPError]
 pub async fn MCPClient::discover(Self) -> Result[@types.ServerCapabilities, @types.MCPError]
 pub async fn MCPClient::get_prompt(Self, String, arguments? : String) -> Result[@types.GetPromptResult, @types.MCPError]
@@ -89,7 +89,7 @@ pub struct MCPHost {
 pub fn MCPHost::MCPHost(name~ : String, version~ : String) -> Self
 pub async fn MCPHost::call_tool(Self, String, arguments? : String) -> Result[CallToolResult, @types.MCPError]
 pub fn MCPHost::close_all(Self) -> Unit
-pub async fn MCPHost::connect_http(Self, name~ : String, url~ : String, auth_token? : String) -> Result[Unit, @types.MCPError]
+pub fn MCPHost::connect_http(Self, name~ : String, url~ : String, auth_token? : String) -> Result[Unit, @types.MCPError]
 pub async fn MCPHost::connect_stdio(Self, name~ : String, cmd~ : String, args? : Array[String], extra_env? : Map[String, String], group~ : @async.TaskGroup[Unit]) -> Result[Unit, @types.MCPError]
 pub async fn MCPHost::list_tools(Self) -> Result[ListToolsResult, @types.MCPError]
 

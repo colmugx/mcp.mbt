@@ -334,7 +334,7 @@ fn HttpTransport::validate_request_headers(
         Some(h) => {
           let body_name = extract_body_string(json, "params", "name")
           let decoded = decode_base64_sentinel(h)
-          if decoded != body_name.or("") {
+          if decoded != body_name.unwrap_or("") {
             return Err(
               header_mismatch_error(
                 "Mcp-Name header does not match body params.name",
@@ -354,7 +354,7 @@ fn HttpTransport::validate_request_headers(
         Some(h) => {
           let body_uri = extract_body_string(json, "params", "uri")
           let decoded = decode_base64_sentinel(h)
-          if decoded != body_uri.or("") {
+          if decoded != body_uri.unwrap_or("") {
             return Err(
               header_mismatch_error(
                 "Mcp-Name header does not match body params.uri",

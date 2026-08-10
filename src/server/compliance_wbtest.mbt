@@ -597,5 +597,5 @@ test "compliance: MissingRequiredClientCapability serializes requiredCapabilitie
 ///|
 test "compliance: HeaderMismatch carries no structured data" {
   let err = @types.HeaderMismatch("Mcp-Name mismatch")
-  assert_true(err.to_error_data().is_empty())
+  assert_true(err.to_error_data() is None)
 }

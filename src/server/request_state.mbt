@@ -125,19 +125,8 @@ impl RequestStateCodec for AesGcmStateCodec with fn seal(
     nonce,
     request_state_aad,
   )
-  // blob = nonce(12) || ciphertext || tag(16), then base64. Build via a
-  // mutable Array[Byte] and convert, since Bytes is immutable on some targets.
-  let blob_arr : Array[Byte] = []
-  for i = 0; i < nonce.length(); i = i + 1 {
-    blob_arr.push(nonce[i])
-  }
-  for i = 0; i < ct.length(); i = i + 1 {
-    blob_arr.push(ct[i])
-  }
-  for i = 0; i < tag.length(); i = i + 1 {
-    blob_arr.push(tag[i])
-  }
-  @mooncry.base64_encode(Bytes::from_array(blob_arr))
+  // blob = nonce(12) || ciphertext || tag(16), then base64.
+  @mooncry.base64_encode(concat_bytes([nonce, ct, tag]))
 }
 
 ///|
@@ -147,29 +136,15 @@ impl RequestStateCodec for AesGcmStateCodec with fn open(
   ctx : RequestStateContext,
   now~ : Int,
 ) -> RequestStatePayload? {
-  // 1. Base64-decode the blob.
-  let raw = @mooncry.base64_decode(blob) catch { _ => return None }
+  let raw = @mooncry.base64_decode(blob)
   // blob = nonce(12) || ciphertext || tag(16); need at least 12+16 bytes.
   if raw.length() < 28 {
     return None
   }
   let ct_len = raw.length() - 28
-  let nonce_arr : Array[Byte] = []
-  for i = 0; i < 12; i = i + 1 {
-    nonce_arr.push(raw[i])
-  }
-  let ct_arr : Array[Byte] = []
-  for i = 0; i < ct_len; i = i + 1 {
-    ct_arr.push(raw[12 + i])
-  }
-  let tag_arr : Array[Byte] = []
-  for i = 0; i < 16; i = i + 1 {
-    tag_arr.push(raw[12 + ct_len + i])
-  }
-  let nonce = Bytes::from_array(nonce_arr)
-  let ct = Bytes::from_array(ct_arr)
-  let tag = Bytes::from_array(tag_arr)
-  // 2. AES-GCM decrypt verifies the tag in constant time; ok=false ⇒ reject.
+  let nonce = slice_bytes(raw, 0, 12)
+  let ct = slice_bytes(raw, 12, ct_len)
+  let tag = slice_bytes(raw, 12 + ct_len, 16)
   let (pt, ok) = @mooncry.aes_gcm_decrypt(
     ct,
     self.key,
@@ -177,34 +152,57 @@ impl RequestStateCodec for AesGcmStateCodec with fn open(
     request_state_aad,
     tag,
   )
-  if not(ok) {
+  if !ok {
     return None
   }
-  // 3. Parse the payload JSON.
   let payload = match parse_payload_json(@utf8.decode_lossy(pt)) {
     Some(p) => p
     None => return None
   }
-  // 4. Replay/integrity checks per spec.
-  // 4a. Principal binding.
+  // Replay/integrity controls per spec §mrtr server-requirements.
   if payload.principal != ctx.principal {
     return None
   }
-  // 4b. Request method binding.
   if payload.request_method != ctx.request_method {
     return None
   }
-  // 4c. Params digest binding.
   let expected_digest = params_digest(ctx.params)
   if payload.params_digest != expected_digest {
     return None
   }
-  // 4d. Expiry (unix seconds). `now` is the caller-supplied server time;
-  // tolerate a small clock skew.
   if now > payload.expires_at + request_state_clock_skew {
     return None
   }
   Some(payload)
+}
+
+///|
+/// Declare `seal`/`open` as explicit methods on `AesGcmStateCodec` so trait
+/// method promotion is not implicitly relied upon (implicit promotion is
+/// deprecated).
+pub extend AesGcmStateCodec with RequestStateCodec::{seal, open}
+
+///|
+/// Concatenate a list of byte slices into a single `Bytes`. Used to assemble
+/// the `nonce || ciphertext || tag` blob without per-element mutation.
+fn concat_bytes(parts : Array[Bytes]) -> Bytes {
+  let arr : Array[Byte] = []
+  for p in parts {
+    for i in 0..<p.length() {
+      arr.push(p[i])
+    }
+  }
+  Bytes::from_array(arr)
+}
+
+///|
+/// Take `len` bytes starting at `start`. Caller ensures the range is in bounds.
+fn slice_bytes(src : Bytes, start : Int, len : Int) -> Bytes {
+  let arr : Array[Byte] = Array::make(len, b'\x00')
+  for i in 0..<len {
+    arr[i] = src[start + i]
+  }
+  Bytes::from_array(arr)
 }
 
 ///|
@@ -236,17 +234,10 @@ fn canonical_json(value : Json) -> String {
           }
         }
       }
-      let mut out = "{"
-      for i = 0; i < pairs.length(); i = i + 1 {
-        if i > 0 {
-          out = out + ","
-        }
-        out = out +
-          json_string_escape(pairs[i].0) +
-          ":" +
-          canonical_json(pairs[i].1)
-      }
-      out + "}"
+      let fields = pairs
+        .map(fn(p) { json_string_escape(p.0) + ":" + canonical_json(p.1) })
+        .join(",")
+      "{" + fields + "}"
     }
     _ => value.stringify()
   }
@@ -295,7 +286,7 @@ fn payload_to_json(payload : RequestStatePayload) -> String {
 /// Parse a payload from JSON. Inverse of `payload_to_json`.
 fn parse_payload_json(s : String) -> RequestStatePayload? {
   let json = @json.parse(s) catch { _ => return None }
-  if not(json is Object(_)) {
+  if !(json is Object(_)) {
     return None
   }
   let principal = get_field(json, "principal")

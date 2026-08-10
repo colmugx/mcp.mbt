@@ -13,7 +13,7 @@ pub fn MCPHost::MCPHost(name~ : String, version~ : String) -> MCPHost {
 }
 
 ///|
-pub async fn MCPHost::connect_http(
+pub fn MCPHost::connect_http(
   self : MCPHost,
   name~ : String,
   url~ : String,

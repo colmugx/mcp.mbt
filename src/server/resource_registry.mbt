@@ -69,7 +69,7 @@ async fn ResourceRegistry::read_resource(
 }
 
 ///|
-fn ResourceRegistry::subscribe(
+pub fn ResourceRegistry::subscribe(
   self : ResourceRegistry,
   uri : String,
 ) -> Result[Unit, @types.MCPError] {
@@ -86,7 +86,7 @@ fn ResourceRegistry::subscribe(
 }
 
 ///|
-fn ResourceRegistry::unsubscribe(
+pub fn ResourceRegistry::unsubscribe(
   self : ResourceRegistry,
   uri : String,
 ) -> Result[Unit, @types.MCPError] {
