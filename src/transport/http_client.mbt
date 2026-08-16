@@ -17,6 +17,22 @@ pub struct HttpClientTransport {
   auth_token : String?
   mut closed : Bool
   pending_responses : @async.Queue[String]
+  /// `x-mcp-header` mirror schemas learned from `tools/list`, keyed by tool
+  /// name. Each entry is (property path from the arguments root, header name
+  /// suffix): on `tools/call`, the value at that path is mirrored into the
+  /// `Mcp-Param-{suffix}` request header per spec §B (SEP-2243).
+  tool_header_schemas : Map[String, Array[(Array[String], String)]]
+}
+
+///|
+/// Install the `x-mcp-header` mirror schema set (called by the client layer
+/// after validating `tools/list` tool definitions). Emission itself is done
+/// by `send` when building `tools/call` request headers.
+pub fn HttpClientTransport::set_tool_header_schemas(
+  self : HttpClientTransport,
+  schemas : Map[String, Array[(Array[String], String)]],
+) -> Unit {
+  schemas.each(fn(k, v) { self.tool_header_schemas.set(k, v) })
 }
 
 ///|
@@ -33,6 +49,7 @@ pub fn HttpClientTransport::HttpClientTransport(
     },
     closed: false,
     pending_responses: @async.Queue(kind=Unbounded),
+    tool_header_schemas: {},
   }
 }
 
@@ -105,8 +122,30 @@ pub async fn HttpClientTransport::send(
     None => ()
   }
   match extract_name_field(message) {
-    Some(n) => headers["Mcp-Name"] = n
+    Some(n) => headers["Mcp-Name"] = encode_header_value(n)
     None => ()
+  }
+  // Emit Mcp-Param-* headers for tools/call when the client layer has
+  // provided x-mcp-header schemas from tools/list.
+  match extract_field(message, "method") {
+    Some("tools/call") =>
+      match extract_name_field(message) {
+        Some(tool_name) =>
+          match self.tool_header_schemas.get(tool_name) {
+            Some(schemas) =>
+              for entry in schemas {
+                let (path, suffix) = entry
+                match extract_argument_value(message, path) {
+                  Some(value) =>
+                    headers["Mcp-Param-" + suffix] = encode_header_value(value)
+                  None => ()
+                }
+              }
+            None => ()
+          }
+        None => ()
+      }
+    _ => ()
   }
   match self.auth_token {
     Some(t) => headers["Authorization"] = "Bearer " + t
@@ -152,10 +191,16 @@ pub async fn HttpClientTransport::send(
     raise @types.Forbidden("HTTP 403 Forbidden — insufficient permissions")
   }
   if response.code >= 400 {
+    // Read the response body so era probes can inspect modern JSON-RPC errors
+    // (UnsupportedProtocolVersion / HeaderMismatch / MissingRequiredClientCapability).
+    let body_str = try {
+      let body = client.read_all()
+      body.text()
+    } catch {
+      _ => ""
+    }
     client.close()
-    raise @types.WriteError(
-      "HTTP " + response.code.to_string() + " " + response.reason,
-    )
+    raise @types.HttpError(response.code, body_str)
   }
   // Determine response mode from Content-Type
   let content_type = match response.headers.get("content-type") {
@@ -197,16 +242,16 @@ pub async fn HttpClientTransport::send(
 
 ///|
 /// Drain the next response message (single JSON or one SSE event) queued by
-/// `send`. Returns None when the queue is empty.
-pub fn HttpClientTransport::receive(self : HttpClientTransport) -> String? {
+/// `send`. Blocks asynchronously until a message is available. Returns `None`
+/// when the transport is closed or the underlying queue is closed/empty.
+pub async fn HttpClientTransport::receive(
+  self : HttpClientTransport,
+) -> String? noraise {
   if self.closed {
     return None
   }
-  let next = self.pending_responses.try_get() catch { _ => None }
-  match next {
-    Some(s) => Some(s)
-    None => None
-  }
+  let result : String? = Some(self.pending_responses.get()) catch { _ => None }
+  result
 }
 
 ///|
@@ -312,4 +357,66 @@ fn extract_name_field(body : String) -> String? {
   } else {
     None
   }
+}
+
+///|
+/// Extract the value at a property path inside `params.arguments` for
+/// `tools/call` requests. Returns `None` when the path is absent or the final
+/// value is `null`. Converts string, safe integer, and boolean values to their
+/// header string representations.
+pub fn extract_argument_value(body : String, path : Array[String]) -> String? {
+  let json = @json.parse(body) catch { _ => return None }
+  if json is Object(obj) {
+    match obj.get("params") {
+      Some(Object(params)) =>
+        match params.get("arguments") {
+          Some(Object(args)) => get_json_path_value(args, path)
+          _ => None
+        }
+      _ => None
+    }
+  } else {
+    None
+  }
+}
+
+///|
+/// Walk a chain of `properties` keys through a JSON object and convert the
+/// final primitive value to its header string form.
+fn get_json_path_value(
+  args : Map[String, Json],
+  path : Array[String],
+) -> String? {
+  let mut current : Json? = Some(Json::object(args))
+  for key in path {
+    current = match current {
+      Some(Object(obj)) => obj.get(key)
+      _ => None
+    }
+  }
+  match current {
+    Some(String(s)) => Some(s)
+    Some(Number(n, ..)) =>
+      if is_safe_integer(n) {
+        Some(n.to_int64().to_string())
+      } else {
+        // Non-integer or out-of-JS-safe-range numbers are not emitted as
+        // headers; the caller treats this as "no value present".
+        None
+      }
+    Some(True) => Some("true")
+    Some(False) => Some("false")
+    Some(Null) | None => None
+    _ => None
+  }
+}
+
+///|
+/// Returns `true` when `n` is an integer within the JavaScript safe integer
+/// range (`-(2^53-1)` to `2^53-1`).
+fn is_safe_integer(n : Double) -> Bool {
+  let i = n.to_int64()
+  let min : Int64 = -9007199254740991L
+  let max : Int64 = 9007199254740991L
+  n == i.to_double() && i >= min && i <= max
 }

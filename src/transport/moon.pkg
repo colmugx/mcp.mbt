@@ -1,5 +1,6 @@
 import {
   "colmugx/mcp/protocol/types",
+  "gmlewis/base64",
   "moonbitlang/core/json",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/async/stdio",
@@ -15,12 +16,5 @@ import {
 } for "test"
 
 options(
-  targets: {
-    "stdio.mbt": [ "native" ],
-    "stdio_client.mbt": [ "native" ],
-    "http_server.mbt": [ "native" ],
-    "http_client.mbt": [ "native" ],
-    "http_compliance_test.mbt": [ "native" ],
-    "unimplemented.mbt": [ "wasm-gc" ],
-  },
+  targets: { "unimplemented.mbt": [ "wasm-gc" ] },
 )

@@ -45,6 +45,7 @@ pub(all) suberror TransportError {
   InvalidState(String)
   Unauthorized(String)
   Forbidden(String)
+  HttpError(Int, String)
 } derive(Eq, @debug.Debug)
 pub impl Show for TransportError
 
@@ -58,6 +59,7 @@ pub(all) struct ClientCapabilities {
   roots : RootCapabilities?
   sampling : SamplingCapabilities?
   elicitation : ElicitationCapabilities?
+  extensions : Map[String, Json]?
 } derive(Eq, @debug.Debug)
 
 pub(all) struct ClientInfo {
@@ -223,6 +225,7 @@ pub(all) struct ServerCapabilities {
   tools : ToolCapabilities?
   resources : ResourceCapabilities?
   prompts : PromptCapabilities?
+  extensions : Map[String, Json]?
 } derive(Eq, @debug.Debug)
 
 pub(all) struct ServerInfo {

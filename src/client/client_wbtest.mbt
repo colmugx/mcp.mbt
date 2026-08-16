@@ -6,6 +6,7 @@ fn test_meta() -> Json {
     roots: None,
     sampling: None,
     elicitation: None,
+    extensions: None,
   })
 }
 
@@ -242,5 +243,195 @@ test "mrtr: build_retry_request attaches inputResponses and requestState with ne
     assert_eq(params.get("requestState"), Some(Json::string("blob")))
   } else {
     panic()
+  }
+}
+
+///|
+test "build_subscriptions_listen_request includes enabled channels only" {
+  let filter = {
+    tools_list_changed: true,
+    prompts_list_changed: false,
+    resources_list_changed: true,
+    resource_subscriptions: [],
+  }
+  let req = build_subscriptions_listen_request(7, test_meta(), filter)
+  let json = @json.parse(req) catch { _ => Json::null() }
+  if json is Object(obj) {
+    assert_eq(obj.get("method"), Some(Json::string("subscriptions/listen")))
+    assert_eq(obj.get("id"), Some(Json::number(7.0)))
+    let params = match obj.get("params") {
+      Some(Object(p)) => p
+      _ => panic()
+    }
+    let notifications = match params.get("notifications") {
+      Some(Array(a)) => a.map(fn(j) { j.stringify() })
+      _ => panic()
+    }
+    @debug.assert_eq(notifications.length(), 2)
+    assert_true(notifications.contains("\"notifications/tools/list_changed\""))
+    assert_true(
+      notifications.contains("\"notifications/resources/list_changed\""),
+    )
+    assert_eq(params.contains("resourceSubscriptions"), false)
+  } else {
+    panic()
+  }
+}
+
+///|
+test "build_subscriptions_listen_request includes resourceSubscriptions when set" {
+  let filter = {
+    tools_list_changed: false,
+    prompts_list_changed: false,
+    resources_list_changed: false,
+    resource_subscriptions: ["file:///a.txt", "file:///b.txt"],
+  }
+  let req = build_subscriptions_listen_request(8, test_meta(), filter)
+  let json = @json.parse(req) catch { _ => Json::null() }
+  if json is Object(obj) {
+    let params = match obj.get("params") {
+      Some(Object(p)) => p
+      _ => panic()
+    }
+    let subs = match params.get("resourceSubscriptions") {
+      Some(Array(a)) => a
+      _ => panic()
+    }
+    @debug.assert_eq(subs.length(), 2)
+    assert_eq(subs[0], Json::string("file:///a.txt"))
+  } else {
+    panic()
+  }
+}
+
+///|
+test "extract_subscription_id accepts Number and String ids" {
+  let number_params = @json.parse(
+    "{\"_meta\":{\"io.modelcontextprotocol/subscriptionId\":42}}",
+  ) catch {
+    _ => panic()
+  }
+  assert_eq(extract_subscription_id(Some(number_params)), Some("42"))
+  let string_params = @json.parse(
+    "{\"_meta\":{\"io.modelcontextprotocol/subscriptionId\":\"sub-abc\"}}",
+  ) catch {
+    _ => panic()
+  }
+  assert_eq(extract_subscription_id(Some(string_params)), Some("sub-abc"))
+  assert_eq(extract_subscription_id(None), None)
+}
+
+///|
+test "set_legacy_mode toggles the legacy_mode field" {
+  let transport = @transport.AnyTransport::Stdio(
+    @transport.StdioTransport::StdioTransport(),
+  )
+  let client = MCPClient::MCPClient(name="t", version="1", transport~)
+  @debug.assert_eq(client.legacy_mode, false)
+  let legacy = client.set_legacy_mode(true)
+  @debug.assert_eq(legacy.legacy_mode, true)
+}
+
+///|
+test "maybe_store_server_info stores serverInfo from result _meta" {
+  let transport = @transport.AnyTransport::Stdio(
+    @transport.StdioTransport::StdioTransport(),
+  )
+  let client = MCPClient::MCPClient(name="t", version="1", transport~)
+  let response = "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"_meta\":{\"io.modelcontextprotocol/serverInfo\":{\"name\":\"test-server\",\"version\":\"2.0\"}}}}"
+  client.maybe_store_server_info(response)
+  match client.server_info {
+    Some(info) => {
+      @debug.assert_eq(info.name, "test-server")
+      @debug.assert_eq(info.version, "2.0")
+    }
+    None => panic()
+  }
+}
+
+///|
+fn schema_with_x_mcp_header(type_ : String, header : String) -> Json {
+  @json.parse(
+    "{\"type\":\"object\",\"properties\":{\"p\":{\"type\":\"" +
+    type_ +
+    "\",\"x-mcp-header\":\"" +
+    header +
+    "\"}}}",
+  ) catch {
+    _ => Json::null()
+  }
+}
+
+///|
+test "x-mcp-header: valid nested properties" {
+  let schema = @json.parse(
+    "{\"type\":\"object\",\"properties\":{\"outer\":{\"type\":\"object\",\"properties\":{\"inner\":{\"type\":\"string\",\"x-mcp-header\":\"X-Custom\"}}}}}",
+  ) catch {
+    _ => Json::null()
+  }
+  match validate_tool_header_schema(schema) {
+    Valid(entries) => {
+      @debug.assert_eq(entries.length(), 1)
+      @debug.assert_eq(entries[0].0, ["outer", "inner"])
+      @debug.assert_eq(entries[0].1, "X-Custom")
+    }
+    Invalid(_) => panic()
+  }
+}
+
+///|
+test "x-mcp-header: rejects invalid token characters" {
+  match
+    validate_tool_header_schema(
+      schema_with_x_mcp_header("string", "Bad Header"),
+    ) {
+    Invalid(_) => ()
+    Valid(_) => panic()
+  }
+}
+
+///|
+test "x-mcp-header: rejects number typed property" {
+  match
+    validate_tool_header_schema(schema_with_x_mcp_header("number", "X-Num")) {
+    Invalid(_) => ()
+    Valid(_) => panic()
+  }
+}
+
+///|
+test "x-mcp-header: rejects annotation under items" {
+  let schema = @json.parse(
+    "{\"type\":\"object\",\"properties\":{\"p\":{\"type\":\"array\",\"items\":{\"type\":\"string\",\"x-mcp-header\":\"X-Bad\"}}}}",
+  ) catch {
+    _ => Json::null()
+  }
+  match validate_tool_header_schema(schema) {
+    Invalid(_) => ()
+    Valid(_) => panic()
+  }
+}
+
+///|
+test "x-mcp-header: rejects case-insensitive duplicate header names" {
+  let schema = @json.parse(
+    "{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"string\",\"x-mcp-header\":\"X-Foo\"},\"b\":{\"type\":\"string\",\"x-mcp-header\":\"x-foo\"}}}",
+  ) catch {
+    _ => Json::null()
+  }
+  match validate_tool_header_schema(schema) {
+    Invalid(_) => ()
+    Valid(_) => panic()
+  }
+}
+
+///|
+test "x-mcp-header: rejects annotation at root schema" {
+  let schema = @json.parse("{\"type\":\"object\",\"x-mcp-header\":\"X-Root\"}") catch {
+    _ => Json::null()
+  }
+  match validate_tool_header_schema(schema) {
+    Invalid(_) => ()
+    Valid(_) => panic()
   }
 }

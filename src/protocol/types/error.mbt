@@ -16,6 +16,11 @@ pub(all) suberror TransportError {
   Unauthorized(String)
   /// HTTP 403 Forbidden — insufficient scope or permissions
   Forbidden(String)
+  /// HTTP error status carrying the response body, so callers (e.g. the
+  /// era probe) can inspect it for a recognized modern JSON-RPC error
+  /// (UnsupportedProtocolVersion / MissingRequiredClientCapability /
+  /// HeaderMismatch) before deciding on a legacy fallback.
+  HttpError(Int, String)
 } derive(Debug, Eq)
 
 ///|
@@ -28,6 +33,8 @@ pub impl Show for TransportError with fn to_string(self) -> String {
     InvalidState(msg) => "Invalid state: " + msg
     Unauthorized(msg) => "Unauthorized: " + msg
     Forbidden(msg) => "Forbidden: " + msg
+    HttpError(status, body) =>
+      "HTTP " + status.to_string() + " error, body: " + body
   }
 }
 

@@ -172,6 +172,111 @@ fn jsonrpc_error_from(id : @types.RequestId, err : @types.MCPError) -> String {
 }
 
 ///|
+/// Extract the protocol version declared in a request's `params._meta`.
+/// Returns `Some(requested_version)` when the field is present, or `None` when
+/// it is missing. A missing version is tolerated; the spec requires rejecting
+/// only explicit mismatches.
+fn extract_protocol_version(params : Json) -> String? {
+  if params is Object(obj) {
+    match obj.get("_meta") {
+      Some(Object(meta)) =>
+        match meta.get("io.modelcontextprotocol/protocolVersion") {
+          Some(String(v)) => Some(v)
+          _ => None
+        }
+      _ => None
+    }
+  } else {
+    None
+  }
+}
+
+///|
+/// Check whether a request declares a protocol version this server does not
+/// implement. Returns the JSON-RPC error response when there is a mismatch, or
+/// `None` when the version is supported or not provided.
+fn check_protocol_version(id : @types.RequestId, params : Json) -> String? {
+  match extract_protocol_version(params) {
+    Some(version) =>
+      if version != @types.ProtocolVersion {
+        Some(
+          jsonrpc_error_from(
+            id,
+            @types.UnsupportedProtocolVersion(
+              "Unsupported protocol version",
+              supported=[@types.ProtocolVersion],
+              requested=version,
+            ),
+          ),
+        )
+      } else {
+        None
+      }
+    None => None
+  }
+}
+
+///|
+/// Extract the set of client capabilities declared in a request's
+/// `params._meta.io.modelcontextprotocol/clientCapabilities`. Keys that are
+/// present in the object count as declared; the value is ignored. A missing or
+/// malformed field is treated as an empty capability set.
+fn extract_client_capabilities(params : Json) -> Map[String, Unit] {
+  let caps : Map[String, Unit] = Default::default()
+  if params is Object(obj) {
+    match obj.get("_meta") {
+      Some(Object(meta)) =>
+        match meta.get("io.modelcontextprotocol/clientCapabilities") {
+          Some(Object(caps_obj)) => caps_obj.each(fn(k, _) { caps.set(k, ()) })
+          _ => ()
+        }
+      _ => ()
+    }
+  }
+  caps
+}
+
+///|
+/// Map an `InputRequestKind` to the client-capability key that authorizes the
+/// server to include it in `inputRequests`.
+fn capability_for_input_request(kind : @types.InputRequestKind) -> String {
+  match kind {
+    @types.ElicitationCreate => "elicitation"
+    @types.SamplingCreateMessage => "sampling"
+    @types.RootsList => "roots"
+  }
+}
+
+///|
+/// Validate that every `inputRequests` entry corresponds to a capability the
+/// client declared in `params._meta.clientCapabilities`. Returns the first
+/// `MissingRequiredClientCapability` error when any are missing; `None`
+/// otherwise.
+fn check_required_capabilities(
+  params : Json,
+  input_requests : Map[String, @types.InputRequestEntry],
+) -> @types.MCPError? {
+  let caps = extract_client_capabilities(params)
+  let missing : Array[String] = []
+  input_requests.each(fn(_key, entry) {
+    let cap = capability_for_input_request(entry.method_name)
+    if !caps.contains(cap) {
+      missing.push(cap)
+    }
+  })
+  if missing.is_empty() {
+    None
+  } else {
+    Some(
+      @types.MissingRequiredClientCapability(
+        "Client did not declare required capability",
+        required=missing,
+      ),
+    )
+  }
+}
+
+///|
 /// Handle `server/discover` — required by the 2026-07-28 spec. Returns the
 /// protocol versions this server supports, its capabilities, and optional
 /// instructions. Server identity is injected into `_meta` by
@@ -392,31 +497,37 @@ async fn handle_tools_call(
           jsonrpc_success_str(server, id, result)
         }
         Ok(@tool.InputRequired(input_requests~, state~)) =>
-          // Tool requested client input via MRTR. Seal the continuation state
-          // into requestState if a codec is configured; otherwise we cannot
-          // safely round-trip state and must error.
-          match server.request_state_codec {
-            Some(codec) => {
-              let now = (server.clock)()
-              let payload : RequestStatePayload = {
-                principal: None,
-                expires_at: now + 300,
-                request_method: "tools/call",
-                params_digest: params_digest(arguments),
-                state,
-              }
-              let blob = codec.seal(payload, now~)
-              jsonrpc_input_required_str(
-                server,
-                id,
-                input_requests,
-                request_state=Some(blob),
-              )
-            }
+          // Tool requested client input via MRTR. First enforce capability
+          // gating: the server MUST NOT ask for inputs the client did not
+          // declare support for.
+          match check_required_capabilities(params, input_requests) {
+            Some(err) => jsonrpc_error_from(id, err)
             None =>
-              jsonrpc_error_str(
-                id, -32603, "Tool requested client input but server has no requestState codec",
-              )
+              // Seal the continuation state into requestState if a codec is
+              // configured; otherwise we cannot safely round-trip state.
+              match server.request_state_codec {
+                Some(codec) => {
+                  let now = (server.clock)()
+                  let payload : RequestStatePayload = {
+                    principal: None,
+                    expires_at: now + 300,
+                    request_method: "tools/call",
+                    params_digest: params_digest(arguments),
+                    state,
+                  }
+                  let blob = codec.seal(payload, now~)
+                  jsonrpc_input_required_str(
+                    server,
+                    id,
+                    input_requests,
+                    request_state=Some(blob),
+                  )
+                }
+                None =>
+                  jsonrpc_error_str(
+                    id, -32603, "Tool requested client input but server has no requestState codec",
+                  )
+              }
           }
         Err(e) => jsonrpc_error_from(id, e)
       }
@@ -451,6 +562,35 @@ fn handle_resources_list(server : MCPServer, id : @types.RequestId) -> String {
 }
 
 ///|
+fn handle_resources_templates_list(
+  server : MCPServer,
+  id : @types.RequestId,
+) -> String {
+  let templates = server.resource_registry.list_templates()
+  let template_jsons = templates.map(fn(template) {
+    let map : Map[String, Json] = Default::default()
+    map.set("uriTemplate", Json::string(template.uri_template))
+    map.set("name", Json::string(template.name))
+    match template.description {
+      Some(desc) => map.set("description", Json::string(desc))
+      None => ()
+    }
+    match template.mime_type {
+      Some(mt) => map.set("mimeType", Json::string(mt))
+      None => ()
+    }
+    Json::object(map)
+  })
+  jsonrpc_cacheable_success_str(
+    server,
+    id,
+    Json::object({ "resourceTemplates": Json::array(template_jsons) }),
+    60000,
+    "public",
+  )
+}
+
+///|
 async fn handle_resources_read(
   server : MCPServer,
   id : @types.RequestId,
@@ -459,9 +599,42 @@ async fn handle_resources_read(
   let uri = extract_json_string(params, "uri")
   match uri {
     None => jsonrpc_error_str(id, -32602, "Missing 'uri' parameter")
-    Some(uri_str) =>
-      match server.resource_registry.read_resource(uri_str) {
-        Ok(read_result) => {
+    Some(uri_str) => {
+      let salient_params = Json::object({ "uri": Json::string(uri_str) })
+      // MRTR retry: the client echoes `requestState` and may provide
+      // `inputResponses`. Verify the blob and expose responses to the handler
+      // via `_mrtr_responses` in the read params.
+      let handler_params = match extract_request_state(params) {
+        Some(blob) => {
+          let codec = match server.request_state_codec {
+            Some(c) => c
+            None =>
+              return jsonrpc_error_str(
+                id, -32603, "Retry carried requestState but server has no codec",
+              )
+          }
+          let _payload = match
+            codec.open(
+              blob,
+              {
+                principal: None,
+                request_method: "resources/read",
+                params: salient_params,
+              },
+              now=(server.clock)(),
+            ) {
+            Some(p) => p
+            None =>
+              return jsonrpc_error_str(
+                id, -32020, "requestState verification failed",
+              )
+          }
+          merge_input_responses(params, extract_input_responses(params))
+        }
+        None => params
+      }
+      match server.resource_registry.read_resource(uri_str, handler_params) {
+        Ok(@resource.Complete(read_result)) => {
           let content_json = match read_result.content {
             @resource.Text(text) =>
               Json::object({ "uri": read_result.uri, "text": text })
@@ -480,8 +653,37 @@ async fn handle_resources_read(
             "private",
           )
         }
+        Ok(@resource.InputRequired(input_requests~, state~)) =>
+          match check_required_capabilities(params, input_requests) {
+            Some(err) => jsonrpc_error_from(id, err)
+            None =>
+              match server.request_state_codec {
+                Some(codec) => {
+                  let now = (server.clock)()
+                  let payload : RequestStatePayload = {
+                    principal: None,
+                    expires_at: now + 300,
+                    request_method: "resources/read",
+                    params_digest: params_digest(salient_params),
+                    state,
+                  }
+                  let blob = codec.seal(payload, now~)
+                  jsonrpc_input_required_str(
+                    server,
+                    id,
+                    input_requests,
+                    request_state=Some(blob),
+                  )
+                }
+                None =>
+                  jsonrpc_error_str(
+                    id, -32603, "Resource requested client input but server has no requestState codec",
+                  )
+              }
+          }
         Err(e) => jsonrpc_error_from(id, e)
       }
+    }
   }
 }
 
@@ -534,9 +736,49 @@ async fn handle_prompts_get(
   let prompt_name = extract_json_string(params, "name")
   match prompt_name {
     None => jsonrpc_error_str(id, -32602, "Missing 'name' parameter")
-    Some(name) =>
-      match server.prompt_registry.get_prompt(name, params) {
-        Ok(prompt_result) => {
+    Some(name) => {
+      let arguments = if params is Object(obj) {
+        obj.get("arguments").unwrap_or(null)
+      } else {
+        null
+      }
+      let salient_params = Json::object({
+        "name": Json::string(name),
+        "arguments": arguments,
+      })
+      // MRTR retry: verify `requestState` and merge `inputResponses` into the
+      // get params under `_mrtr_responses`.
+      let handler_params = match extract_request_state(params) {
+        Some(blob) => {
+          let codec = match server.request_state_codec {
+            Some(c) => c
+            None =>
+              return jsonrpc_error_str(
+                id, -32603, "Retry carried requestState but server has no codec",
+              )
+          }
+          let _payload = match
+            codec.open(
+              blob,
+              {
+                principal: None,
+                request_method: "prompts/get",
+                params: salient_params,
+              },
+              now=(server.clock)(),
+            ) {
+            Some(p) => p
+            None =>
+              return jsonrpc_error_str(
+                id, -32020, "requestState verification failed",
+              )
+          }
+          merge_input_responses(params, extract_input_responses(params))
+        }
+        None => params
+      }
+      match server.prompt_registry.get_prompt(name, handler_params) {
+        Ok(@prompt.Complete(prompt_result)) => {
           let messages_json = prompt_result.messages.map(fn(msg) {
             let content = match msg.content {
               @types.Text(text) =>
@@ -553,7 +795,36 @@ async fn handle_prompts_get(
           result_map.set("messages", Json::array(messages_json))
           jsonrpc_success_str(server, id, Json::object(result_map))
         }
+        Ok(@prompt.InputRequired(input_requests~, state~)) =>
+          match check_required_capabilities(params, input_requests) {
+            Some(err) => jsonrpc_error_from(id, err)
+            None =>
+              match server.request_state_codec {
+                Some(codec) => {
+                  let now = (server.clock)()
+                  let payload : RequestStatePayload = {
+                    principal: None,
+                    expires_at: now + 300,
+                    request_method: "prompts/get",
+                    params_digest: params_digest(salient_params),
+                    state,
+                  }
+                  let blob = codec.seal(payload, now~)
+                  jsonrpc_input_required_str(
+                    server,
+                    id,
+                    input_requests,
+                    request_state=Some(blob),
+                  )
+                }
+                None =>
+                  jsonrpc_error_str(
+                    id, -32603, "Prompt requested client input but server has no requestState codec",
+                  )
+              }
+          }
         Err(e) => jsonrpc_error_from(id, e)
       }
+    }
   }
 }

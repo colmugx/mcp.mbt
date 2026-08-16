@@ -6,6 +6,7 @@ import {
   "moonbitlang/async@0.20.5",
   "cc06b/mooncry@0.13.1",
   "Tigls/mb-getrandom@0.1.0",
+  "gmlewis/base64@0.16.11",
 }
 
 readme = "README.mbt.md"

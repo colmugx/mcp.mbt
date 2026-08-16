@@ -8,9 +8,38 @@ import {
   "moonbitlang/async/io",
   "moonbitlang/async/process",
   "moonbitlang/async/stdio",
+  "moonbitlang/core/debug",
 }
 
 // Values
+pub fn classify_jsonrpc_message(String) -> JsonRpcKind
+
+pub fn decode_base64(String) -> Bytes?
+
+pub fn decode_base64_sentinel(String) -> String?
+
+pub fn encode_base64(Bytes) -> String
+
+pub fn encode_base64_sentinel(String) -> String
+
+pub fn encode_header_value(String) -> String
+
+pub fn extract_argument_value(String, Array[String]) -> String?
+
+pub fn is_header_safe(String) -> Bool
+
+pub fn is_notification(Json) -> Bool
+
+pub fn is_valid_header_characters(String) -> Bool
+
+pub fn jsonrpc_error_code(String) -> Int?
+
+pub fn looks_like_sentinel(String) -> Bool
+
+pub fn sse_event_line(String) -> String
+
+pub fn unsupported_protocol_version_error(String) -> String
+
 pub fn validate_jsonrpc_message(String) -> Result[Unit, @types.MCPError]
 
 // Errors
@@ -43,13 +72,15 @@ pub struct HttpClientTransport {
   auth_token : String?
   mut closed : Bool
   pending_responses : @aqueue.Queue[String]
+  tool_header_schemas : Map[String, Array[(Array[String], String)]]
 }
 pub fn HttpClientTransport::HttpClientTransport(String, auth_token? : String) -> Self
 pub fn HttpClientTransport::close(Self) -> Unit
-pub fn HttpClientTransport::receive(Self) -> String?
+pub async fn HttpClientTransport::receive(Self) -> String? noraise
 pub async fn HttpClientTransport::send(Self, String) -> Unit raise @types.TransportError
 pub fn HttpClientTransport::send_event(Self, event_type~ : String, data~ : String) -> Unit
 pub async fn HttpClientTransport::send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
+pub fn HttpClientTransport::set_tool_header_schemas(Self, Map[String, Array[(Array[String], String)]]) -> Unit
 pub fn HttpClientTransport::supports_streaming(Self) -> Bool
 
 pub struct HttpTransport {
@@ -69,6 +100,12 @@ pub fn HttpTransport::send_notification(Self, @types.Notification) -> Unit
 pub async fn HttpTransport::start(Self) -> Unit raise @types.TransportError
 pub fn HttpTransport::supports_streaming(Self) -> Bool
 pub fn HttpTransport::with_auth(Self, AuthConfig) -> Self
+
+pub(all) enum JsonRpcKind {
+  Notification
+  FinalResponse
+  Other
+} derive(Eq, @debug.Debug)
 
 pub struct StdioClientTransport {
   cmd : String

@@ -17,6 +17,11 @@ pub(all) struct PromptDefinition {
   arguments : Array[@types.PromptArgument]?
 } derive(Eq, @debug.Debug)
 
+pub(all) enum PromptGetOutcome {
+  Complete(@types.GetPromptResult)
+  InputRequired(input_requests~ : Map[String, @types.InputRequestEntry], state~ : Json)
+} derive(Eq, @debug.Debug)
+
 // Type aliases
 
 // Traits
@@ -25,4 +30,11 @@ pub(open) trait Prompt {
   fn description(Self) -> String
   fn arguments(Self) -> Array[@types.PromptArgument]
   async fn get(Self, Json) -> Result[@types.GetPromptResult, @types.MCPError]
+}
+
+pub(open) trait PromptMRTR {
+  fn name(Self) -> String
+  fn description(Self) -> String
+  fn arguments(Self) -> Array[@types.PromptArgument]
+  async fn get(Self, Json) -> Result[PromptGetOutcome, @types.MCPError]
 }

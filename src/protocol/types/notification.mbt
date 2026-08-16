@@ -2,12 +2,6 @@
 
 ///| Based on: MCP Protocol 2026-07-28 specification
 
-///|=====================================================
-
-///| Notification Type
-
-///|=====================================================
-
 ///|
 /// Server notification sent to clients
 /// Follows MCP spec notification format
@@ -15,12 +9,6 @@ pub(all) struct Notification {
   method_name : String
   params : Json?
 } derive(Eq, Debug)
-
-///|=====================================================
-
-///| Notification Capabilities
-
-///|=====================================================
 
 ///|
 /// Server notification capabilities
@@ -30,12 +18,6 @@ pub(all) struct NotificationCapabilities {
   resources_updated : Bool
   prompts_list_changed : Bool
 } derive(Eq, Debug)
-
-///|=====================================================
-
-///| Notification Factory Methods
-
-///|=====================================================
 
 ///|
 /// Create tools list changed notification

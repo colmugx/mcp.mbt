@@ -13,7 +13,7 @@ pub fn MCPHost::MCPHost(name~ : String, version~ : String) -> MCPHost {
 }
 
 ///|
-pub fn MCPHost::connect_http(
+pub async fn MCPHost::connect_http(
   self : MCPHost,
   name~ : String,
   url~ : String,
@@ -104,7 +104,7 @@ pub async fn MCPHost::call_tool(
 }
 
 ///|
-pub fn MCPHost::close_all(self : MCPHost) -> Unit {
+pub async fn MCPHost::close_all(self : MCPHost) -> Unit {
   for entry in self.connections {
     let (_, client) = entry
     client.close()

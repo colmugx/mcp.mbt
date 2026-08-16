@@ -11,6 +11,9 @@
 /// - `@getrandom` — OS entropy for the AES key (once) and each GCM nonce.
 /// - `@mooncry` — AES-256-GCM, SHA-256, Base64.
 ///
+/// The sealed blob is base64url-encoded (RFC 4648 §5, no padding) for
+/// transport safety in JSON strings and URL parameters.
+///
 /// Per spec (basic/patterns/mrtr#server-requirements), the integrity-protected
 /// payload carries: the authenticated principal, a short expiry, and a digest
 /// of the originating request's salient params. `open` verifies all three.
@@ -125,8 +128,8 @@ impl RequestStateCodec for AesGcmStateCodec with fn seal(
     nonce,
     request_state_aad,
   )
-  // blob = nonce(12) || ciphertext || tag(16), then base64.
-  @mooncry.base64_encode(concat_bytes([nonce, ct, tag]))
+  // blob = nonce(12) || ciphertext || tag(16), then base64url.
+  base64url_encode(concat_bytes([nonce, ct, tag]))
 }
 
 ///|
@@ -136,7 +139,7 @@ impl RequestStateCodec for AesGcmStateCodec with fn open(
   ctx : RequestStateContext,
   now~ : Int,
 ) -> RequestStatePayload? {
-  let raw = @mooncry.base64_decode(blob)
+  let raw = base64url_decode(blob)
   // blob = nonce(12) || ciphertext || tag(16); need at least 12+16 bytes.
   if raw.length() < 28 {
     return None
@@ -203,6 +206,21 @@ fn slice_bytes(src : Bytes, start : Int, len : Int) -> Bytes {
     arr[i] = src[start + i]
   }
   Bytes::from_array(arr)
+}
+
+///|
+fn base64url_encode(data : Bytes) -> String {
+  @base64.url_encode2str(
+    FixedArray::makei(data.length(), fn(i) { data[i] }),
+    no_padding=true,
+  )
+}
+
+///|
+fn base64url_decode(encoded : String) -> Bytes {
+  @base64.url_decode2bytes(encoded, no_padding=true) catch {
+    _ => Bytes::from_array([])
+  }
 }
 
 ///|

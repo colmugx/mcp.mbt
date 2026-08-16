@@ -132,6 +132,23 @@ pub fn HttpTransport::supports_streaming(_self : HttpTransport) -> Bool {
 }
 
 ///|
+pub fn HttpTransport::with_auth(
+  self : HttpTransport,
+  _auth : AuthConfig,
+) -> HttpTransport {
+  ignore(self)
+  abort("HttpTransport is not available on wasm-gc target")
+}
+
+///|
+pub async fn HttpTransport::receive_request(
+  self : HttpTransport,
+) -> (String, @async.Queue[String])? raise @types.TransportError {
+  ignore(self)
+  abort("HttpTransport is not available on wasm-gc target")
+}
+
+///|
 pub fn HttpTransport::close(self : HttpTransport) -> Unit {
   abort("HttpTransport is not available on wasm-gc target")
 }
@@ -213,15 +230,28 @@ pub struct HttpClientTransport {
 
 ///|
 pub fn HttpClientTransport::HttpClientTransport(
-  base_url~ : String,
+  base_url : String,
+  auth_token? : String = "",
 ) -> HttpClientTransport {
+  ignore(base_url)
+  ignore(auth_token)
+  abort("HttpClientTransport is not available on wasm-gc target")
+}
+
+///|
+pub fn HttpClientTransport::set_tool_header_schemas(
+  self : HttpClientTransport,
+  _schemas : Map[String, Array[(Array[String], String)]],
+) -> Unit {
+  ignore(self)
   abort("HttpClientTransport is not available on wasm-gc target")
 }
 
 ///|
 pub async fn HttpClientTransport::receive(
   self : HttpClientTransport,
-) -> String? raise @types.TransportError {
+) -> String? noraise {
+  ignore(self)
   abort("HttpClientTransport is not available on wasm-gc target")
 }
 

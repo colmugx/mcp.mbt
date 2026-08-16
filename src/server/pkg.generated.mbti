@@ -57,13 +57,17 @@ pub struct MCPServer {
   subscriptions : Map[String, ActiveSubscription]
 }
 pub fn MCPServer::MCPServer(String, String) -> Self
+pub async fn MCPServer::close_subscription(Self, String) -> Unit
 pub async fn MCPServer::handle_request(Self, String) -> String
 pub async fn MCPServer::notify_prompts_list_changed(Self) -> Unit
 pub async fn MCPServer::notify_resource_updated(Self, String) -> Unit
 pub async fn MCPServer::notify_resources_list_changed(Self) -> Unit
 pub async fn MCPServer::notify_tools_list_changed(Self) -> Unit
 pub fn MCPServer::prompt(Self, String, String, Array[@types.PromptArgument], async (Json) -> Result[@types.GetPromptResult, @types.MCPError]) -> Self
+pub fn MCPServer::prompt_mrtr(Self, String, String, Array[@types.PromptArgument], async (Json) -> Result[@prompt.PromptGetOutcome, @types.MCPError]) -> Self
 pub fn MCPServer::resource(Self, String, String, String, String, async () -> Result[@resource.ResourceReadResult, @types.MCPError]) -> Self
+pub fn MCPServer::resource_mrtr(Self, String, String, String, String, async (Json) -> Result[@resource.ResourceReadOutcome, @types.MCPError]) -> Self
+pub fn MCPServer::resource_template(Self, uri_template~ : String, name~ : String, description? : String, mime_type? : String) -> Self
 pub async fn MCPServer::run_http(Self, port? : Int, path? : String) -> Unit raise @types.TransportError
 pub async fn MCPServer::run_stdio(Self) -> Unit raise @types.TransportError
 pub fn MCPServer::tool(Self, String, String, Json, async (Json) -> Result[@tool.ToolResult, @types.MCPError]) -> Self
@@ -72,8 +76,10 @@ pub fn MCPServer::with_clock(Self, () -> Int) -> Self
 pub fn MCPServer::with_description(Self, String) -> Self
 pub fn MCPServer::with_instructions(Self, String) -> Self
 pub fn[T : @prompt.Prompt] MCPServer::with_prompt(Self, T) -> Self
+pub fn[T : @prompt.PromptMRTR] MCPServer::with_prompt_mrtr(Self, T) -> Self
 pub fn MCPServer::with_request_state_codec(Self, AesGcmStateCodec) -> Self
 pub fn[T : @resource.Resource] MCPServer::with_resource(Self, T) -> Self
+pub fn[T : @resource.ResourceMRTR] MCPServer::with_resource_mrtr(Self, T) -> Self
 pub fn MCPServer::with_title(Self, String) -> Self
 pub fn[T : @tool.Tool] MCPServer::with_tool(Self, T) -> Self
 

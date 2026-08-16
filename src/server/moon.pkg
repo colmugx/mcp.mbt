@@ -11,6 +11,7 @@ import {
   "moonbitlang/async/aqueue",
   "cc06b/mooncry/lib" @mooncry,
   "Tigls/mb-getrandom/lib" @getrandom,
+  "gmlewis/base64",
 }
 
 import {

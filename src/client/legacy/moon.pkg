@@ -2,6 +2,10 @@ import {
   "colmugx/mcp/protocol/types",
   "colmugx/mcp/transport",
   "moonbitlang/core/json",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/async",
+  "moonbitlang/async/http",
+  "moonbitlang/async/io",
 }
 
 import {

@@ -47,3 +47,26 @@ pub(all) struct CompletionResult {
   total : Int?
   has_more : Bool?
 } derive(Debug, Eq)
+
+///|
+/// Filter for a `subscriptions/listen` request. Controls which server
+/// notification channels the client wants multiplexed onto this single
+/// long-lived request.
+pub(all) struct ListenFilter {
+  tools_list_changed : Bool
+  prompts_list_changed : Bool
+  resources_list_changed : Bool
+  resource_subscriptions : Array[String]
+} derive(Debug, Eq)
+
+///|
+/// Default filter: subscribe only to list-change notifications, with no
+/// per-resource subscriptions.
+pub fn ListenFilter::default() -> ListenFilter {
+  {
+    tools_list_changed: true,
+    prompts_list_changed: true,
+    resources_list_changed: true,
+    resource_subscriptions: [],
+  }
+}

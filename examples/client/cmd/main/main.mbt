@@ -1,4 +1,4 @@
-///| MCP Host Example using the high-level v0.14 API.
+///| MCP Host Example using the high-level 2026-07-28 API.
 
 ///|
 async fn main {

@@ -4,6 +4,7 @@ package "colmugx/mcp/client/legacy"
 import {
   "colmugx/mcp/protocol/types",
   "colmugx/mcp/transport",
+  "moonbitlang/async/aqueue",
 }
 
 // Values
@@ -14,14 +15,35 @@ import {
 pub struct LegacyClient {
   client_name : String
   client_version : String
-  transport : @transport.AnyTransport
+  transport : LegacyTransport
   mut next_id : Int
   mut server_name : String
   mut server_version : String
 }
 pub fn LegacyClient::LegacyClient(name~ : String, version~ : String, transport~ : @transport.AnyTransport) -> Self
+pub async fn LegacyClient::close(Self) -> Unit
+pub async fn LegacyClient::connect_http(url~ : String, name~ : String, version~ : String, auth_token? : String) -> Result[Self, @types.MCPError]
 pub async fn LegacyClient::initialize(Self) -> Result[@types.ServerInfo, @types.MCPError]
+pub async fn LegacyClient::ping(Self) -> Result[Unit, @types.MCPError]
 pub async fn LegacyClient::send_raw(Self, String) -> Result[String, @types.MCPError]
+
+pub struct LegacyHttpSessionTransport {
+  base_url : String
+  auth_token : String?
+  mut session_id : String?
+  mut closed : Bool
+  pending_responses : @aqueue.Queue[String]
+}
+pub fn LegacyHttpSessionTransport::LegacyHttpSessionTransport(url~ : String, auth_token? : String) -> Self
+pub async fn LegacyHttpSessionTransport::close(Self) -> Unit
+pub fn LegacyHttpSessionTransport::receive(Self) -> String?
+pub async fn LegacyHttpSessionTransport::send(Self, String) -> Unit raise @types.TransportError
+pub async fn LegacyHttpSessionTransport::send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
+
+pub enum LegacyTransport {
+  Wrapped(@transport.AnyTransport)
+  HttpSession(LegacyHttpSessionTransport)
+}
 
 // Type aliases
 

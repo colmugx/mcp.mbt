@@ -11,7 +11,7 @@ test "ResourceRegistry::ResourceRegistry creates empty registry" {
 ///|
 test "ResourceRegistry::register adds resource entry" {
   let registry = ResourceRegistry::ResourceRegistry()
-  registry.register(
+  registry.register_simple(
     "file:///test.txt",
     "test_resource",
     "Test resource description",
@@ -28,7 +28,7 @@ test "ResourceRegistry::register adds resource entry" {
 ///|
 test "ResourceRegistry::list_resources returns resource definitions" {
   let registry = ResourceRegistry::ResourceRegistry()
-  registry.register(
+  registry.register_simple(
     "file:///test1.txt",
     "resource1",
     "First resource",
@@ -37,7 +37,7 @@ test "ResourceRegistry::list_resources returns resource definitions" {
       Ok({ uri: "file:///test1.txt", content: @resource.Text("content1") })
     },
   )
-  registry.register(
+  registry.register_simple(
     "file:///test2.txt",
     "resource2",
     "Second resource",
@@ -53,7 +53,7 @@ test "ResourceRegistry::list_resources returns resource definitions" {
 ///|
 test "ResourceRegistry::list_resources includes optional fields" {
   let registry = ResourceRegistry::ResourceRegistry()
-  registry.register(
+  registry.register_simple(
     "file:///test.txt",
     "test",
     "Test description",

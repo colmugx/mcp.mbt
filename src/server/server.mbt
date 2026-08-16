@@ -182,6 +182,23 @@ fn MCPServer::register_resource(
   mime_type : String,
   handler : async () -> Result[@resource.ResourceReadResult, @types.MCPError],
 ) -> Unit {
+  self.resource_registry.register_simple(
+    uri, name, description, mime_type, handler,
+  )
+}
+
+///|
+fn MCPServer::register_resource_mrtr(
+  self : MCPServer,
+  uri : String,
+  name : String,
+  description : String,
+  mime_type : String,
+  handler : async (Json) -> Result[
+    @resource.ResourceReadOutcome,
+    @types.MCPError,
+  ],
+) -> Unit {
   self.resource_registry.register(uri, name, description, mime_type, handler)
 }
 
@@ -194,12 +211,31 @@ fn[T : @resource.Resource] MCPServer::register_trait_resource(
 }
 
 ///|
+fn[T : @resource.ResourceMRTR] MCPServer::register_trait_resource_mrtr(
+  self : MCPServer,
+  resource : T,
+) -> Unit {
+  self.resource_registry.register_trait_resource_mrtr(resource)
+}
+
+///|
 fn MCPServer::register_prompt(
   self : MCPServer,
   name : String,
   description : String,
   arguments : Array[@types.PromptArgument],
   handler : async (Json) -> Result[@types.GetPromptResult, @types.MCPError],
+) -> Unit {
+  self.prompt_registry.register_simple(name, description, arguments, handler)
+}
+
+///|
+fn MCPServer::register_prompt_mrtr(
+  self : MCPServer,
+  name : String,
+  description : String,
+  arguments : Array[@types.PromptArgument],
+  handler : async (Json) -> Result[@prompt.PromptGetOutcome, @types.MCPError],
 ) -> Unit {
   self.prompt_registry.register(name, description, arguments, handler)
 }
@@ -210,6 +246,27 @@ fn[T : @prompt.Prompt] MCPServer::register_trait_prompt(
   prompt : T,
 ) -> Unit {
   self.prompt_registry.register_trait_prompt(prompt)
+}
+
+///|
+fn[T : @prompt.PromptMRTR] MCPServer::register_trait_prompt_mrtr(
+  self : MCPServer,
+  prompt : T,
+) -> Unit {
+  self.prompt_registry.register_trait_prompt_mrtr(prompt)
+}
+
+///|
+fn MCPServer::register_resource_template(
+  self : MCPServer,
+  uri_template : String,
+  name : String,
+  description : String?,
+  mime_type : String?,
+) -> Unit {
+  self.resource_registry.register_template(
+    uri_template, name, description, mime_type,
+  )
 }
 
 ///|
@@ -251,6 +308,7 @@ fn is_fast_method(method_name : String) -> Bool {
   method_name == "server/discover" ||
   method_name == "tools/list" ||
   method_name == "resources/list" ||
+  method_name == "resources/templates/list" ||
   method_name == "prompts/list"
 }
 
@@ -273,14 +331,29 @@ async fn MCPServer::handle_parsed_request(
   self : MCPServer,
   request : @types.JsonRpcRequest,
 ) -> String {
+  // Reject unsupported protocol versions early on every request path.
+  match check_protocol_version(request.id, request.params) {
+    Some(error_response) => return error_response
+    None => ()
+  }
   match request.method_name {
     "server/discover" => handle_discover(self, request.id)
     "tools/list" => handle_tools_list(self, request.id)
     "tools/call" => handle_tools_call(self, request.id, request.params)
     "resources/list" => handle_resources_list(self, request.id)
+    "resources/templates/list" =>
+      handle_resources_templates_list(self, request.id)
     "resources/read" => handle_resources_read(self, request.id, request.params)
     "prompts/list" => handle_prompts_list(self, request.id)
     "prompts/get" => handle_prompts_get(self, request.id, request.params)
+    // 2026-07-28 server: `initialize` was removed. Name the supported version
+    // in the error so legacy clients get a clear signal.
+    "initialize" =>
+      jsonrpc_error_str(
+        request.id,
+        -32601,
+        "Method not found: initialize — this server speaks MCP 2026-07-28; supportedVersions: [\"2026-07-28\"]",
+      )
     _ =>
       jsonrpc_error_str(
         request.id,
@@ -464,21 +537,109 @@ pub async fn MCPServer::notify_prompts_list_changed(self : MCPServer) -> Unit {
 }
 
 ///|
+/// Gracefully close an active `subscriptions/listen` stream. Sends an empty
+/// `complete` result carrying `io.modelcontextprotocol/subscriptionId` and
+/// removes the subscription. The caller is responsible for any transport-level
+/// stream teardown beyond removing the subscription.
+pub async fn MCPServer::close_subscription(
+  self : MCPServer,
+  subscription_id : String,
+) -> Unit {
+  match self.subscriptions.get(subscription_id) {
+    Some(sub) => {
+      let result : Map[String, Json] = Default::default()
+      result.set("resultType", Json::string("complete"))
+      result.set(
+        "_meta",
+        Json::object({
+          "io.modelcontextprotocol/subscriptionId": Json::string(
+            subscription_id,
+          ),
+        }),
+      )
+      let id_json = @json.parse(subscription_id) catch { _ => Json::null() }
+      let response = Json::object({
+        "jsonrpc": Json::string("2.0"),
+        "id": id_json,
+        "result": Json::object(result),
+      }).stringify()
+      sub.reply.send(response) catch {
+        _ => ()
+      }
+      self.subscriptions.remove(subscription_id)
+    }
+    None => ()
+  }
+}
+
+///|
+/// Handle inbound notifications (messages with a method but no id).
+/// `notifications/cancelled` is treated specially when its `requestId` matches
+/// an active subscription: it triggers graceful closure of that subscription.
+/// Other notifications are swallowed as required by JSON-RPC 2.0.
+async fn MCPServer::handle_inbound_notification(
+  self : MCPServer,
+  message : String,
+) -> Unit {
+  let json = @json.parse(message) catch { _ => return }
+  if json is Object(obj) {
+    match obj.get("method") {
+      Some(String("notifications/cancelled")) => {
+        let request_id_str = match obj.get("params") {
+          Some(Object(params)) =>
+            match params.get("requestId") {
+              Some(Number(n, ..)) =>
+                Some(@types.RequestId::Int(n.to_int()).to_json_string())
+              Some(String(s)) => Some(@types.RequestId::Str(s).to_json_string())
+              _ => None
+            }
+          _ => None
+        }
+        match request_id_str {
+          Some(id) =>
+            if self.subscriptions.contains(id) {
+              self.close_subscription(id) catch {
+                _ => ()
+              }
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
 async fn MCPServer::handle_server_request(
   self : MCPServer,
   request : ServerRequest,
   group : @async.TaskGroup[Unit],
 ) -> Unit {
   // A message without an `id` is a notification (e.g. stdio
-  // `notifications/cancelled`): the receiver MUST NOT respond, so swallow it
-  // instead of failing parse and echoing an error. Acting on cancellation
-  // (stopping in-flight work) is a follow-up.
+  // `notifications/cancelled`): the receiver MUST NOT respond to the
+  // notification itself. Acting on cancellation (stopping in-flight work)
+  // is a follow-up; here we only close matching subscriptions.
   if is_notification_message(request.message) {
+    self.handle_inbound_notification(request.message) catch {
+      _ => ()
+    }
     return
   }
   match parse_request_message(request.message) {
     Err(response) => request.reply.send(response) catch { _ => () }
-    Ok(parsed_request) =>
+    Ok(parsed_request) => {
+      // Reject unsupported protocol versions before routing. This covers the
+      // stdio/HTTP common path, including subscriptions/listen.
+      match check_protocol_version(parsed_request.id, parsed_request.params) {
+        Some(error_response) => {
+          request.reply.send(error_response) catch {
+            _ => ()
+          }
+          return
+        }
+        None => ()
+      }
       // subscriptions/listen is a long-lived request: it registers a
       // subscription, sends an acknowledgment, and stays open for future
       // notifications. Handle it specially (not via handle_parsed_request,
@@ -506,6 +667,7 @@ async fn MCPServer::handle_server_request(
           }
         })
       }
+    }
   }
 }
 
@@ -655,6 +817,74 @@ pub fn MCPServer::prompt(
   handler : async (Json) -> Result[@types.GetPromptResult, @types.MCPError],
 ) -> MCPServer {
   self.register_prompt(name, description, arguments, handler)
+  self
+}
+
+///|
+/// Register a resource template for `resources/templates/list`. Templates are
+/// URI patterns the server can read; this call only advertises the template.
+pub fn MCPServer::resource_template(
+  self : MCPServer,
+  uri_template~ : String,
+  name~ : String,
+  description? : String = "",
+  mime_type? : String = "",
+) -> MCPServer {
+  let description = if description == "" { None } else { Some(description) }
+  let mime_type = if mime_type == "" { None } else { Some(mime_type) }
+  self.register_resource_template(uri_template, name, description, mime_type)
+  self
+}
+
+///|
+/// MRTR-aware resource registration. The handler receives the full read params
+/// and may return `InputRequired` to ask the client for input before
+/// completing.
+pub fn MCPServer::resource_mrtr(
+  self : MCPServer,
+  uri : String,
+  name : String,
+  description : String,
+  mime_type : String,
+  handler : async (Json) -> Result[
+    @resource.ResourceReadOutcome,
+    @types.MCPError,
+  ],
+) -> MCPServer {
+  self.register_resource_mrtr(uri, name, description, mime_type, handler)
+  self
+}
+
+///|
+pub fn[T : @resource.ResourceMRTR] MCPServer::with_resource_mrtr(
+  self : MCPServer,
+  resource : T,
+) -> MCPServer {
+  self.register_trait_resource_mrtr(resource)
+  self
+}
+
+///|
+/// MRTR-aware prompt registration. The handler receives the full get params
+/// and may return `InputRequired` to ask the client for input before
+/// completing.
+pub fn MCPServer::prompt_mrtr(
+  self : MCPServer,
+  name : String,
+  description : String,
+  arguments : Array[@types.PromptArgument],
+  handler : async (Json) -> Result[@prompt.PromptGetOutcome, @types.MCPError],
+) -> MCPServer {
+  self.register_prompt_mrtr(name, description, arguments, handler)
+  self
+}
+
+///|
+pub fn[T : @prompt.PromptMRTR] MCPServer::with_prompt_mrtr(
+  self : MCPServer,
+  prompt : T,
+) -> MCPServer {
+  self.register_trait_prompt_mrtr(prompt)
   self
 }
 

@@ -12,6 +12,10 @@ pub(all) struct ClientCapabilities {
   roots : RootCapabilities?
   sampling : SamplingCapabilities?
   elicitation : ElicitationCapabilities?
+  /// Optional protocol extensions, per 2026-07-28 versioning: a map of
+  /// extension identifiers (following `_meta` key naming rules) to
+  /// per-extension settings objects.
+  extensions : Map[String, Json]?
 } derive(Debug, Eq)
 
 ///|

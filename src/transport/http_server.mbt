@@ -1,5 +1,5 @@
 ///|
-/// Server-side authentication configuration (MCP spec 2025-11-25).
+/// Server-side authentication configuration (MCP spec 2026-07-28).
 /// Provides Bearer token validation, Protected Resource Metadata,
 /// and Origin header validation for DNS rebinding prevention.
 pub struct AuthConfig {
@@ -83,6 +83,95 @@ fn id_key_from_message(message : String) -> String? {
   } else {
     None
   }
+}
+
+///|
+/// Classification of JSON-RPC messages arriving on the server-side reply
+/// queue. Used to decide whether a POST response is a single JSON object or
+/// an SSE stream.
+pub(all) enum JsonRpcKind {
+  Notification
+  FinalResponse
+  Other
+} derive(Eq, Debug)
+
+///|
+/// Returns `true` when the JSON body is a JSON-RPC notification
+/// (`method` present, `id` absent).
+pub fn is_notification(body : Json) -> Bool {
+  if body is Object(obj) {
+    obj.get("method") is Some(_) && obj.get("id") is None
+  } else {
+    false
+  }
+}
+
+///|
+/// Classify a serialized JSON-RPC message for response-mode selection.
+pub fn classify_jsonrpc_message(message : String) -> JsonRpcKind {
+  let json = @json.parse(message) catch { _ => return Other }
+  if json is Object(obj) {
+    let has_method = obj.get("method") is Some(_)
+    let has_id = obj.get("id") is Some(_)
+    let has_result = obj.get("result") is Some(_)
+    let has_error = obj.get("error") is Some(_)
+    if has_method && !has_id {
+      Notification
+    } else if has_id && (has_result || has_error) {
+      FinalResponse
+    } else {
+      Other
+    }
+  } else {
+    Other
+  }
+}
+
+///|
+/// Extract the JSON-RPC error code from a serialized response, if any.
+pub fn jsonrpc_error_code(message : String) -> Int? {
+  let json = @json.parse(message) catch { _ => return None }
+  if json is Object(obj) {
+    match obj.get("error") {
+      Some(Object(err)) =>
+        match err.get("code") {
+          Some(Number(n, ..)) => Some(n.to_int())
+          _ => None
+        }
+      _ => None
+    }
+  } else {
+    None
+  }
+}
+
+///|
+/// Format a JSON-RPC payload as one SSE event line.
+pub fn sse_event_line(json : String) -> String {
+  "data: " + json + "\n\n"
+}
+
+///|
+/// Build an `UnsupportedProtocolVersion` (-32022) JSON-RPC error response
+/// body. The response has no `id` because the failure is transport-level.
+pub fn unsupported_protocol_version_error(requested : String) -> String {
+  let err = @types.UnsupportedProtocolVersion(
+    "Unsupported protocol version",
+    supported=[@types.ProtocolVersion],
+    requested~,
+  )
+  let data = match err.to_error_data() {
+    Some(d) => d
+    None => null
+  }
+  Json::object({
+    "jsonrpc": Json::string("2.0"),
+    "error": Json::object({
+      "code": Json::number(err.to_error_code().to_double()),
+      "message": Json::string(err.message()),
+      "data": data,
+    }),
+  }).stringify()
 }
 
 ///|
@@ -210,7 +299,9 @@ pub async fn HttpTransport::start(
               return
             }
           }
-        match self.validate_request_headers(req, message) {
+        let parsed = @json.parse(message) catch { _ => null }
+        let is_notif = is_notification(parsed)
+        match self.validate_request_headers(req, message, is_notif~) {
           Err(err_response) => {
             conn.send_response(400, "Bad Request", extra_headers={
               "Content-Type": "application/json",
@@ -224,13 +315,54 @@ pub async fn HttpTransport::start(
         let reply_queue = @async.Queue(kind=Blocking(1))
         try {
           self.pending_requests.put((message, reply_queue))
-          let response = reply_queue.get()
-          conn.send_response(200, "OK", extra_headers={
-            "Content-Type": "application/json",
-            "MCP-Protocol-Version": @types.ProtocolVersion,
-          })
-          conn.write(response)
-          conn.end_response()
+          if is_notif {
+            // JSON-RPC notification: accept and close immediately. The server
+            // handler consumes the queued notification; no reply is expected.
+            conn.send_response(202, "Accepted", extra_headers={
+              "MCP-Protocol-Version": @types.ProtocolVersion,
+            })
+            conn.end_response()
+          } else {
+            // JSON-RPC request: per-request response, either single JSON or
+            // an SSE stream scoped to this request.
+            let first = reply_queue.get()
+            match classify_jsonrpc_message(first) {
+              Notification => {
+                // First message is a notification (e.g., subscriptions/listen
+                // ack or progress). Switch to SSE mode and stream until the
+                // final response arrives.
+                conn.send_response(200, "OK", extra_headers={
+                  "Content-Type": "text/event-stream",
+                  "X-Accel-Buffering": "no",
+                  "MCP-Protocol-Version": @types.ProtocolVersion,
+                })
+                conn.write(sse_event_line(first))
+                while true {
+                  let msg = reply_queue.get()
+                  conn.write(sse_event_line(msg))
+                  if classify_jsonrpc_message(msg) is FinalResponse {
+                    break
+                  }
+                }
+                conn.end_response()
+              }
+              _ => {
+                // Single JSON response. MethodNotFound (-32601) maps to HTTP 404.
+                let status = if jsonrpc_error_code(first) == Some(-32601) {
+                  404
+                } else {
+                  200
+                }
+                let reason = if status == 404 { "Not Found" } else { "OK" }
+                conn.send_response(status, reason, extra_headers={
+                  "Content-Type": "application/json",
+                  "MCP-Protocol-Version": @types.ProtocolVersion,
+                })
+                conn.write(first)
+                conn.end_response()
+              }
+            }
+          }
         } catch {
           _ => {
             conn.send_response(500, "Internal Server Error")
@@ -256,23 +388,26 @@ pub async fn HttpTransport::start(
 /// JSON-RPC error response body) on mismatch, `Ok(())` otherwise.
 ///
 /// Checked per spec §B (Server Validation):
-/// - `MCP-Protocol-Version` present and matches body `_meta.protocolVersion`
-/// - `Mcp-Method` present and matches body `method`
-/// - `Mcp-Name` present for tools/call|resources/read|prompts/get and matches
-///   body `params.name` (or `params.uri` for resources/read)
+/// - `MCP-Protocol-Version` present, equals the server's supported version,
+///   and matches body `_meta.protocolVersion` when present.
+/// - `Mcp-Method` present and matches body `method` for requests.
+/// - `Mcp-Name` present for tools/call|resources/read|prompts/get requests
+///   and matches body `params.name` (or `params.uri` for resources/read).
+/// - `Mcp-Name`/`Mcp-Param-*` values contain only permitted characters or
+///   a valid Base64 sentinel encoding.
 ///
-/// Failures return a `HeaderMismatch` (-32020) error. Base64-sentinel decoding
-/// of `Mcp-Name`/`Mcp-Param-*` is handled when present.
+/// Failures return `HeaderMismatch` (-32020) except for an unsupported
+/// protocol version, which returns `UnsupportedProtocolVersion` (-32022).
 fn HttpTransport::validate_request_headers(
   self : HttpTransport,
   req : @http.Request,
   body : String,
+  is_notif~ : Bool,
 ) -> Result[Unit, String] {
   ignore(self)
   let json = @json.parse(body) catch {
     _ => return Err(header_mismatch_error("malformed JSON body"))
   }
-  // Method
   let body_method = if json is Object(obj) {
     match obj.get("method") {
       Some(String(m)) => m
@@ -281,28 +416,17 @@ fn HttpTransport::validate_request_headers(
   } else {
     ""
   }
-  match req.headers.get("mcp-method") {
-    Some(h) =>
-      if h != body_method {
-        return Err(
-          header_mismatch_error(
-            "Mcp-Method header '" +
-            h +
-            "' does not match body method '" +
-            body_method +
-            "'",
-          ),
-        )
-      }
-    None =>
-      return Err(header_mismatch_error("missing required Mcp-Method header"))
-  }
-  // Protocol version: header must match body _meta value when both present.
+  // Protocol version: header is mandatory and must be the version this
+  // server implements. It must also match the body `_meta` value when both
+  // are present.
   let body_pv = extract_meta_string(
     json, "io.modelcontextprotocol/protocolVersion",
   )
   match req.headers.get("mcp-protocol-version") {
-    Some(h) =>
+    Some(h) => {
+      if h != @types.ProtocolVersion {
+        return Err(unsupported_protocol_version_error(h))
+      }
       match body_pv {
         Some(bpv) =>
           if h != bpv {
@@ -318,56 +442,130 @@ fn HttpTransport::validate_request_headers(
           }
         None => ()
       }
+    }
     None =>
-      // Header required per spec. A server that also supports pre-2025-06-18
-      // clients MAY omit it, but this server mandates it.
       return Err(
         header_mismatch_error("missing required MCP-Protocol-Version header"),
       )
   }
-  // Mcp-Name for the three name-bearing methods.
-  match body_method {
-    "tools/call" | "prompts/get" =>
-      match req.headers.get("mcp-name") {
-        Some(h) => {
-          let body_name = extract_body_string(json, "params", "name")
-          let decoded = decode_base64_sentinel(h)
-          if decoded != body_name.unwrap_or("") {
-            return Err(
-              header_mismatch_error(
-                "Mcp-Name header does not match body params.name",
-              ),
-            )
-          }
-        }
-        None =>
+  // Method header is required only for requests. Notification POSTs do not
+  // carry method-header requirements in this revision of the spec.
+  if !is_notif {
+    match req.headers.get("mcp-method") {
+      Some(h) =>
+        if h != body_method {
           return Err(
             header_mismatch_error(
-              "missing required Mcp-Name header for " + body_method,
+              "Mcp-Method header '" +
+              h +
+              "' does not match body method '" +
+              body_method +
+              "'",
             ),
           )
-      }
-    "resources/read" =>
-      match req.headers.get("mcp-name") {
-        Some(h) => {
-          let body_uri = extract_body_string(json, "params", "uri")
-          let decoded = decode_base64_sentinel(h)
-          if decoded != body_uri.unwrap_or("") {
+        }
+      None =>
+        return Err(header_mismatch_error("missing required Mcp-Method header"))
+    }
+  }
+  // Mcp-Name for the three name-bearing methods (requests only).
+  if !is_notif {
+    match body_method {
+      "tools/call" | "prompts/get" =>
+        match req.headers.get("mcp-name") {
+          Some(h) => {
+            let body_name = extract_body_string(json, "params", "name")
+            match validate_name_header(h, body_name) {
+              Err(e) => return Err(e)
+              Ok(_) => ()
+            }
+          }
+          None =>
             return Err(
               header_mismatch_error(
-                "Mcp-Name header does not match body params.uri",
+                "missing required Mcp-Name header for " + body_method,
               ),
             )
-          }
         }
-        None =>
-          return Err(
-            header_mismatch_error(
-              "missing required Mcp-Name header for resources/read",
-            ),
-          )
+      "resources/read" =>
+        match req.headers.get("mcp-name") {
+          Some(h) => {
+            let body_uri = extract_body_string(json, "params", "uri")
+            match validate_name_header(h, body_uri) {
+              Err(e) => return Err(e)
+              Ok(_) => ()
+            }
+          }
+          None =>
+            return Err(
+              header_mismatch_error(
+                "missing required Mcp-Name header for resources/read",
+              ),
+            )
+        }
+      _ => ()
+    }
+  }
+  // Character-set check for any Mcp-Param-* headers. This server has no
+  // tool-schema awareness, so it cannot compare values against body arguments;
+  // it only rejects header values containing characters outside the safe set
+  // (or a valid Base64 sentinel) per spec §B.
+  for k, v in req.headers {
+    if k.to_lower().has_prefix("mcp-param-") {
+      match validate_header_value_characters(k, v) {
+        Err(e) => return Err(e)
+        Ok(_) => ()
       }
-    _ => ()
+    }
+  }
+  Ok(())
+}
+
+///|
+/// Validate an `Mcp-Name` header value: decode Base64 sentinels, reject
+/// invalid characters in plain values, and compare with the body value.
+fn validate_name_header(
+  header_value : String,
+  body_value : String?,
+) -> Result[Unit, String] {
+  let expected = body_value.unwrap_or("")
+  match decode_base64_sentinel(header_value) {
+    Some(decoded) =>
+      if decoded != expected {
+        return Err(
+          header_mismatch_error("Mcp-Name header does not match body value"),
+        )
+      }
+    None => {
+      if !is_valid_header_characters(header_value) {
+        return Err(
+          header_mismatch_error("Invalid characters in Mcp-Name header"),
+        )
+      }
+      if header_value != expected {
+        return Err(
+          header_mismatch_error("Mcp-Name header does not match body value"),
+        )
+      }
+    }
+  }
+  Ok(())
+}
+
+///|
+/// Reject header values that contain characters outside the permitted HTTP
+/// header value set unless they are encoded as a Base64 sentinel.
+fn validate_header_value_characters(
+  name : String,
+  value : String,
+) -> Result[Unit, String] {
+  if looks_like_sentinel(value) {
+    return Ok(())
+  }
+  if !is_valid_header_characters(value) {
+    return Err(
+      header_mismatch_error("Invalid characters in " + name + " header"),
+    )
   }
   Ok(())
 }
@@ -420,25 +618,6 @@ fn extract_body_string(body : Json, parent : String, child : String) -> String? 
     }
   } else {
     None
-  }
-}
-
-///|
-/// Decode a Base64-sentinel header value (`=?base64?<b64>?=`) back to its
-/// original string. Plain ASCII values pass through unchanged.
-fn decode_base64_sentinel(value : String) -> String {
-  let prefix = "=?base64?"
-  let suffix = "?="
-  if value.has_prefix(prefix) &&
-    value.has_suffix(suffix) &&
-    value.length() > prefix.length() + suffix.length() {
-    // Base64 decoding is not wired in this node; surface the raw encoded
-    // value so a mismatch is detected (fail-closed) rather than silently
-    // accepting divergent values. Full decoding lands with x-mcp-header
-    // support in a later node.
-    value
-  } else {
-    value
   }
 }
 

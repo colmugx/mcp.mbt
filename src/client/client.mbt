@@ -24,6 +24,7 @@ pub struct MCPClient {
   mut server_capabilities : @types.ServerCapabilities?
   mut server_info : @types.ServerInfo?
   notification_handlers : NotificationHandlers
+  subscription_handlers : Map[String, (Json) -> Unit]
   sampling_handler : ((Json) -> Result[
     @types.CreateMessageResult,
     @types.MCPError,
@@ -35,6 +36,8 @@ pub struct MCPClient {
   ])?
   response_map : Map[Int, @aqueue.Queue[String]]
   mut event_loop_started : Bool
+  mut legacy_mode : Bool
+  mut backend : ClientBackend
 }
 
 ///|
@@ -53,28 +56,106 @@ fn MCPClient::MCPClient(
     server_capabilities: None,
     server_info: None,
     notification_handlers: NotificationHandlers::empty(),
+    subscription_handlers: {},
     sampling_handler: None,
     roots_handler: None,
     elicitation_handler: None,
     response_map: {},
     event_loop_started: false,
+    legacy_mode: false,
+    backend: Modern,
   }
 }
 
 ///|
-pub fn MCPClient::connect_http(
+pub async fn MCPClient::connect_http(
   url~ : String,
   name~ : String,
   version~ : String,
   auth_token? : String = "",
 ) -> Result[MCPClient, @types.MCPError] {
-  // 2026-07-28 is stateless: no initialize handshake. The client is ready to
-  // send per-request _meta immediately. (Era probing for legacy 2025-11-25
-  // servers lives in the legacy package; modern-only deployments use this.)
   let transport = @transport.AnyTransport::HttpClient(
     @transport.HttpClientTransport::HttpClientTransport(url, auth_token~),
   )
-  Ok(MCPClient::MCPClient(name~, version~, transport~))
+  let client = MCPClient::MCPClient(name~, version~, transport~)
+  let meta = client.request_meta()
+  let probe = send_discover_probe(transport, meta)
+  match probe {
+    Ok(caps) => {
+      client.server_capabilities = Some(caps)
+      Ok(client)
+    }
+    Err(e) =>
+      match classify_probe_error(e) {
+        ModernError(modern_err) =>
+          // -32022 with supported 2026-07-28: the server is modern but rejected
+          // this specific request, so retry once before giving up.
+          if supported_contains(modern_err, @types.ProtocolVersion) {
+            match send_discover_probe(transport, meta) {
+              Ok(caps) => {
+                client.server_capabilities = Some(caps)
+                Ok(client)
+              }
+              Err(e2) =>
+                match classify_probe_error(e2) {
+                  ModernError(m2) => {
+                    transport.close()
+                    Err(m2)
+                  }
+                  Fatal => {
+                    transport.close()
+                    Err(e2)
+                  }
+                  FallbackLegacy => {
+                    transport.close()
+                    connect_http_legacy(url~, name~, version~, auth_token~)
+                  }
+                }
+            }
+          } else {
+            transport.close()
+            Err(modern_err)
+          }
+        Fatal => {
+          transport.close()
+          Err(e)
+        }
+        FallbackLegacy => {
+          transport.close()
+          connect_http_legacy(url~, name~, version~, auth_token~)
+        }
+      }
+  }
+}
+
+///|
+fn supported_contains(err : @types.MCPError, version : String) -> Bool {
+  match err {
+    @types.UnsupportedProtocolVersion(_, supported~, ..) =>
+      supported.contains(version)
+    _ => false
+  }
+}
+
+///|
+async fn connect_http_legacy(
+  url~ : String,
+  name~ : String,
+  version~ : String,
+  auth_token? : String = "",
+) -> Result[MCPClient, @types.MCPError] {
+  match @legacy.LegacyClient::connect_http(url~, name~, version~, auth_token~) {
+    Ok(legacy) => {
+      let dummy = @transport.AnyTransport::Stdio(
+        @transport.StdioTransport::StdioTransport(),
+      )
+      let client = MCPClient::MCPClient(name~, version~, transport=dummy)
+      client.backend = Legacy(legacy)
+      client.legacy_mode = true
+      Ok(client)
+    }
+    Err(e) => Err(e)
+  }
 }
 
 ///|
@@ -96,7 +177,58 @@ pub async fn MCPClient::connect_stdio(
       return Err(@types.InternalError("Stdio start failed: " + e.to_string()))
   }
   let transport = @transport.AnyTransport::StdioClient(stdio)
-  Ok(MCPClient::MCPClient(name~, version~, transport~))
+  let client = MCPClient::MCPClient(name~, version~, transport~)
+  let meta = client.request_meta()
+  let probe : Result[@types.ServerCapabilities, @types.MCPError]? = Some(
+    @async.with_timeout(3000, async fn() {
+      send_discover_probe(transport, meta)
+    }),
+  ) catch {
+    _ => None
+  }
+  match probe {
+    None => connect_stdio_legacy(name~, version~, transport~)
+    Some(Ok(caps)) => {
+      client.server_capabilities = Some(caps)
+      Ok(client)
+    }
+    Some(Err(e)) =>
+      match classify_probe_error(e) {
+        ModernError(modern_err) => {
+          transport.close()
+          Err(modern_err)
+        }
+        Fatal => {
+          transport.close()
+          Err(e)
+        }
+        FallbackLegacy => connect_stdio_legacy(name~, version~, transport~)
+      }
+  }
+}
+
+///|
+async fn connect_stdio_legacy(
+  name~ : String,
+  version~ : String,
+  transport~ : @transport.AnyTransport,
+) -> Result[MCPClient, @types.MCPError] {
+  let legacy = @legacy.LegacyClient::LegacyClient(name~, version~, transport~)
+  match legacy.initialize() {
+    Ok(_) => {
+      let dummy = @transport.AnyTransport::Stdio(
+        @transport.StdioTransport::StdioTransport(),
+      )
+      let client = MCPClient::MCPClient(name~, version~, transport=dummy)
+      client.backend = Legacy(legacy)
+      client.legacy_mode = true
+      Ok(client)
+    }
+    Err(e) => {
+      transport.close()
+      Err(e)
+    }
+  }
 }
 
 ///|
@@ -105,6 +237,7 @@ fn default_capabilities() -> @types.ClientCapabilities {
     roots: Some({ list_changed: true }),
     sampling: Some(@types.SamplingCapabilities::{  }),
     elicitation: Some({ form: true }),
+    extensions: None,
   }
 }
 
@@ -152,6 +285,7 @@ async fn MCPClient::send_request(
         return Err(@types.InternalError("Response timeout"))
       }
     }
+    self.maybe_store_server_info(response)
     Ok(response)
   } else {
     // Legacy mode: direct send/receive
@@ -163,8 +297,53 @@ async fn MCPClient::send_request(
       e => return Err(@types.InternalError("Receive failed: " + e.to_string()))
     }
     match response {
-      Some(msg) => Ok(msg)
+      Some(msg) => {
+        self.maybe_store_server_info(msg)
+        Ok(msg)
+      }
       None => Err(@types.InternalError("Connection closed"))
+    }
+  }
+}
+
+///|
+/// Send a request through a legacy backend and parse the JSON-RPC result with
+/// `parse`. Legacy requests never use MRTR: input requests are a 2026-07-28
+/// mechanism, and legacy servers rely on server-initiated requests instead.
+async fn[T] legacy_send_and_parse(
+  legacy : @legacy.LegacyClient,
+  request : String,
+  parse : (Json) -> Result[T, @types.MCPError],
+) -> Result[T, @types.MCPError] {
+  match legacy.send_raw(request) {
+    Err(e) => Err(e)
+    Ok(response_str) =>
+      match parse_jsonrpc_response(response_str) {
+        Err(e) => Err(e)
+        Ok(result_json) => parse(result_json)
+      }
+  }
+}
+
+///|
+/// Store `serverInfo` from a JSON-RPC response's `result._meta` if present.
+/// Per migration 2.4 of the 2026-07-28 spec, server identity may ride on any
+/// response, so this is called for every successful response.
+fn MCPClient::maybe_store_server_info(
+  self : MCPClient,
+  response_str : String,
+) -> Unit {
+  let json = @json.parse(response_str) catch { _ => return }
+  if json is Object(obj) {
+    match obj.get("result") {
+      Some(result_json) => {
+        let info = parse_server_info_from_result(result_json)
+        match info {
+          Some(i) => self.server_info = Some(i)
+          None => ()
+        }
+      }
+      None => ()
     }
   }
 }
@@ -434,6 +613,13 @@ pub async fn MCPClient::cancel_request(
   request_id : String,
   reason? : String,
 ) -> Result[Unit, @types.MCPError] {
+  if self.backend is Legacy(_) {
+    return Err(
+      @types.MethodNotFound(
+        "request cancellation is not supported by the legacy fallback client",
+      ),
+    )
+  }
   let notif = match reason {
     Some(r) => @types.cancelled_notification(request_id, reason=r)
     None => @types.cancelled_notification(request_id)
@@ -457,20 +643,44 @@ pub async fn MCPClient::cancel_request(
 pub async fn MCPClient::discover(
   self : MCPClient,
 ) -> Result[@types.ServerCapabilities, @types.MCPError] {
-  let id = self.next_request_id()
-  let request = build_discover_request(id, self.request_meta())
-  match self.send_request(request) {
-    Err(e) => return Err(e)
-    Ok(response_str) =>
-      match parse_jsonrpc_response(response_str) {
-        Err(e) => return Err(e)
-        Ok(result_json) => {
-          let caps = parse_discover_capabilities(result_json)
-          self.server_capabilities = Some(caps)
-          self.server_info = parse_server_info_from_result(result_json)
-          Ok(caps)
-        }
+  match self.backend {
+    Legacy(legacy) => {
+      let id = self.next_request_id()
+      let request = apply_legacy_meta_to_request(
+        build_discover_request(id, self.request_meta()),
+        build_legacy_meta(),
+      )
+      match legacy.send_raw(request) {
+        Err(e) => Err(e)
+        Ok(response_str) =>
+          match parse_jsonrpc_response(response_str) {
+            Err(e) => Err(e)
+            Ok(result_json) => {
+              let caps = parse_discover_capabilities(result_json)
+              self.server_capabilities = Some(caps)
+              self.server_info = parse_server_info_from_result(result_json)
+              Ok(caps)
+            }
+          }
       }
+    }
+    Modern => {
+      let id = self.next_request_id()
+      let request = build_discover_request(id, self.request_meta())
+      match self.send_request(request) {
+        Err(e) => return Err(e)
+        Ok(response_str) =>
+          match parse_jsonrpc_response(response_str) {
+            Err(e) => return Err(e)
+            Ok(result_json) => {
+              let caps = parse_discover_capabilities(result_json)
+              self.server_capabilities = Some(caps)
+              self.server_info = parse_server_info_from_result(result_json)
+              Ok(caps)
+            }
+          }
+      }
+    }
   }
 }
 
@@ -481,12 +691,62 @@ pub async fn MCPClient::list_tools(
 ) -> Result[ListToolsResult, @types.MCPError] {
   let id = self.next_request_id()
   let request = build_tools_list_request(id, self.request_meta(), cursor~)
-  match self.send_request(request) {
-    Err(e) => return Err(e)
-    Ok(response_str) =>
-      match parse_jsonrpc_response(response_str) {
+  match self.backend {
+    Legacy(legacy) => {
+      let legacy_request = apply_legacy_meta_to_request(
+        request,
+        build_legacy_meta(),
+      )
+      legacy_send_and_parse(legacy, legacy_request, parse_tools_list)
+    }
+    Modern =>
+      match self.send_request(request) {
         Err(e) => return Err(e)
-        Ok(result_json) => parse_tools_list(result_json)
+        Ok(response_str) =>
+          match parse_jsonrpc_response(response_str) {
+            Err(e) => return Err(e)
+            Ok(result_json) => {
+              let result = parse_tools_list(result_json)
+              match result {
+                Err(e) => Err(e)
+                Ok(list_result) => {
+                  let valid_tools : Array[@types.ToolDefinition] = []
+                  let header_schemas : Map[
+                    String,
+                    Array[(Array[String], String)],
+                  ] = Default::default()
+                  for tool in list_result.tools {
+                    match validate_tool_header_schema(tool.input_schema) {
+                      Valid(entries) => {
+                        valid_tools.push(tool)
+                        if entries.length() > 0 {
+                          header_schemas.set(tool.name, entries)
+                        }
+                      }
+                      Invalid(reason) =>
+                        println(
+                          "WARN: rejecting tool '" +
+                          tool.name +
+                          "' due to invalid x-mcp-header schema: " +
+                          reason,
+                        )
+                    }
+                  }
+                  // Push validated schemas to the HTTP transport so tools/call can
+                  // mirror parameters as Mcp-Param-* headers.
+                  match self.transport {
+                    @transport.AnyTransport::HttpClient(t) =>
+                      t.set_tool_header_schemas(header_schemas)
+                    _ => ()
+                  }
+                  Ok({
+                    tools: valid_tools,
+                    next_cursor: list_result.next_cursor,
+                  })
+                }
+              }
+            }
+          }
       }
   }
 }
@@ -504,6 +764,14 @@ pub async fn MCPClient::call_tool(
     self.request_meta(),
     arguments~,
   )
+  // Legacy backends: plain send/receive, no MRTR (a 2026-07-28 mechanism).
+  if self.backend is Legacy(legacy) {
+    return legacy_send_and_parse(
+      legacy,
+      apply_legacy_meta_to_request(request, build_legacy_meta()),
+      parse_call_tool,
+    )
+  }
   match self.send_with_mrtr(request) {
     Err(e) => return Err(e)
     Ok(response_str) =>
@@ -521,6 +789,13 @@ pub async fn MCPClient::list_resources(
 ) -> Result[ListResourcesResult, @types.MCPError] {
   let id = self.next_request_id()
   let request = build_resources_list_request(id, self.request_meta(), cursor~)
+  if self.backend is Legacy(legacy) {
+    return legacy_send_and_parse(
+      legacy,
+      apply_legacy_meta_to_request(request, build_legacy_meta()),
+      parse_list_resources,
+    )
+  }
   match self.send_request(request) {
     Err(e) => return Err(e)
     Ok(response_str) =>
@@ -538,6 +813,13 @@ pub async fn MCPClient::read_resource(
 ) -> Result[ReadResourceResult, @types.MCPError] {
   let id = self.next_request_id()
   let request = build_resources_read_request(id, uri, self.request_meta())
+  if self.backend is Legacy(legacy) {
+    return legacy_send_and_parse(
+      legacy,
+      apply_legacy_meta_to_request(request, build_legacy_meta()),
+      parse_read_resource,
+    )
+  }
   match self.send_with_mrtr(request) {
     Err(e) => return Err(e)
     Ok(response_str) =>
@@ -555,6 +837,13 @@ pub async fn MCPClient::list_prompts(
 ) -> Result[ListPromptsResult, @types.MCPError] {
   let id = self.next_request_id()
   let request = build_prompts_list_request(id, self.request_meta(), cursor~)
+  if self.backend is Legacy(legacy) {
+    return legacy_send_and_parse(
+      legacy,
+      apply_legacy_meta_to_request(request, build_legacy_meta()),
+      parse_list_prompts,
+    )
+  }
   match self.send_request(request) {
     Err(e) => return Err(e)
     Ok(response_str) =>
@@ -578,6 +867,13 @@ pub async fn MCPClient::get_prompt(
     self.request_meta(),
     arguments~,
   )
+  if self.backend is Legacy(legacy) {
+    return legacy_send_and_parse(
+      legacy,
+      apply_legacy_meta_to_request(request, build_legacy_meta()),
+      parse_get_prompt,
+    )
+  }
   match self.send_with_mrtr(request) {
     Err(e) => return Err(e)
     Ok(response_str) =>
@@ -599,6 +895,13 @@ pub async fn MCPClient::list_resource_templates(
     self.request_meta(),
     cursor~,
   )
+  if self.backend is Legacy(legacy) {
+    return legacy_send_and_parse(
+      legacy,
+      apply_legacy_meta_to_request(request, build_legacy_meta()),
+      parse_list_resource_templates,
+    )
+  }
   match self.send_request(request) {
     Err(e) => return Err(e)
     Ok(response_str) =>
@@ -626,6 +929,13 @@ pub async fn MCPClient::complete(
     argument_name~,
     argument_value~,
   )
+  if self.backend is Legacy(legacy) {
+    return legacy_send_and_parse(
+      legacy,
+      apply_legacy_meta_to_request(request, build_legacy_meta()),
+      parse_completion_result,
+    )
+  }
   match self.send_request(request) {
     Err(e) => return Err(e)
     Ok(response_str) =>
@@ -637,8 +947,11 @@ pub async fn MCPClient::complete(
 }
 
 ///|
-pub fn MCPClient::close(self : MCPClient) -> Unit {
-  self.transport.close()
+pub async fn MCPClient::close(self : MCPClient) -> Unit {
+  match self.backend {
+    Legacy(legacy) => legacy.close()
+    Modern => self.transport.close()
+  }
 }
 
 /// === Bidirectional event loop ===
@@ -676,10 +989,99 @@ pub fn MCPClient::on_notification(
 }
 
 ///|
+/// Enable or disable legacy mode. When enabled, the event loop accepts
+/// server-initiated requests (2025-11-25 behavior); when disabled (the default),
+/// such requests are rejected with `-32601` per the 2026-07-28 spec.
+pub fn MCPClient::set_legacy_mode(
+  self : MCPClient,
+  enabled : Bool,
+) -> MCPClient {
+  self.legacy_mode = enabled
+  self
+}
+
+///|
+/// Start a `subscriptions/listen` request. Returns the subscription id string
+/// on success. The caller must already have started the event loop via `run`;
+/// otherwise a clear error is returned. Notifications carrying the subscription
+/// id in `params._meta` are routed to `handler` until the server closes the
+/// subscription (the final JSON-RPC response causes a background cleanup task
+/// to unregister the handler).
+pub fn MCPClient::listen(
+  self : MCPClient,
+  filter? : ListenFilter = ListenFilter::default(),
+  handler~ : (Json) -> Unit,
+  group~ : @async.TaskGroup[Unit],
+) -> Result[String, @types.MCPError] {
+  if self.backend is Legacy(_) {
+    return Err(
+      @types.MethodNotFound(
+        "subscriptions/listen is not supported by legacy MCP servers",
+      ),
+    )
+  }
+  if !self.event_loop_started {
+    return Err(
+      @types.InvalidRequest(
+        "event loop not started; call run(...) before listen(...)",
+      ),
+    )
+  }
+  let id = self.next_request_id()
+  let id_str = id.to_string()
+  let request = build_subscriptions_listen_request(
+    id,
+    self.request_meta(),
+    filter,
+  )
+  self.subscription_handlers[id_str] = handler
+  group.spawn_bg(async fn() {
+    let _ = self.send_request(request)
+    self.subscription_handlers.remove(id_str)
+  })
+  Ok(id_str)
+}
+
+///|
+/// Cancel a running `subscriptions/listen` subscription. For stdio transports
+/// this sends a `notifications/cancelled` notification. HTTP transports do not
+/// currently support per-stream cancellation in this SDK, so this returns an
+/// error explaining that limitation.
+pub async fn MCPClient::cancel_listen(
+  self : MCPClient,
+  subscription_id : String,
+) -> Result[Unit, @types.MCPError] {
+  match self.transport {
+    @transport.AnyTransport::StdioClient(_) =>
+      self.cancel_request(
+        subscription_id,
+        reason="client cancelled listen subscription",
+      )
+    @transport.AnyTransport::HttpClient(_) =>
+      Err(
+        @types.InternalError(
+          "HTTP listen cancellation is not yet supported; cancel by closing the SSE stream (TODO)",
+        ),
+      )
+    _ =>
+      Err(
+        @types.InternalError(
+          "listen cancellation not supported for this transport",
+        ),
+      )
+  }
+}
+
+///|
 pub async fn MCPClient::run(
   self : MCPClient,
   group : @async.TaskGroup[Unit],
 ) -> Unit {
+  // Legacy backends use a direct request/response loop; the modern event loop
+  // is not started for them.
+  if self.backend is Legacy(_) {
+    return
+  }
   // Stateless 2026-07-28: no initialize handshake before the event loop.
   self.event_loop_started = true
   while true {
@@ -694,7 +1096,22 @@ pub async fn MCPClient::run(
         match json {
           Object(obj) =>
             if obj.get("method") is Some(_) && obj.get("id") is Some(_) {
-              self.handle_server_request(obj, group)
+              // Stateless 2026-07-28: server-initiated requests are removed.
+              // Legacy mode still accepts them for interop with 2025-11-25 servers.
+              if self.legacy_mode {
+                self.handle_server_request(obj, group)
+              } else {
+                let id_json = match obj.get("id") {
+                  Some(Number(n, ..)) => Json::number(n)
+                  Some(String(s)) => Json::string(s)
+                  _ => Json::null()
+                }
+                let response = jsonrpc_error_str(
+                  id_json, -32601, "method not found: server-initiated requests were removed in MCP 2026-07-28, use MRTR inputRequests",
+                )
+                let transport = self.transport
+                group.spawn_bg(() => transport.send(response) catch { _ => () })
+              }
             } else if obj.get("method") is Some(_) {
               let notif : @types.Notification = {
                 method_name: match obj.get("method") {
@@ -703,7 +1120,20 @@ pub async fn MCPClient::run(
                 },
                 params: obj.get("params"),
               }
-              handle_server_notification(self.notification_handlers, notif)
+              match extract_subscription_id(notif.params) {
+                Some(sub_id) =>
+                  match self.subscription_handlers.get(sub_id) {
+                    Some(handler) =>
+                      handler(notif.params.unwrap_or(Json::null()))
+                    None =>
+                      handle_server_notification(
+                        self.notification_handlers,
+                        notif,
+                      )
+                  }
+                None =>
+                  handle_server_notification(self.notification_handlers, notif)
+              }
             } else if obj.get("id") is Some(_) {
               self.dispatch_response(message, obj)
             } else {
@@ -838,6 +1268,28 @@ fn MCPClient::handle_server_request(
 /// === JSON parsing helpers ===
 
 ///|
+
+///|
+/// Extract a subscription id from notification `params._meta`. Accepts both
+/// Number and String values and normalizes to a String so it matches the keys
+/// used in `subscription_handlers`.
+fn extract_subscription_id(params : Json?) -> String? {
+  match params {
+    Some(Object(obj)) =>
+      match obj.get("_meta") {
+        Some(Object(meta)) =>
+          match meta.get("io.modelcontextprotocol/subscriptionId") {
+            Some(Number(n, ..)) => Some(n.to_int().to_string())
+            Some(String(s)) => Some(s)
+            _ => None
+          }
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
 fn parse_jsonrpc_response(
   response_str : String,
 ) -> Result[Json, @types.MCPError] {
@@ -957,7 +1409,23 @@ fn parse_discover_capabilities(result : Json) -> @types.ServerCapabilities {
   } else {
     None
   }
-  { tools, resources, prompts }
+  let extensions = if result is Object(obj) {
+    match obj.get("capabilities") {
+      Some(Object(caps)) =>
+        match caps.get("extensions") {
+          Some(Object(ext)) => {
+            let ext_map : Map[String, Json] = Default::default()
+            ext.each(fn(k, v) { ext_map.set(k, v) })
+            Some(ext_map)
+          }
+          _ => None
+        }
+      _ => None
+    }
+  } else {
+    None
+  }
+  { tools, resources, prompts, extensions }
 }
 
 ///|

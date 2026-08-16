@@ -2,6 +2,7 @@
 package "colmugx/mcp/client"
 
 import {
+  "colmugx/mcp/client/legacy",
   "colmugx/mcp/protocol/prompt",
   "colmugx/mcp/protocol/resource",
   "colmugx/mcp/protocol/types",
@@ -20,6 +21,11 @@ pub(all) struct CallToolResult {
   content : Array[@types.ContentItem]
   is_error : Bool
 } derive(Eq, @debug.Debug)
+
+pub enum ClientBackend {
+  Modern
+  Legacy(@legacy.LegacyClient)
+}
 
 pub(all) struct CompletionResult {
   values : Array[String]
@@ -47,6 +53,14 @@ pub(all) struct ListToolsResult {
   next_cursor : String?
 } derive(Eq, @debug.Debug)
 
+pub(all) struct ListenFilter {
+  tools_list_changed : Bool
+  prompts_list_changed : Bool
+  resources_list_changed : Bool
+  resource_subscriptions : Array[String]
+} derive(Eq, @debug.Debug)
+pub fn ListenFilter::default() -> Self
+
 pub struct MCPClient {
   client_name : String
   client_version : String
@@ -56,17 +70,21 @@ pub struct MCPClient {
   mut server_capabilities : @types.ServerCapabilities?
   mut server_info : @types.ServerInfo?
   notification_handlers : NotificationHandlers
+  subscription_handlers : Map[String, (Json) -> Unit]
   sampling_handler : ((Json) -> Result[@types.CreateMessageResult, @types.MCPError])?
   roots_handler : (() -> Result[Array[@types.Root], @types.MCPError])?
   elicitation_handler : ((Json) -> Result[@types.ElicitationResult, @types.MCPError])?
   response_map : Map[Int, @aqueue.Queue[String]]
   mut event_loop_started : Bool
+  mut legacy_mode : Bool
+  mut backend : ClientBackend
 }
 pub async fn MCPClient::call_tool(Self, String, arguments? : String) -> Result[CallToolResult, @types.MCPError]
+pub async fn MCPClient::cancel_listen(Self, String) -> Result[Unit, @types.MCPError]
 pub async fn MCPClient::cancel_request(Self, String, reason? : String) -> Result[Unit, @types.MCPError]
-pub fn MCPClient::close(Self) -> Unit
+pub async fn MCPClient::close(Self) -> Unit
 pub async fn MCPClient::complete(Self, ref_type~ : String, ref_name~ : String, argument_name~ : String, argument_value~ : String) -> Result[CompletionResult, @types.MCPError]
-pub fn MCPClient::connect_http(url~ : String, name~ : String, version~ : String, auth_token? : String) -> Result[Self, @types.MCPError]
+pub async fn MCPClient::connect_http(url~ : String, name~ : String, version~ : String, auth_token? : String) -> Result[Self, @types.MCPError]
 pub async fn MCPClient::connect_stdio(cmd~ : String, args? : Array[String], name~ : String, version~ : String, extra_env? : Map[String, String], group~ : @async.TaskGroup[Unit]) -> Result[Self, @types.MCPError]
 pub async fn MCPClient::discover(Self) -> Result[@types.ServerCapabilities, @types.MCPError]
 pub async fn MCPClient::get_prompt(Self, String, arguments? : String) -> Result[@types.GetPromptResult, @types.MCPError]
@@ -74,6 +92,7 @@ pub async fn MCPClient::list_prompts(Self, cursor? : String) -> Result[ListPromp
 pub async fn MCPClient::list_resource_templates(Self, cursor? : String) -> Result[ListResourceTemplatesResult, @types.MCPError]
 pub async fn MCPClient::list_resources(Self, cursor? : String) -> Result[ListResourcesResult, @types.MCPError]
 pub async fn MCPClient::list_tools(Self, cursor? : String) -> Result[ListToolsResult, @types.MCPError]
+pub fn MCPClient::listen(Self, filter? : ListenFilter, handler~ : (Json) -> Unit, group~ : @async.TaskGroup[Unit]) -> Result[String, @types.MCPError]
 pub fn MCPClient::next_request_id(Self) -> Int
 pub fn MCPClient::on_elicitation(Self, (Json) -> Result[@types.ElicitationResult, @types.MCPError]) -> Self
 pub fn MCPClient::on_notification(Self, NotificationHandlers) -> Self
@@ -81,6 +100,7 @@ pub fn MCPClient::on_roots(Self, () -> Result[Array[@types.Root], @types.MCPErro
 pub fn MCPClient::on_sampling(Self, (Json) -> Result[@types.CreateMessageResult, @types.MCPError]) -> Self
 pub async fn MCPClient::read_resource(Self, String) -> Result[ReadResourceResult, @types.MCPError]
 pub async fn MCPClient::run(Self, @async.TaskGroup[Unit]) -> Unit
+pub fn MCPClient::set_legacy_mode(Self, Bool) -> Self
 
 pub struct MCPHost {
   name : String
@@ -89,8 +109,8 @@ pub struct MCPHost {
 }
 pub fn MCPHost::MCPHost(name~ : String, version~ : String) -> Self
 pub async fn MCPHost::call_tool(Self, String, arguments? : String) -> Result[CallToolResult, @types.MCPError]
-pub fn MCPHost::close_all(Self) -> Unit
-pub fn MCPHost::connect_http(Self, name~ : String, url~ : String, auth_token? : String) -> Result[Unit, @types.MCPError]
+pub async fn MCPHost::close_all(Self) -> Unit
+pub async fn MCPHost::connect_http(Self, name~ : String, url~ : String, auth_token? : String) -> Result[Unit, @types.MCPError]
 pub async fn MCPHost::connect_stdio(Self, name~ : String, cmd~ : String, args? : Array[String], extra_env? : Map[String, String], group~ : @async.TaskGroup[Unit]) -> Result[Unit, @types.MCPError]
 pub async fn MCPHost::list_tools(Self) -> Result[ListToolsResult, @types.MCPError]
 

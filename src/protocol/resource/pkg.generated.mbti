@@ -23,9 +23,21 @@ pub(all) struct ResourceDefinition {
   mime_type : String?
 } derive(Eq, @debug.Debug)
 
+pub(all) enum ResourceReadOutcome {
+  Complete(ResourceReadResult)
+  InputRequired(input_requests~ : Map[String, @types.InputRequestEntry], state~ : Json)
+} derive(Eq, @debug.Debug)
+
 pub(all) struct ResourceReadResult {
   uri : String
   content : ResourceContent
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ResourceTemplateDefinition {
+  uri_template : String
+  name : String
+  description : String?
+  mime_type : String?
 } derive(Eq, @debug.Debug)
 
 // Type aliases
@@ -37,4 +49,12 @@ pub(open) trait Resource {
   fn uri(Self) -> String
   fn mime_type(Self) -> String
   async fn read(Self) -> Result[ResourceReadResult, @types.MCPError]
+}
+
+pub(open) trait ResourceMRTR {
+  fn name(Self) -> String
+  fn description(Self) -> String
+  fn uri(Self) -> String
+  fn mime_type(Self) -> String
+  async fn read(Self, Json) -> Result[ResourceReadOutcome, @types.MCPError]
 }

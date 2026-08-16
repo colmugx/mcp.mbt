@@ -39,19 +39,17 @@ fn ToolRegistry::register(
 fn ToolRegistry::list_tools(
   self : ToolRegistry,
 ) -> Array[@types.ToolDefinition] {
-  Array::from_iter(
-    self.tools
-    .values()
-    .map(fn(entry) {
-      {
-        name: entry.name,
-        description: entry.description,
-        input_schema: entry.input_schema,
-        cached_schema_json: entry.cached_schema_json,
-        icon: None,
-      }
-    }),
-  )
+  let entries : Array[ToolEntry] = Array::from_iter(self.tools.values())
+  entries.sort_by(fn(a, b) { a.name.compare(b.name) })
+  entries.map(fn(entry) {
+    {
+      name: entry.name,
+      description: entry.description,
+      input_schema: entry.input_schema,
+      cached_schema_json: entry.cached_schema_json,
+      icon: None,
+    }
+  })
 }
 
 ///|

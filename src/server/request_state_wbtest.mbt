@@ -175,3 +175,37 @@ test "requestState: anonymous principal round-trips" {
     None => panic()
   }
 }
+
+///|
+test "requestState: blob is base64url without standard padding" {
+  let codec = AesGcmStateCodec::with_key(fixed_key())
+  let payload : RequestStatePayload = {
+    principal: None,
+    expires_at: future_expiry(),
+    request_method: "tools/call",
+    params_digest: params_digest(Json::object({})),
+    state: Json::object({}),
+  }
+  let blob = codec.seal(payload, now=test_now)
+  assert_true(!blob.contains("+"))
+  assert_true(!blob.contains("/"))
+  assert_true(!blob.contains("="))
+}
+
+///|
+test "requestState: base64url round-trip preserves raw bytes" {
+  let raw = Bytes::from_array([b'\xfb', b'\xff', b'\x00', b'\x01', b'\xfe'])
+  let encoded = base64url_encode(raw)
+  let decoded = base64url_decode(encoded)
+  assert_eq(decoded, raw)
+}
+
+///|
+test "requestState: base64url tampered character is rejected" {
+  let raw = Bytes::from_array([b'\x00', b'\x01', b'\x02', b'\x03'])
+  let encoded = base64url_encode(raw)
+  // Flip a base64url character to an unrelated valid alphabet char.
+  let tampered = encoded.replace(old="A", new="B")
+  let decoded = base64url_decode(tampered)
+  assert_true(decoded != raw)
+}

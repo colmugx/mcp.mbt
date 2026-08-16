@@ -4,7 +4,7 @@
 
 ///| Tests that verify the SDK's JSON-RPC responses conform to the
 
-///| MCP 2025-11-25 specification.
+///| MCP 2026-07-28 specification.
 
 ///|
 /// Helper: parse a JSON string and extract field as string
@@ -737,4 +737,493 @@ test "compliance: inbound notification is routed away from the request path" {
   )
   // Malformed JSON is not treated as a notification.
   assert_false(is_notification_message("not json"))
+}
+
+///|
+fn json_field_int(json : Json, field : String) -> Int {
+  if json is Object(obj) {
+    match obj.get(field) {
+      Some(Number(n, ..)) => n.to_int()
+      _ => panic()
+    }
+  } else {
+    panic()
+  }
+}
+
+///|
+async test "compliance: unsupported protocol version returns -32022 with data" {
+  let server = MCPServer::MCPServer("test", "1.0.0")
+  let request = Json::object({
+    "jsonrpc": Json::string("2.0"),
+    "id": Json::number(1.0),
+    "method": Json::string("tools/list"),
+    "params": Json::object({
+      "_meta": Json::object({
+        "io.modelcontextprotocol/protocolVersion": Json::string("2025-11-25"),
+      }),
+    }),
+  }).stringify()
+  let response = server.handle_request(request) catch { _ => panic() }
+  let json = @json.parse(response) catch { _ => panic() }
+  let err = json_get(json, "error")
+  assert_eq(json_field_int(err, "code"), -32022)
+  let data = json_get(err, "data")
+  assert_eq(json_field_str(data, "requested"), "2025-11-25")
+  let supported = json_get(data, "supported")
+  if supported is Array(arr) {
+    assert_eq(arr.length(), 1)
+    assert_eq(arr[0], Json::string("2026-07-28"))
+  } else {
+    panic()
+  }
+}
+
+///|
+async test "compliance: missing protocol version is tolerated" {
+  let server = MCPServer::MCPServer("test", "1.0.0")
+  let request = Json::object({
+    "jsonrpc": Json::string("2.0"),
+    "id": Json::number(1.0),
+    "method": Json::string("tools/list"),
+    "params": Json::object({}),
+  }).stringify()
+  let response = server.handle_request(request) catch { _ => panic() }
+  let json = @json.parse(response) catch { _ => panic() }
+  assert_true(json_has(json, "result"))
+}
+
+///|
+async test "compliance: undeclared elicitation capability returns -32021" {
+  let server = MCPServer::MCPServer("test", "1.0.0").with_request_state_codec(
+    AesGcmStateCodec::with_key(Bytes::make(32, b'\x42')),
+  )
+  let reqs : Map[String, @types.InputRequestEntry] = Default::default()
+  reqs.set("login", {
+    method_name: @types.InputRequestKind::ElicitationCreate,
+    params: Json::object({ "message": Json::string("Login") }),
+  })
+  server.register_tool(
+    "gate",
+    "Gated tool",
+    Json::object({ "type": "object" }),
+    fn(_args) {
+      Ok(
+        @tool.ToolCallOutcome::InputRequired(
+          input_requests=reqs,
+          state=Json::object({}),
+        ),
+      )
+    },
+  )
+  let params = Json::object({
+    "name": Json::string("gate"),
+    "arguments": Json::object({}),
+  })
+  let response = handle_tools_call(server, @types.RequestId::Int(1), params) catch {
+    _ => panic()
+  }
+  let resp_json = @json.parse(response) catch { _ => panic() }
+  let err = json_get(resp_json, "error")
+  assert_eq(json_field_int(err, "code"), -32021)
+  let required = json_get(json_get(err, "data"), "requiredCapabilities")
+  if required is Array(arr) {
+    assert_eq(arr.length(), 1)
+    assert_eq(arr[0], Json::string("elicitation"))
+  } else {
+    panic()
+  }
+}
+
+///|
+async test "compliance: declared elicitation capability allows input_required" {
+  let server = MCPServer::MCPServer("test", "1.0.0")
+    .with_request_state_codec(
+      AesGcmStateCodec::with_key(Bytes::make(32, b'\x42')),
+    )
+    .with_clock(fn() { 1_700_000_000 })
+  let reqs : Map[String, @types.InputRequestEntry] = Default::default()
+  reqs.set("login", {
+    method_name: @types.InputRequestKind::ElicitationCreate,
+    params: Json::object({ "message": Json::string("Login") }),
+  })
+  server.register_tool(
+    "gate",
+    "Gated tool",
+    Json::object({ "type": "object" }),
+    fn(_args) {
+      Ok(
+        @tool.ToolCallOutcome::InputRequired(
+          input_requests=reqs,
+          state=Json::object({}),
+        ),
+      )
+    },
+  )
+  let params = Json::object({
+    "name": Json::string("gate"),
+    "arguments": Json::object({}),
+    "_meta": Json::object({
+      "io.modelcontextprotocol/clientCapabilities": Json::object({
+        "elicitation": Json::boolean(true),
+      }),
+    }),
+  })
+  let response = handle_tools_call(server, @types.RequestId::Int(1), params) catch {
+    _ => panic()
+  }
+  let result = parse_result(response)
+  assert_eq(json_field_str(result, "resultType"), "input_required")
+  assert_true(json_has(result, "requestState"))
+}
+
+///|
+async test "mrtr: resources/read input_required → retry → complete" {
+  let server = MCPServer::MCPServer("test", "1.0.0")
+    .with_request_state_codec(
+      AesGcmStateCodec::with_key(Bytes::make(32, b'\x42')),
+    )
+    .with_clock(fn() { 1_700_000_000 })
+    .resource_mrtr("memo://1", "Memo", "A memo resource", "text/plain", fn(
+      params,
+    ) {
+      if params is Object(obj) {
+        match obj.get("_mrtr_responses") {
+          Some(Object(responses)) =>
+            if responses.get("login") is Some(_) {
+              Ok(
+                @resource.ResourceReadOutcome::Complete({
+                  uri: "memo://1",
+                  content: @resource.Text("unlocked"),
+                }),
+              )
+            } else {
+              Ok(
+                @resource.ResourceReadOutcome::Complete({
+                  uri: "memo://1",
+                  content: @resource.Text("missing"),
+                }),
+              )
+            }
+          _ => {
+            let reqs : Map[String, @types.InputRequestEntry] = Default::default()
+            reqs.set("login", {
+              method_name: @types.InputRequestKind::ElicitationCreate,
+              params: Json::object({ "message": Json::string("Confirm") }),
+            })
+            Ok(
+              @resource.ResourceReadOutcome::InputRequired(
+                input_requests=reqs,
+                state=Json::object({}),
+              ),
+            )
+          }
+        }
+      } else {
+        Ok(
+          @resource.ResourceReadOutcome::Complete({
+            uri: "memo://1",
+            content: @resource.Text("bad-params"),
+          }),
+        )
+      }
+    })
+  let params = Json::object({
+    "uri": Json::string("memo://1"),
+    "_meta": Json::object({
+      "io.modelcontextprotocol/clientCapabilities": Json::object({
+        "elicitation": Json::boolean(true),
+      }),
+    }),
+  })
+  let first = handle_resources_read(server, @types.RequestId::Int(1), params) catch {
+    _ => panic()
+  }
+  let first_result = parse_result(first)
+  assert_eq(json_field_str(first_result, "resultType"), "input_required")
+  let blob = json_field_str(first_result, "requestState")
+  // Retry with fulfilled input.
+  let retry_params = Json::object({
+    "uri": Json::string("memo://1"),
+    "inputResponses": Json::object({
+      "login": Json::object({ "action": Json::string("accept") }),
+    }),
+    "requestState": Json::string(blob),
+    "_meta": Json::object({
+      "io.modelcontextprotocol/clientCapabilities": Json::object({
+        "elicitation": Json::boolean(true),
+      }),
+    }),
+  })
+  let second = handle_resources_read(
+    server,
+    @types.RequestId::Int(2),
+    retry_params,
+  ) catch {
+    _ => panic()
+  }
+  let second_result = parse_result(second)
+  assert_eq(json_field_str(second_result, "resultType"), "complete")
+  let contents = json_get(second_result, "contents")
+  if contents is Array(arr) {
+    assert_eq(json_field_str(arr[0], "text"), "unlocked")
+  } else {
+    panic()
+  }
+}
+
+///|
+async test "mrtr: prompts/get input_required → retry → complete" {
+  let server = MCPServer::MCPServer("test", "1.0.0")
+    .with_request_state_codec(
+      AesGcmStateCodec::with_key(Bytes::make(32, b'\x42')),
+    )
+    .with_clock(fn() { 1_700_000_000 })
+    .prompt_mrtr("review", "Review prompt", [], fn(params) {
+      if params is Object(obj) {
+        match obj.get("_mrtr_responses") {
+          Some(Object(responses)) =>
+            if responses.get("login") is Some(_) {
+              Ok(
+                @prompt.PromptGetOutcome::Complete({
+                  description: None,
+                  messages: [{ role: "user", content: @types.Text("ready") }],
+                }),
+              )
+            } else {
+              Ok(
+                @prompt.PromptGetOutcome::Complete({
+                  description: None,
+                  messages: [{ role: "user", content: @types.Text("missing") }],
+                }),
+              )
+            }
+          _ => {
+            let reqs : Map[String, @types.InputRequestEntry] = Default::default()
+            reqs.set("login", {
+              method_name: @types.InputRequestKind::ElicitationCreate,
+              params: Json::object({ "message": Json::string("Login") }),
+            })
+            Ok(
+              @prompt.PromptGetOutcome::InputRequired(
+                input_requests=reqs,
+                state=Json::object({}),
+              ),
+            )
+          }
+        }
+      } else {
+        Ok(
+          @prompt.PromptGetOutcome::Complete({
+            description: None,
+            messages: [{ role: "user", content: @types.Text("bad") }],
+          }),
+        )
+      }
+    })
+  let params = Json::object({
+    "name": Json::string("review"),
+    "arguments": Json::object({}),
+    "_meta": Json::object({
+      "io.modelcontextprotocol/clientCapabilities": Json::object({
+        "elicitation": Json::boolean(true),
+      }),
+    }),
+  })
+  let first = handle_prompts_get(server, @types.RequestId::Int(1), params) catch {
+    _ => panic()
+  }
+  let first_result = parse_result(first)
+  assert_eq(json_field_str(first_result, "resultType"), "input_required")
+  let blob = json_field_str(first_result, "requestState")
+  let retry_params = Json::object({
+    "name": Json::string("review"),
+    "arguments": Json::object({}),
+    "inputResponses": Json::object({
+      "login": Json::object({ "action": Json::string("accept") }),
+    }),
+    "requestState": Json::string(blob),
+    "_meta": Json::object({
+      "io.modelcontextprotocol/clientCapabilities": Json::object({
+        "elicitation": Json::boolean(true),
+      }),
+    }),
+  })
+  let second = handle_prompts_get(
+    server,
+    @types.RequestId::Int(2),
+    retry_params,
+  ) catch {
+    _ => panic()
+  }
+  let second_result = parse_result(second)
+  assert_eq(json_field_str(second_result, "resultType"), "complete")
+  let messages = json_get(second_result, "messages")
+  if messages is Array(arr) {
+    assert_eq(json_field_str(json_get(arr[0], "content"), "text"), "ready")
+  } else {
+    panic()
+  }
+}
+
+///|
+test "compliance: resources/templates/list returns templates and cache fields" {
+  let server = MCPServer::MCPServer("test", "1.0.0").resource_template(
+    uri_template="memo://{id}",
+    name="Memo",
+    description="A templated memo",
+    mime_type="text/plain",
+  )
+  let result = parse_result(
+    handle_resources_templates_list(server, @types.RequestId::Int(1)),
+  )
+  assert_eq(json_field_str(result, "cacheScope"), "public")
+  assert_eq(json_field_int(result, "ttlMs"), 60000)
+  let templates = json_get(result, "resourceTemplates")
+  assert_eq(json_arr_len(templates), 1)
+  if templates is Array(arr) {
+    let t = arr[0]
+    assert_eq(json_field_str(t, "uriTemplate"), "memo://{id}")
+    assert_eq(json_field_str(t, "name"), "Memo")
+    assert_eq(json_field_str(t, "mimeType"), "text/plain")
+  } else {
+    panic()
+  }
+}
+
+///|
+async test "compliance: close_subscription sends graceful result and removes subscription" {
+  let server = MCPServer::MCPServer("test", "1.0.0")
+  let queue : @aqueue.Queue[String] = @aqueue.Queue(
+    kind=@aqueue.Kind::Unbounded,
+  )
+  server.subscriptions.set("42", {
+    filter: SubscriptionFilter::empty(),
+    reply: ReplyHandle::Stdio(queue),
+  })
+  server.close_subscription("42") catch {
+    _ => panic()
+  }
+  let response = queue.get() catch { _ => panic() }
+  let json = @json.parse(response) catch { _ => panic() }
+  let result = json_get(json, "result")
+  assert_eq(json_field_str(result, "resultType"), "complete")
+  let sid_json = json_get(
+    json_get(result, "_meta"),
+    "io.modelcontextprotocol/subscriptionId",
+  )
+  match sid_json {
+    String(s) => assert_eq(s, "42")
+    _ => panic()
+  }
+  assert_true(server.subscriptions.get("42") is None)
+}
+
+///|
+async test "compliance: cancelled notification closes matching subscription" {
+  let server = MCPServer::MCPServer("test", "1.0.0")
+  let queue : @aqueue.Queue[String] = @aqueue.Queue(
+    kind=@aqueue.Kind::Unbounded,
+  )
+  server.subscriptions.set("7", {
+    filter: SubscriptionFilter::empty(),
+    reply: ReplyHandle::Stdio(queue),
+  })
+  let notif = Json::object({
+    "jsonrpc": Json::string("2.0"),
+    "method": Json::string("notifications/cancelled"),
+    "params": Json::object({ "requestId": Json::number(7.0) }),
+  }).stringify()
+  server.handle_inbound_notification(notif) catch {
+    _ => panic()
+  }
+  let response = queue.get() catch { _ => panic() }
+  let json = @json.parse(response) catch { _ => panic() }
+  let result = json_get(json, "result")
+  assert_eq(json_field_str(result, "resultType"), "complete")
+  assert_true(server.subscriptions.get("7") is None)
+}
+
+///|
+test "compliance: list endpoints return deterministic order" {
+  let server = MCPServer::MCPServer("test", "1.0.0")
+  server.register_tool("zebra", "Zebra", Json::object({}), fn(_args) {
+    Ok(@tool.ToolCallOutcome::Complete(@tool.ToolResult::text("z")))
+  })
+  server.register_tool("alpha", "Alpha", Json::object({}), fn(_args) {
+    Ok(@tool.ToolCallOutcome::Complete(@tool.ToolResult::text("a")))
+  })
+  server.register_resource("file:///z", "Z", "Z resource", "text/plain", fn() {
+    Ok({ uri: "file:///z", content: @resource.Text("z") })
+  })
+  server.register_resource("file:///a", "A", "A resource", "text/plain", fn() {
+    Ok({ uri: "file:///a", content: @resource.Text("a") })
+  })
+  server.register_prompt("zebra_prompt", "Z", [], fn(_args) {
+    Ok({ description: None, messages: [] })
+  })
+  server.register_prompt("alpha_prompt", "A", [], fn(_args) {
+    Ok({ description: None, messages: [] })
+  })
+  let server = server
+    .resource_template(uri_template="z://{x}", name="Z Template")
+    .resource_template(uri_template="a://{x}", name="A Template")
+  let tools = json_get(
+    parse_result(handle_tools_list(server, @types.RequestId::Int(1))),
+    "tools",
+  )
+  if tools is Array(tarr) {
+    assert_eq(json_field_str(tarr[0], "name"), "alpha")
+    assert_eq(json_field_str(tarr[1], "name"), "zebra")
+  } else {
+    panic()
+  }
+  let resources = json_get(
+    parse_result(handle_resources_list(server, @types.RequestId::Int(1))),
+    "resources",
+  )
+  if resources is Array(rarr) {
+    assert_eq(json_field_str(rarr[0], "uri"), "file:///a")
+    assert_eq(json_field_str(rarr[1], "uri"), "file:///z")
+  } else {
+    panic()
+  }
+  let prompts = json_get(
+    parse_result(handle_prompts_list(server, @types.RequestId::Int(1))),
+    "prompts",
+  )
+  if prompts is Array(parr) {
+    assert_eq(json_field_str(parr[0], "name"), "alpha_prompt")
+    assert_eq(json_field_str(parr[1], "name"), "zebra_prompt")
+  } else {
+    panic()
+  }
+  let templates = json_get(
+    parse_result(
+      handle_resources_templates_list(server, @types.RequestId::Int(1)),
+    ),
+    "resourceTemplates",
+  )
+  if templates is Array(tarr) {
+    assert_eq(json_field_str(tarr[0], "uriTemplate"), "a://{x}")
+    assert_eq(json_field_str(tarr[1], "uriTemplate"), "z://{x}")
+  } else {
+    panic()
+  }
+}
+
+///|
+async test "compliance: initialize returns modern-only error naming version" {
+  let server = MCPServer::MCPServer("test", "1.0.0")
+  let request = Json::object({
+    "jsonrpc": Json::string("2.0"),
+    "id": Json::number(1.0),
+    "method": Json::string("initialize"),
+    "params": Json::object({}),
+  }).stringify()
+  let response = server.handle_request(request) catch { _ => panic() }
+  let json = @json.parse(response) catch { _ => panic() }
+  let err = json_get(json, "error")
+  assert_eq(json_field_int(err, "code"), -32601)
+  assert_true(json_field_str(err, "message").contains("2026-07-28"))
 }
