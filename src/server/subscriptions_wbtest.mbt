@@ -129,3 +129,64 @@ async test "subscriptions: non-matching filter receives no notification" {
     None => ()
   }
 }
+
+///|
+async test "subscriptions: notify_resource_updated reaches only matching URI subscribers" {
+  let server = MCPServer::MCPServer("test", "1.0.0")
+  let sub_a : @aqueue.Queue[String] = @aqueue.Queue(
+    kind=@aqueue.Kind::Unbounded,
+  )
+  let sub_b : @aqueue.Queue[String] = @aqueue.Queue(
+    kind=@aqueue.Kind::Unbounded,
+  )
+  server.subscriptions.set("1", {
+    filter: {
+      ..SubscriptionFilter::empty(),
+      resource_subscriptions: ["file:///watched"],
+    },
+    reply: ReplyHandle::Stdio(sub_a),
+  })
+  server.subscriptions.set("2", {
+    filter: {
+      ..SubscriptionFilter::empty(),
+      resource_subscriptions: ["file:///other"],
+    },
+    reply: ReplyHandle::Stdio(sub_b),
+  })
+  server.notify_resource_updated("file:///watched")
+  // Sub 1 receives the update, tagged with its subscription id.
+  let msg_a = sub_a.try_get() catch { _ => None }
+  match msg_a {
+    Some(json_str) => {
+      let json = @json.parse(json_str) catch { _ => panic() }
+      if json is Object(obj) {
+        assert_eq(
+          obj.get("method"),
+          Some(Json::string("notifications/resources/updated")),
+        )
+        let params = match obj.get("params") {
+          Some(Object(p)) => p
+          _ => panic()
+        }
+        assert_eq(params.get("uri"), Some(Json::string("file:///watched")))
+        match params.get("_meta") {
+          Some(Object(m)) =>
+            assert_eq(
+              m.get("io.modelcontextprotocol/subscriptionId"),
+              Some(Json::string("1")),
+            )
+          _ => panic()
+        }
+      } else {
+        panic()
+      }
+    }
+    None => panic()
+  }
+  // Sub 2 (different URI) receives nothing.
+  let msg_b = sub_b.try_get() catch { _ => None }
+  match msg_b {
+    Some(_) => panic()
+    None => ()
+  }
+}

@@ -62,7 +62,9 @@ pub fn SubscriptionFilter::empty() -> SubscriptionFilter {
 }
 
 ///|
-/// Does this filter opt into the given notification kind?
+/// Does this filter opt into the given notification kind? A
+/// `ResourceUpdated(uri)` matches only if the subscription listed that URI
+/// in its `resourceSubscriptions` filter.
 pub fn SubscriptionFilter::matches(
   self : SubscriptionFilter,
   kind : @types.SubscriptionNotificationKind,
@@ -71,6 +73,7 @@ pub fn SubscriptionFilter::matches(
     ToolsListChanged => self.tools_list_changed
     PromptsListChanged => self.prompts_list_changed
     ResourcesListChanged => self.resources_list_changed
+    ResourceUpdated(uri~) => self.resource_subscriptions.contains(uri)
   }
 }
 
@@ -252,6 +255,20 @@ fn is_fast_method(method_name : String) -> Bool {
 }
 
 ///|
+/// A JSON-RPC message with a `method` but no `id` is a notification; the
+/// receiver MUST NOT respond to it (spec §basic). Used to route inbound
+/// notifications (e.g. stdio `notifications/cancelled`) away from the
+/// request path, which would otherwise reject them for the missing `id`.
+fn is_notification_message(message : String) -> Bool {
+  let json = @json.parse(message) catch { _ => return false }
+  if json is Object(obj) {
+    obj.get("id") is None && obj.get("method") is Some(String(_))
+  } else {
+    false
+  }
+}
+
+///|
 async fn MCPServer::handle_parsed_request(
   self : MCPServer,
   request : @types.JsonRpcRequest,
@@ -422,6 +439,22 @@ pub async fn MCPServer::notify_resources_list_changed(self : MCPServer) -> Unit 
 }
 
 ///|
+/// Announce that a specific resource's content changed. Reaches only the
+/// subscriptions that listed `uri` in their `resourceSubscriptions` filter —
+/// this is the 2026-07-28 replacement for the legacy `resources/subscribe`
+/// per-URI push.
+pub async fn MCPServer::notify_resource_updated(
+  self : MCPServer,
+  uri : String,
+) -> Unit {
+  let n = @types.resources_updated_notification(uri).to_jsonrpc_string()
+  self.notify_subscriptions(
+    @types.SubscriptionNotificationKind::ResourceUpdated(uri~),
+    n,
+  )
+}
+
+///|
 pub async fn MCPServer::notify_prompts_list_changed(self : MCPServer) -> Unit {
   let n = @types.prompts_list_changed_notification().to_jsonrpc_string()
   self.notify_subscriptions(
@@ -436,6 +469,13 @@ async fn MCPServer::handle_server_request(
   request : ServerRequest,
   group : @async.TaskGroup[Unit],
 ) -> Unit {
+  // A message without an `id` is a notification (e.g. stdio
+  // `notifications/cancelled`): the receiver MUST NOT respond, so swallow it
+  // instead of failing parse and echoing an error. Acting on cancellation
+  // (stopping in-flight work) is a follow-up.
+  if is_notification_message(request.message) {
+    return
+  }
   match parse_request_message(request.message) {
     Err(response) => request.reply.send(response) catch { _ => () }
     Ok(parsed_request) =>

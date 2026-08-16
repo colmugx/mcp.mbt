@@ -219,9 +219,9 @@ async fn MCPClient::send_with_mrtr(
 /// If `response` is an `input_required` result, extract the `inputRequests`
 /// map and `requestState`; otherwise return None (complete or error).
 priv struct InputRequiredInfo {
-  input_requests : Map[String, (String, Json)] // key -> (method, params)
+  input_requests : Map[String, (String, Json)]
   request_state : String?
-} derive(Debug)
+}
 
 ///|
 fn MCPClient::check_input_required(
@@ -253,12 +253,12 @@ fn MCPClient::check_input_required(
     Some(Object(map)) =>
       map.each(fn(key, val) {
         if val is Object(entry) {
-          let method = match entry.get("method") {
+          let method_name = match entry.get("method") {
             Some(String(m)) => m
             _ => ""
           }
           let params = entry.get("params").unwrap_or(Json::null())
-          reqs.set(key, (method, params))
+          reqs.set(key, (method_name, params))
         }
       })
     _ => ()
@@ -283,8 +283,8 @@ fn MCPClient::fulfill_input_requests(
     if error is Some(_) {
       return
     }
-    let (method, params) = entry
-    match method {
+    let (method_name, params) = entry
+    match method_name {
       "elicitation/create" =>
         match self.elicitation_handler {
           Some(handler) =>
@@ -332,7 +332,7 @@ fn MCPClient::fulfill_input_requests(
         }
       _ =>
         error = Some(
-          @types.MethodNotFound("Unknown input request method: " + method),
+          @types.MethodNotFound("Unknown input request method: " + method_name),
         )
     }
   })
@@ -429,32 +429,23 @@ fn extract_request_id(request : String) -> Int {
 }
 
 ///|
-async fn MCPClient::send_notification(
+pub async fn MCPClient::cancel_request(
   self : MCPClient,
-  notification : String,
+  request_id : String,
+  reason? : String,
 ) -> Result[Unit, @types.MCPError] {
+  let notif = match reason {
+    Some(r) => @types.cancelled_notification(request_id, reason=r)
+    None => @types.cancelled_notification(request_id)
+  }
   let t = self.transport
-  let notif = @json.parse(notification) catch {
-    _ => return Err(@types.ParseError("Invalid notification JSON"))
+  t.send_notification(notif) catch {
+    e =>
+      return Err(
+        @types.InternalError("Failed to send cancellation: " + e.to_string()),
+      )
   }
-  match notif {
-    Object(obj) => {
-      let method_name = match obj.get("method") {
-        Some(String(m)) => m
-        _ => return Err(@types.InvalidRequest("Missing method field"))
-      }
-      let params = obj.get("params")
-      let notification_obj : @types.Notification = { method_name, params }
-      t.send_notification(notification_obj) catch {
-        e =>
-          return Err(
-            @types.InternalError("Notification failed: " + e.to_string()),
-          )
-      }
-      Ok(())
-    }
-    _ => Err(@types.InvalidRequest("Notification must be a JSON object"))
-  }
+  Ok(())
 }
 
 ///|

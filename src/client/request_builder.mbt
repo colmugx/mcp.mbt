@@ -22,9 +22,12 @@ fn client_capabilities_to_json(
 ///|
 /// Build the `_meta` object every modern request carries in its `params`.
 /// Contains the required `io.modelcontextprotocol/protocolVersion` and
-/// `clientCapabilities`, plus the recommended `clientInfo`. An optional
-/// `logLevel` mirrors the legacy `logging/setLevel` RPC into per-request
-/// metadata (per spec, `logging/setLevel` is removed).
+/// `clientCapabilities`, plus the recommended `clientInfo`. The optional
+/// `logLevel` maps to the per-request `_meta` field that replaced the removed
+/// `logging/setLevel` RPC — note the Logging feature itself is Deprecated by
+/// the spec (SEP-2577: new implementations should not add support), so this
+/// exists for interop with servers that still honor it, and nothing in this
+/// SDK reads or emits log-level-gated messages.
 fn build_request_meta(
   client_name : String,
   client_version : String,

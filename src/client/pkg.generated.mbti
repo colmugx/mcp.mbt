@@ -63,6 +63,7 @@ pub struct MCPClient {
   mut event_loop_started : Bool
 }
 pub async fn MCPClient::call_tool(Self, String, arguments? : String) -> Result[CallToolResult, @types.MCPError]
+pub async fn MCPClient::cancel_request(Self, String, reason? : String) -> Result[Unit, @types.MCPError]
 pub fn MCPClient::close(Self) -> Unit
 pub async fn MCPClient::complete(Self, ref_type~ : String, ref_name~ : String, argument_name~ : String, argument_value~ : String) -> Result[CompletionResult, @types.MCPError]
 pub fn MCPClient::connect_http(url~ : String, name~ : String, version~ : String, auth_token? : String) -> Result[Self, @types.MCPError]

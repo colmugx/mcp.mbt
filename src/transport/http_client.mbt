@@ -198,9 +198,7 @@ pub async fn HttpClientTransport::send(
 ///|
 /// Drain the next response message (single JSON or one SSE event) queued by
 /// `send`. Returns None when the queue is empty.
-pub fn HttpClientTransport::receive(
-  self : HttpClientTransport,
-) -> String? {
+pub fn HttpClientTransport::receive(self : HttpClientTransport) -> String? {
   if self.closed {
     return None
   }
@@ -299,9 +297,7 @@ fn extract_name_field(body : String) -> String? {
       Some(String(m)) => m
       _ => return None
     }
-    if met != "tools/call" &&
-      met != "resources/read" &&
-      met != "prompts/get" {
+    if met != "tools/call" && met != "resources/read" && met != "prompts/get" {
       return None
     }
     let params = match obj.get("params") {

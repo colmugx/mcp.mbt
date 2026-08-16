@@ -209,7 +209,7 @@ test "mrtr: input_required response extracts requestState and inputRequests" {
     Some(info) => {
       assert_eq(info.request_state, Some("blob"))
       match info.input_requests.get("login") {
-        Some((method, _)) => assert_eq(method, "elicitation/create")
+        Some((method_name, _)) => assert_eq(method_name, "elicitation/create")
         None => panic()
       }
     }

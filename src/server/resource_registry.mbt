@@ -12,15 +12,12 @@ priv struct ResourceEntry {
 ///|
 struct ResourceRegistry {
   resources : Map[String, ResourceEntry]
-  mut subscriptions : Array[String]
 }
 
 ///|
 fn ResourceRegistry::ResourceRegistry() -> ResourceRegistry {
-  { resources: Default::default(), subscriptions: [] }
+  { resources: Default::default() }
 }
-
-///|
 
 ///|
 fn ResourceRegistry::register(
@@ -66,30 +63,4 @@ async fn ResourceRegistry::read_resource(
     // not the old -32002 or MethodNotFound.
     None => Err(@types.InvalidParams("Resource not found: " + uri))
   }
-}
-
-///|
-pub fn ResourceRegistry::subscribe(
-  self : ResourceRegistry,
-  uri : String,
-) -> Result[Unit, @types.MCPError] {
-  match self.resources.get(uri) {
-    Some(_) => {
-      let found = self.subscriptions.iter().any(fn(u) { u == uri })
-      if !found {
-        self.subscriptions.push(uri)
-      }
-      Ok(())
-    }
-    None => Err(@types.InvalidParams("Resource not found: " + uri))
-  }
-}
-
-///|
-pub fn ResourceRegistry::unsubscribe(
-  self : ResourceRegistry,
-  uri : String,
-) -> Result[Unit, @types.MCPError] {
-  self.subscriptions = self.subscriptions.filter(fn(u) { u != uri })
-  Ok(())
 }

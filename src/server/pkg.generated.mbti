@@ -59,6 +59,7 @@ pub struct MCPServer {
 pub fn MCPServer::MCPServer(String, String) -> Self
 pub async fn MCPServer::handle_request(Self, String) -> String
 pub async fn MCPServer::notify_prompts_list_changed(Self) -> Unit
+pub async fn MCPServer::notify_resource_updated(Self, String) -> Unit
 pub async fn MCPServer::notify_resources_list_changed(Self) -> Unit
 pub async fn MCPServer::notify_tools_list_changed(Self) -> Unit
 pub fn MCPServer::prompt(Self, String, String, Array[@types.PromptArgument], async (Json) -> Result[@types.GetPromptResult, @types.MCPError]) -> Self

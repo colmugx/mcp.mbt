@@ -47,7 +47,6 @@ pub struct HttpTransport {
   auth : AuthConfig?
   pending_requests : @async.Queue[(String, @async.Queue[String])]
   pending_reply_queues : Map[String, @async.Queue[String]]
-  event_queue : @async.Queue[@types.Notification]
 }
 
 ///|
@@ -61,7 +60,6 @@ pub fn HttpTransport::HttpTransport(
     auth: None,
     pending_requests: @async.Queue(kind=Unbounded),
     pending_reply_queues: {},
-    event_queue: @async.Queue(kind=Unbounded),
   }
 }
 
@@ -497,14 +495,14 @@ pub async fn HttpTransport::send(
 }
 
 ///|
-pub async fn HttpTransport::send_notification(
+/// Trait-required stub. Server→client notifications over HTTP flow through
+/// `MCPServer`'s per-subscription reply handles (`subscriptions/listen`),
+/// not through this transport; the legacy GET-SSE event queue is gone.
+pub fn HttpTransport::send_notification(
   self : HttpTransport,
-  notification : @types.Notification,
-) -> Unit raise @types.TransportError {
-  self.event_queue.put(notification) catch {
-    e =>
-      raise @types.WriteError("Failed to send notification: " + e.to_string())
-  }
+  _notification : @types.Notification,
+) -> Unit {
+  ignore(self)
 }
 
 ///|

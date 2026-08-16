@@ -57,7 +57,7 @@ fn input_required_result(
     reqs_map.set(
       key,
       Json::object({
-        "method": Json::string(entry.method.to_method()),
+        "method": Json::string(entry.method_name.to_method()),
         "params": entry.params,
       }),
     )
@@ -249,6 +249,25 @@ fn extract_input_responses(params : Json) -> Map[String, Json]? {
 }
 
 ///|
+/// Merge a retry's `inputResponses` into the tool arguments under
+/// `_mrtr_responses`, so a tool resuming after input_required reads its
+/// fulfilled inputs from one place. Non-object arguments are wrapped.
+fn merge_input_responses(
+  arguments : Json,
+  responses : Map[String, Json]?,
+) -> Json {
+  let merged : Map[String, Json] = match arguments {
+    Object(obj) => obj
+    _ => Default::default()
+  }
+  match responses {
+    Some(r) => merged.set("_mrtr_responses", Json::object(r))
+    None => ()
+  }
+  Json::object(merged)
+}
+
+///|
 fn handle_tools_list(server : MCPServer, id : @types.RequestId) -> String {
   let tools = server.registry.list_tools()
   let tool_jsons = tools.map(fn(tool) {
@@ -332,6 +351,40 @@ async fn handle_tools_call(
         obj.get("arguments").unwrap_or(null)
       } else {
         null
+      }
+      // MRTR retry: the client echoes `requestState` from a previous
+      // input_required response. Verify it (principal/method/params/expiry)
+      // and expose `inputResponses` to the tool via `_mrtr_responses` in the
+      // arguments. A present-but-invalid blob is rejected, not retried.
+      let arguments = match extract_request_state(params) {
+        Some(blob) => {
+          let codec = match server.request_state_codec {
+            Some(c) => c
+            None =>
+              return jsonrpc_error_str(
+                id, -32603, "Retry carried requestState but server has no codec",
+              )
+          }
+          let payload = match
+            codec.open(
+              blob,
+              {
+                principal: None,
+                request_method: "tools/call",
+                params: arguments,
+              },
+              now=(server.clock)(),
+            ) {
+            Some(p) => p
+            None =>
+              return jsonrpc_error_str(
+                id, -32020, "requestState verification failed",
+              )
+          }
+          ignore(payload)
+          merge_input_responses(arguments, extract_input_responses(params))
+        }
+        None => arguments
       }
       match server.registry.call_tool(name, arguments) {
         Ok(@tool.Complete(tool_result)) => {

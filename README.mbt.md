@@ -2,15 +2,13 @@
 
 Type-safe [Model Context Protocol](https://modelcontextprotocol.io/) SDK for MoonBit.
 
-**Version**: 0.14.0 · **Protocol**: 2025-11-25 · **License**: Apache-2.0
+**Version**: 0.15.0 · **Protocol**: 2026-07-28 (stateless) · **License**: Apache-2.0
 
 ## Installation
 
 ```bash
 moon add colmugx/mcp
 ```
-
-The SDK uses `moonbitlang/async@0.19.4` and targets native I/O for server, client, and host runtimes.
 
 ## Quick Start
 
@@ -46,6 +44,8 @@ async fn main {
     version="1.0.0",
   ) {
     Ok(client) => {
+      // Optional one-shot discovery of server identity/capabilities.
+      ignore(client.discover())
       match client.list_tools() {
         Ok(result) => for tool in result.tools { println(tool.name) }
         Err(e) => println(e.message())
@@ -90,15 +90,17 @@ Host tool names are qualified as `connection.tool` so multiple servers can expos
 | [Client Guide](public/docs/05-client-guide.md) | `MCPClient::connect_*` and bidirectional mode |
 | [Architecture](public/docs/06-architecture.md) | Protocol, runtime, transport, application layers |
 | [Host Guide](public/docs/07-host-guide.md) | `MCPHost` named connections and routing |
+| [Migration 0.15](MIGRATION-0.15.md) | 2025-11-25 → 2026-07-28 migration, node by node |
 | [Migration 0.14](MIGRATION-0.14.md) | Breaking changes from 0.13.x |
 
-## v0.14 API Direction
+## API Direction
 
 The default public path is intentionally small:
 
 - `MCPServer` for serving tools, resources, and prompts.
 - `MCPClient` for one server connection.
 - `MCPHost` for multiple named server connections.
+- `colmugx/mcp/client/legacy` for talking to 2025-11-25-era servers (`LegacyClient`).
 
 Transports and request builders are advanced/internal details. Existing low-level imports may still be useful for SDK contributors, but application code should prefer the high-level APIs above.
 

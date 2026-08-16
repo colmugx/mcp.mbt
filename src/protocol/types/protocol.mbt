@@ -184,15 +184,8 @@ pub(all) enum InputRequestKind {
 /// One entry in an `inputRequests` map: a server-assigned key plus the
 /// request method and params the client must fulfill.
 pub(all) struct InputRequestEntry {
-  method : InputRequestKind
+  method_name : InputRequestKind
   params : Json
-} derive(Eq, Debug)
-
-///|
-/// A client's response to one input request, keyed to match `inputRequests`.
-pub(all) struct InputResponse {
-  /// Parsed result JSON the client returned for this input request.
-  result : Json
 } derive(Eq, Debug)
 
 ///|
@@ -206,21 +199,13 @@ pub fn InputRequestKind::to_method(self : InputRequestKind) -> String {
 }
 
 ///|
-/// Parse a JSON-RPC method string into an `InputRequestKind`, if recognized.
-pub fn InputRequestKind::from_method(method : String) -> InputRequestKind? {
-  match method {
-    "elicitation/create" => Some(ElicitationCreate)
-    "sampling/createMessage" => Some(SamplingCreateMessage)
-    "roots/list" => Some(RootsList)
-    _ => None
-  }
-}
-
-///|
 /// Which kind of change notification a subscription filter should match.
 /// Used internally by the server to route notifications to the right streams.
 pub(all) enum SubscriptionNotificationKind {
   ToolsListChanged
   PromptsListChanged
   ResourcesListChanged
+  /// A specific subscribed resource changed; matched against the
+  /// subscription's `resourceSubscriptions` URI list.
+  ResourceUpdated(uri~ : String)
 } derive(Eq, Debug)

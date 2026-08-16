@@ -154,7 +154,7 @@ test "compliance: input_required result carries inputRequests and requestState" 
   let server = MCPServer::MCPServer("test", "1.0.0")
   let reqs : Map[String, @types.InputRequestEntry] = Default::default()
   reqs.set("login", {
-    method: @types.InputRequestKind::ElicitationCreate,
+    method_name: @types.InputRequestKind::ElicitationCreate,
     params: Json::object({ "message": Json::string("Enter username") }),
   })
   let response = jsonrpc_input_required_str(
@@ -598,4 +598,143 @@ test "compliance: MissingRequiredClientCapability serializes requiredCapabilitie
 test "compliance: HeaderMismatch carries no structured data" {
   let err = @types.HeaderMismatch("Mcp-Name mismatch")
   assert_true(err.to_error_data() is None)
+}
+
+///|
+async test "mrtr retry: valid requestState passes verification and reaches the tool" {
+  let server = MCPServer::MCPServer("test", "1.0.0")
+    .with_request_state_codec(
+      AesGcmStateCodec::with_key(Bytes::make(32, b'\x42')),
+    )
+    .with_clock(fn() { 1_700_000_000 })
+  // Tool echoes back the _mrtr_responses it received, if any.
+  server.register_tool(
+    "resume_tool",
+    "Resume tool",
+    Json::object({ "type": "object" }),
+    fn(args) {
+      if args is Object(obj) {
+        match obj.get("_mrtr_responses") {
+          Some(Object(responses)) =>
+            if responses.get("login") is Some(_) {
+              Ok(
+                @tool.ToolCallOutcome::Complete(
+                  @tool.ToolResult::text("got-responses"),
+                ),
+              )
+            } else {
+              Ok(
+                @tool.ToolCallOutcome::Complete(
+                  @tool.ToolResult::text("missing-login"),
+                ),
+              )
+            }
+          _ =>
+            Ok(
+              @tool.ToolCallOutcome::Complete(@tool.ToolResult::text("no-resp")),
+            )
+        }
+      } else {
+        Ok(@tool.ToolCallOutcome::Complete(@tool.ToolResult::text("bad-args")))
+      }
+    },
+  )
+  // Seal a blob bound to the original arguments.
+  let arguments = Json::object({ "x": Json::number(1.0) })
+  let codec = AesGcmStateCodec::with_key(Bytes::make(32, b'\x42'))
+  let blob = codec.seal(
+    {
+      principal: None,
+      expires_at: 1_700_000_000 + 300,
+      request_method: "tools/call",
+      params_digest: params_digest(arguments),
+      state: Json::object({}),
+    },
+    now=1_700_000_000,
+  )
+  // Retry request: original params + inputResponses + echoed requestState.
+  let retry_params = Json::object({
+    "name": Json::string("resume_tool"),
+    "arguments": arguments,
+    "inputResponses": Json::object({
+      "login": Json::object({ "action": Json::string("accept") }),
+    }),
+    "requestState": Json::string(blob),
+  })
+  let response = handle_tools_call(
+    server,
+    @types.RequestId::Int(1),
+    retry_params,
+  ) catch {
+    _ => panic()
+  }
+  let result = parse_result(response)
+  assert_eq(json_field_str(result, "resultType"), "complete")
+  match json_get(result, "content") {
+    Array(arr) => assert_eq(json_field_str(arr[0], "text"), "got-responses")
+    _ => panic()
+  }
+}
+
+///|
+async test "mrtr retry: tampered requestState is rejected" {
+  let server = MCPServer::MCPServer("test", "1.0.0")
+    .with_request_state_codec(
+      AesGcmStateCodec::with_key(Bytes::make(32, b'\x42')),
+    )
+    .with_clock(fn() { 1_700_000_000 })
+  let retry_params = Json::object({
+    "name": Json::string("any"),
+    "arguments": Json::object({}),
+    "requestState": Json::string("not-a-valid-blob"),
+  })
+  let response = handle_tools_call(
+    server,
+    @types.RequestId::Int(1),
+    retry_params,
+  ) catch {
+    _ => panic()
+  }
+  let resp_json = @json.parse(response) catch { _ => panic() }
+  match json_get(resp_json, "error") {
+    Object(_) => () // error response — expected
+    _ => panic()
+  }
+}
+
+///|
+test "compliance: notifications/cancelled shape carries requestId and reason" {
+  let n = @types.cancelled_notification("42", reason="user asked")
+  let json = @json.parse(n.to_jsonrpc_string()) catch { _ => panic() }
+  if json is Object(obj) {
+    assert_eq(obj.get("method"), Some(Json::string("notifications/cancelled")))
+    // Notifications carry no id; the receiver must not respond.
+    assert_true(obj.get("id") is None)
+    let params = match obj.get("params") {
+      Some(Object(p)) => p
+      _ => panic()
+    }
+    assert_eq(params.get("requestId"), Some(Json::string("42")))
+    assert_eq(params.get("reason"), Some(Json::string("user asked")))
+  } else {
+    panic()
+  }
+}
+
+///|
+test "compliance: inbound notification is routed away from the request path" {
+  // A message with method but no id is a notification (must not be answered).
+  assert_true(
+    is_notification_message(
+      "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/cancelled\",\"params\":{\"requestId\":\"7\"}}",
+    ),
+  )
+  // A request (has id) is not a notification.
+  assert_false(
+    is_notification_message(
+      "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"tools/list\"}",
+    ),
+  )
+  // Malformed JSON is not treated as a notification.
+  assert_false(is_notification_message("not json"))
 }

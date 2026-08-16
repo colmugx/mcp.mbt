@@ -115,7 +115,7 @@ pub(all) struct GetPromptResult {
 } derive(Eq, @debug.Debug)
 
 pub(all) struct InputRequestEntry {
-  method : InputRequestKind
+  method_name : InputRequestKind
   params : Json
 } derive(Eq, @debug.Debug)
 
@@ -124,12 +124,7 @@ pub(all) enum InputRequestKind {
   SamplingCreateMessage
   RootsList
 } derive(Eq, @debug.Debug)
-pub fn InputRequestKind::from_method(String) -> Self?
 pub fn InputRequestKind::to_method(Self) -> String
-
-pub(all) struct InputResponse {
-  result : Json
-} derive(Eq, @debug.Debug)
 
 pub(all) struct JsonRpcError {
   code : Int
@@ -241,6 +236,7 @@ pub(all) enum SubscriptionNotificationKind {
   ToolsListChanged
   PromptsListChanged
   ResourcesListChanged
+  ResourceUpdated(uri~ : String)
 } derive(Eq, @debug.Debug)
 
 pub(all) struct ToolCapabilities {
