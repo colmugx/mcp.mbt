@@ -5,6 +5,7 @@ import {
   "colmugx/mcp/protocol/types",
   "moonbitlang/async",
   "moonbitlang/async/aqueue",
+  "moonbitlang/async/http",
   "moonbitlang/async/io",
   "moonbitlang/async/process",
   "moonbitlang/async/stdio",
@@ -35,6 +36,8 @@ pub fn is_valid_header_characters(String) -> Bool
 pub fn jsonrpc_error_code(String) -> Int?
 
 pub fn looks_like_sentinel(String) -> Bool
+
+pub async fn read_sse_event(@http.Client) -> (String?, String?) raise @types.TransportError
 
 pub fn sse_event_line(String) -> String
 

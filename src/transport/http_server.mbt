@@ -511,8 +511,8 @@ fn HttpTransport::validate_request_headers(
   // it only rejects header values containing characters outside the safe set
   // (or a valid Base64 sentinel) per spec §B.
   for k, v in req.headers {
-    if k.to_lower().has_prefix("mcp-param-") {
-      match validate_header_value_characters(k, v) {
+    if k.0.to_lower().has_prefix("mcp-param-") {
+      match validate_header_value_characters(k.0, v) {
         Err(e) => return Err(e)
         Ok(_) => ()
       }

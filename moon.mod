@@ -1,9 +1,9 @@
 name = "colmugx/mcp"
 
-version = "0.15.0"
+version = "0.15.1"
 
 import {
-  "moonbitlang/async@0.20.5",
+  "moonbitlang/async@0.21.0",
   "cc06b/mooncry@0.13.1",
   "Tigls/mb-getrandom@0.1.0",
   "gmlewis/base64@0.16.11",
@@ -22,7 +22,3 @@ description = "Type-safe MCP SDK in MoonBit with server/client support and dual 
 preferred_target = "native"
 
 source = "src"
-
-options(
-  exclude: [ "examples", "public", "docs" ],
-)

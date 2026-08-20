@@ -54,49 +54,6 @@ pub fn HttpClientTransport::HttpClientTransport(
 }
 
 ///|
-/// Parse one SSE event from a streaming HTTP client body.
-/// Returns (json_payload, event_id) — `event_id` is kept for forward-compat
-/// but unused (the 2026-07-28 transport drops `Last-Event-ID` resumability).
-async fn read_sse_event(
-  client : @http.Client,
-) -> (String?, String?) raise @types.TransportError {
-  let data_lines : Array[String] = []
-  let mut event_id : String? = None
-  while true {
-    let line = client.read_until("\n") catch {
-      e => raise @types.ReadError("SSE read error: \{e}")
-    }
-    match line {
-      None => return (None, None)
-      Some(l) =>
-        if l == "" {
-          break
-        } else if l.has_prefix("data: ") {
-          data_lines.push(l)
-        } else if l.has_prefix("id: ") {
-          event_id = Some(l[4:].trim().to_owned())
-        }
-      // Ignore other SSE fields (event:, retry:, comment lines starting with ':')
-    }
-  }
-  if data_lines.is_empty() {
-    (None, event_id)
-  } else {
-    let mut result = ""
-    let mut first = true
-    for dl in data_lines {
-      if !first {
-        result = result + "\n"
-      }
-      first = false
-      let json = dl[6:].to_owned() // strip "data: " prefix
-      result = result + json
-    }
-    (Some(result), event_id)
-  }
-}
-
-///|
 /// POST a JSON-RPC request to the server. Sets the required request-metadata
 /// headers (`MCP-Protocol-Version`, `Mcp-Method`, `Mcp-Name`) and accepts
 /// either a single JSON object or an SSE stream as the response. All response
@@ -109,7 +66,7 @@ pub async fn HttpClientTransport::send(
     raise @types.InvalidState("Cannot send on closed transport")
   }
   let body_bytes = @utf8.encode(message)
-  let headers : Map[String, String] = Default::default()
+  let headers : @http.Headers = Default::default()
   headers["Content-Type"] = "application/json"
   headers["Accept"] = "application/json, text/event-stream"
   headers["Content-Length"] = body_bytes.length().to_string()
@@ -154,23 +111,17 @@ pub async fn HttpClientTransport::send(
   let client = @http.post_stream(self.base_url, headers~) catch {
     e => raise @types.WriteError("HTTP POST failed: \{e}")
   }
+  // `send` consumes the client on every path, so a plain `defer` covers both
+  // the success exits and every raise (including async cancellation) below.
+  defer client.close()
   client.write(body_bytes) catch {
-    e => {
-      client.close()
-      raise @types.WriteError("Failed to write body: \{e}")
-    }
+    e => raise @types.WriteError("Failed to write body: \{e}")
   }
   client.flush() catch {
-    e => {
-      client.close()
-      raise @types.WriteError("Failed to flush: \{e}")
-    }
+    e => raise @types.WriteError("Failed to flush: \{e}")
   }
   let response = client.end_request() catch {
-    e => {
-      client.close()
-      raise @types.ReadError("Failed to get response: \{e}")
-    }
+    e => raise @types.ReadError("Failed to get response: \{e}")
   }
   // Stateless transport: 404 no longer means "session expired". Surface it
   // (and other 4xx/5xx) as a transport error for the caller to handle.
@@ -179,7 +130,6 @@ pub async fn HttpClientTransport::send(
       Some(v) => v
       None => ""
     }
-    client.close()
     let msg = match www_auth {
       "" => "HTTP 401 Unauthorized"
       _ => "HTTP 401 Unauthorized — WWW-Authenticate: " + www_auth
@@ -187,7 +137,6 @@ pub async fn HttpClientTransport::send(
     raise @types.Unauthorized(msg)
   }
   if response.code == 403 {
-    client.close()
     raise @types.Forbidden("HTTP 403 Forbidden — insufficient permissions")
   }
   if response.code >= 400 {
@@ -199,7 +148,6 @@ pub async fn HttpClientTransport::send(
     } catch {
       _ => ""
     }
-    client.close()
     raise @types.HttpError(response.code, body_str)
   }
   // Determine response mode from Content-Type
@@ -221,16 +169,11 @@ pub async fn HttpClientTransport::send(
         None => break
       }
     }
-    client.close()
   } else {
     // Single JSON response: read the entire body and queue it.
     let body = client.read_all() catch {
-      e => {
-        client.close()
-        raise @types.ReadError("Failed to read response body: \{e}")
-      }
+      e => raise @types.ReadError("Failed to read response body: \{e}")
     }
-    client.close()
     let body_str = body.text() catch {
       e => raise @types.ReadError("Failed to read response body: \{e}")
     }
@@ -266,7 +209,7 @@ pub async fn HttpClientTransport::send_notification(
   }
   let json_body = notification.to_jsonrpc_string()
   let body_bytes = @utf8.encode(json_body)
-  let headers : Map[String, String] = Default::default()
+  let headers : @http.Headers = Default::default()
   headers["Content-Type"] = "application/json"
   headers["Content-Length"] = body_bytes.length().to_string()
   headers["MCP-Protocol-Version"] = @types.ProtocolVersion
@@ -281,7 +224,8 @@ pub async fn HttpClientTransport::send_notification(
   let client = @http.post_stream(self.base_url, headers~) catch {
     e => raise @types.WriteError("Failed to send notification: \{e}")
   }
-  // Fire-and-forget: write body, end request, close.
+  defer client.close()
+  // Fire-and-forget: write body, end request; errors are intentionally swallowed.
   try {
     client.write(body_bytes)
     client.flush()
@@ -289,7 +233,6 @@ pub async fn HttpClientTransport::send_notification(
   } catch {
     _ => ()
   }
-  client.close()
 }
 
 ///|

@@ -104,7 +104,7 @@ pub fn MCPError::message(self : MCPError) -> String {
     MethodNotFound(msg) => msg
     InvalidParams(msg) => msg
     InternalError(msg) => msg
-    TransportError(te) => "Transport error: " + te.to_string()
+    TransportError(te) => "Transport error: " + Show::to_string(te)
     ToolError(msg) => msg
     HeaderMismatch(msg) => msg
     MissingRequiredClientCapability(msg, ..) => msg

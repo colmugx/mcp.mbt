@@ -3,6 +3,7 @@ import {
   "gmlewis/base64",
   "moonbitlang/core/json",
   "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/lexbuf",
   "moonbitlang/async/stdio",
   "moonbitlang/async/http",
   "moonbitlang/async/socket",
@@ -13,7 +14,14 @@ import {
 
 import {
   "moonbitlang/core/debug",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/quickcheck" @qc,
 } for "test"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/core/quickcheck" @qc,
+} for "wbtest"
 
 options(
   targets: { "unimplemented.mbt": [ "wasm-gc" ] },

@@ -33,28 +33,10 @@ pub fn LegacyHttpSessionTransport::LegacyHttpSessionTransport(
 }
 
 ///|
-/// Look up a header by case-insensitive name.
-fn get_header_ci(headers : Map[String, String], name : String) -> String? {
-  let target = name.to_lower()
-  for k, v in headers {
-    if k.to_lower() == target {
-      return Some(v)
-    }
-  }
-  None
-}
-
-///|
-/// Extract the legacy session id from response headers.
-fn extract_session_id(headers : Map[String, String]) -> String? {
-  get_header_ci(headers, "Mcp-Session-Id")
-}
-
-///|
 /// Fill in the common request headers for legacy Streamable HTTP.
 fn LegacyHttpSessionTransport::apply_request_headers(
   self : LegacyHttpSessionTransport,
-  headers : Map[String, String],
+  headers : @http.Headers,
 ) -> Unit {
   headers["Content-Type"] = "application/json"
   headers["Accept"] = "application/json, text/event-stream"
@@ -80,35 +62,28 @@ async fn LegacyHttpSessionTransport::do_post(
     raise @types.InvalidState("Cannot send on closed transport")
   }
   let body_bytes = @utf8.encode(message)
-  let headers : Map[String, String] = Map([])
+  let headers : @http.Headers = Map([])
   self.apply_request_headers(headers)
   let client = @http.post_stream(self.base_url, headers~) catch {
     e => raise @types.WriteError("HTTP POST failed: \{e}")
   }
+  // On success the client escapes via the return value, so only failure
+  // paths (including async cancellation) may release it here.
+  errdefer client.close()
   client.write(body_bytes) catch {
-    e => {
-      client.close()
-      raise @types.WriteError("Failed to write body: \{e}")
-    }
+    e => raise @types.WriteError("Failed to write body: \{e}")
   }
   client.flush() catch {
-    e => {
-      client.close()
-      raise @types.WriteError("Failed to flush: \{e}")
-    }
+    e => raise @types.WriteError("Failed to flush: \{e}")
   }
   let response = client.end_request() catch {
-    e => {
-      client.close()
-      raise @types.ReadError("Failed to get response: \{e}")
-    }
+    e => raise @types.ReadError("Failed to get response: \{e}")
   }
   if response.code == 401 {
     let www_auth = match response.headers.get("www-authenticate") {
       Some(v) => v
       None => ""
     }
-    client.close()
     let msg = match www_auth {
       "" => "HTTP 401 Unauthorized"
       _ => "HTTP 401 Unauthorized — WWW-Authenticate: " + www_auth
@@ -116,16 +91,16 @@ async fn LegacyHttpSessionTransport::do_post(
     raise @types.Unauthorized(msg)
   }
   if response.code == 403 {
-    client.close()
     raise @types.Forbidden("HTTP 403 Forbidden — insufficient permissions")
   }
   if response.code >= 400 {
-    client.close()
     raise @types.WriteError(
       "HTTP " + response.code.to_string() + " " + response.reason,
     )
   }
-  match extract_session_id(response.headers) {
+  // @http.Headers lookups are case-insensitive, so servers that spell the
+  // header `mcp-session-id` or `MCP-SESSION-ID` are still recognized.
+  match response.headers.get("Mcp-Session-Id") {
     Some(s) => self.session_id = Some(s)
     None => ()
   }
@@ -133,75 +108,25 @@ async fn LegacyHttpSessionTransport::do_post(
 }
 
 ///|
-/// Parse the lines of a single SSE event into its JSON-RPC payload.
-/// The event id is returned for forward-compatibility but is intentionally unused
-/// (this SDK does not implement `Last-Event-ID` resumability).
-fn parse_sse_event(lines : Array[String]) -> (String?, String?) {
-  let data_lines : Array[String] = []
-  let mut event_id : String? = None
-  for l in lines {
-    if l.has_prefix("data: ") {
-      data_lines.push(l)
-    } else if l.has_prefix("id: ") {
-      event_id = Some(l[4:].trim().to_owned())
-    }
-  }
-  if data_lines.is_empty() {
-    return (None, event_id)
-  }
-  let mut result = ""
-  let mut first = true
-  for dl in data_lines {
-    if !first {
-      result = result + "\n"
-    }
-    first = false
-    result = result + dl[6:].to_owned()
-  }
-  (Some(result), event_id)
-}
-
-///|
-/// Read one SSE event from the streaming response body.
-async fn read_sse_event(
-  client : @http.Client,
-) -> (String?, String?) raise @types.TransportError {
-  let lines : Array[String] = []
-  while true {
-    let line = client.read_until("\n") catch {
-      e => raise @types.ReadError("SSE read error: \{e}")
-    }
-    match line {
-      None => return parse_sse_event(lines)
-      Some(l) => {
-        let l = l.trim_end().to_owned()
-        if l == "" {
-          break
-        }
-        lines.push(l)
-      }
-    }
-  }
-  parse_sse_event(lines)
-}
-
-///|
 /// POST a JSON-RPC request to the legacy MCP endpoint. If the server returns an
 /// `Mcp-Session-Id` header, it is stored for all later requests. Responses may be
 /// a single JSON object or an SSE stream; every JSON-RPC payload is queued for
-/// `receive`.
+/// `receive`. SSE tokenization is shared with the modern transport via
+/// `@transport.read_sse_event`.
 pub async fn LegacyHttpSessionTransport::send(
   self : LegacyHttpSessionTransport,
   message : String,
 ) -> Unit raise @types.TransportError {
   let (response, client) = self.do_post(message)
+  // `send` fully consumes the client on every path, so plain `defer` is right.
+  defer client.close()
   let content_type = match response.headers.get("content-type") {
     Some(ct) => ct.to_lower()
     None => "application/json"
   }
   if content_type.contains("text/event-stream") {
     while true {
-      let (data_opt, _id_opt) = read_sse_event(client)
+      let (data_opt, _id_opt) = @transport.read_sse_event(client)
       match data_opt {
         Some(event_json) =>
           self.pending_responses.put(event_json) catch {
@@ -210,15 +135,10 @@ pub async fn LegacyHttpSessionTransport::send(
         None => break
       }
     }
-    client.close()
   } else {
     let body = client.read_all() catch {
-      e => {
-        client.close()
-        raise @types.ReadError("Failed to read response body: \{e}")
-      }
+      e => raise @types.ReadError("Failed to read response body: \{e}")
     }
-    client.close()
     let body_str = body.text() catch {
       e => raise @types.ReadError("Failed to decode response body: \{e}")
     }
@@ -267,7 +187,7 @@ pub async fn LegacyHttpSessionTransport::close(
   }
   match self.session_id {
     Some(sid) => {
-      let headers : Map[String, String] = Map([])
+      let headers : @http.Headers = Map([])
       headers["Mcp-Session-Id"] = sid
       match self.auth_token {
         Some(t) => headers["Authorization"] = "Bearer " + t

@@ -61,10 +61,12 @@ pub async fn StdioClientTransport::start(
   let (stdin_input, stdin_writer) = @process.write_to_process() catch {
     e => raise @types.WriteError("Failed to create stdin pipe: \{e}")
   }
+  errdefer stdin_writer.close()
   // Create pipes for child stdout (child writes → host reads)
   let (stdout_reader, stdout_output) = @process.read_from_process() catch {
     e => raise @types.ReadError("Failed to create stdout pipe: \{e}")
   }
+  errdefer stdout_reader.close()
   // Spawn the child process with graceful cancel (SIGTERM → 5s → SIGKILL)
   let _process = @process.spawn(
     group,
