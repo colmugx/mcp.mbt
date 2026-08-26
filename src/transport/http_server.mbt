@@ -247,10 +247,16 @@ pub async fn HttpTransport::start(
                   "X-Accel-Buffering": "no",
                   "MCP-Protocol-Version": @types.ProtocolVersion,
                 })
+                // ServerConnection writes are buffered; without an explicit
+                // flush nothing reaches the wire until end_response, which
+                // for a long-lived subscriptions/listen stream never comes.
+                conn.flush()
                 conn.write(sse_event_line(first))
+                conn.flush()
                 while true {
                   let msg = reply_queue.get()
                   conn.write(sse_event_line(msg))
+                  conn.flush()
                   if classify_jsonrpc_message(msg) is FinalResponse {
                     break
                   }

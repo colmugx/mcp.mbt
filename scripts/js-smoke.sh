@@ -7,6 +7,9 @@
 #      (server/discover probe -> tools/list -> tools/call).
 #   2. POST answered with text/event-stream delivers events to
 #      HttpClientTransport::receive incrementally (not buffered to EOF).
+#   3. The real MCP server flushes subscriptions/listen SSE: the ack event
+#      must reach curl while the stream is still open (headers + events on
+#      the wire immediately, not buffered until end_response).
 #
 # How it runs:
 #   - Builds two native counterparts from the working tree via temporary
@@ -165,8 +168,8 @@ async fn main {
     for i in 1..=3 {
       conn.write("event: message\ndata: {\"n\":\{i}}\n\n")
       // ServerConnection writes are buffered; flush is what makes each event
-      // hit the wire immediately (the repository's HttpTransport SSE branch
-      // lacks this — see the smoke report).
+      // hit the wire immediately (same rule the repository's HttpTransport
+      // SSE branch follows).
       conn.flush()
       @async.sleep(700)
     }
@@ -194,11 +197,11 @@ cat > "$TMP_PKG_DIR/client_main/main.mbt" <<'EOF'
 ///   - 127.0.0.1:4241/sse  — raw SSE emitter (3 events, 700ms apart, then EOF)
 /// Any step failure raises at the end so the process exits non-zero.
 ///
-/// Not probed here (documented in the Phase 2 report instead):
-///   - MCP-server `subscriptions/listen` SSE: the server's SSE branch never
-///     flushes, so nothing reaches the wire before end_response; and timing
-///     out an in-flight send kills the process (send converts cancellation
-///     errors into ReadError).
+/// Not probed here from js (the script probes it with curl instead):
+///   - MCP-server `subscriptions/listen` SSE: timing out an in-flight send
+///     kills the js process (send converts cancellation errors into
+///     ReadError), so incremental delivery against the real server is
+///     verified by the script's curl probe, not from js.
 suberror SmokeFailure {
   SmokeFailure(String)
 }
@@ -364,6 +367,23 @@ curl -s -m 5 -X POST "http://127.0.0.1:$MCP_PORT/mcp" \
   >"$WORK_DIR/curl_probe.json" || fail "curl probe against MCP server failed"
 grep -q '"name":"echo"' "$WORK_DIR/curl_probe.json" \
   || fail "curl probe did not return the echo tool"
+
+# --- 3b. Server-side SSE flush probe (subscriptions/listen) ------------------
+# The stream stays open (no final response is ever sent), so any bytes curl
+# collects before its own -m timeout prove the response headers and the ack
+# event were flushed immediately rather than buffered until end_response.
+# curl exits 28 on the timeout by design; only the collected bytes matter.
+
+SSE_PROBE="$WORK_DIR/sse_probe.txt"
+curl -s -m 3 -X POST "http://127.0.0.1:$MCP_PORT/mcp" \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: text/event-stream' \
+  -H 'MCP-Protocol-Version: 2026-07-28' \
+  -H 'Mcp-Method: subscriptions/listen' \
+  -d '{"jsonrpc":"2.0","id":9,"method":"subscriptions/listen","params":{}}' \
+  >"$SSE_PROBE" || true
+grep -q 'notifications/subscriptions/acknowledged' "$SSE_PROBE" \
+  || fail "subscriptions/listen SSE ack not received within 3s (flush regression)"
 
 # --- 4. Run the js client ----------------------------------------------------
 

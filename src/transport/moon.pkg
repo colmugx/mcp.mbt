@@ -38,5 +38,6 @@ options(
     "http_server.mbt": [ "native", "wasm" ],
     "transport_io_test.mbt": [ "native", "wasm" ],
     "http_compliance_io_test.mbt": [ "native", "wasm" ],
+    "sse_flush_io_test.mbt": [ "native" ],
   },
 )
