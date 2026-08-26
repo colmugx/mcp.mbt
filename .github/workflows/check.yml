@@ -25,3 +25,9 @@ jobs:
 
       - name: moon test
         run: moon test
+
+      - name: moon check js
+        run: moon check --target js --deny-warn
+
+      - name: moon test js
+        run: moon test --target js

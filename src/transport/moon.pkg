@@ -23,6 +23,20 @@ import {
   "moonbitlang/core/quickcheck" @qc,
 } for "wbtest"
 
+// js/wasm-gc gate out the I/O source files, so their imports (stdio/socket/
+// process) are unused on those targets; unused_package is noise for gated
+// packages and cannot be suppressed per-target or per-file.
+
+warnings = "-unused_package"
+
 options(
-  targets: { "unimplemented.mbt": [ "wasm-gc" ] },
+  targets: {
+    "unimplemented.mbt": [ "wasm-gc" ],
+    "unimplemented_js.mbt": [ "js" ],
+    "stdio.mbt": [ "native", "wasm" ],
+    "stdio_client.mbt": [ "native", "wasm" ],
+    "http_server.mbt": [ "native", "wasm" ],
+    "transport_io_test.mbt": [ "native", "wasm" ],
+    "http_compliance_io_test.mbt": [ "native", "wasm" ],
+  },
 )
