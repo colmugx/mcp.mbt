@@ -31,3 +31,9 @@ jobs:
 
       - name: moon test js
         run: moon test --target js
+
+      # wasm is a supported server target, but `moon test --target wasm`
+      # cannot run yet: the wasm test binaries fail to instantiate in the
+      # runner (missing "crypto" import), so gate wasm check-only.
+      - name: moon check wasm
+        run: moon check --target wasm --deny-warn

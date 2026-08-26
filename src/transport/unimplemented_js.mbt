@@ -1,16 +1,14 @@
-///| js stub — transport I/O is not available on this target.
+///| js stub — server-side transport I/O is not available on this target
+/// (per the support matrix: client = native + js, server = native + wasm).
 /// HttpClientTransport is absent here: the real implementation in
-/// http_client.mbt compiles on js.
-///
-/// Pure-data / pure-logic members (AuthConfig entirely; StdioTransport
-/// construction and closed-state bookkeeping) keep their real behavior so
-/// client/server construction and field tests run on js. Everything touching
-/// stdio/process/socket aborts; those declarations suppress only the
-/// warnings inherent to abort stubs so js CI can run `--deny-warn`.
+/// http_client.mbt compiles on js. Everything else declared below aborts,
+/// mirroring the wasm-gc stubs in unimplemented.mbt; the declarations
+/// suppress only the warnings inherent to abort stubs so js CI can run
+/// `--deny-warn`.
 
 ///|
 /// Server-side authentication configuration (MCP spec 2026-07-28).
-/// Pure data — identical to the native implementation in http_server.mbt.
+#warnings("-struct_never_constructed")
 pub struct AuthConfig {
   /// Validate a Bearer token. Return true if the token is valid.
   verify_token : (String) -> Bool
@@ -32,33 +30,24 @@ pub fn AuthConfig::AuthConfig(
   required_scopes? : String = "",
   allowed_origins? : Array[String] = [],
 ) -> AuthConfig {
-  {
-    verify_token,
-    resource_metadata_url,
-    authorization_servers,
-    required_scopes: if required_scopes == "" {
-      None
-    } else {
-      Some(required_scopes)
-    },
-    allowed_origins: if allowed_origins.is_empty() {
-      None
-    } else {
-      Some(allowed_origins)
-    },
-  }
+  ignore(verify_token)
+  ignore(resource_metadata_url)
+  ignore(authorization_servers)
+  ignore(required_scopes)
+  ignore(allowed_origins)
+  abort("AuthConfig is not available on js target")
 }
 
 ///|
-/// Construction and closed-state bookkeeping are real (pure logic); the
-/// reader/writer fields of the native struct do not exist on js.
+/// Not available on js — the stdio server transport requires process pipes.
+#warnings("-struct_never_constructed")
 pub struct StdioTransport {
-  mut closed : Bool
+  closed : Bool
 }
 
 ///|
 pub fn StdioTransport::StdioTransport() -> StdioTransport {
-  { closed: false }
+  abort("StdioTransport is not available on js target")
 }
 
 ///|
@@ -67,29 +56,17 @@ pub async fn StdioTransport::receive(
   self : StdioTransport,
 ) -> String? raise @types.TransportError {
   ignore(self)
-  abort("StdioTransport::receive is not available on js target")
+  abort("StdioTransport is not available on js target")
 }
 
 ///|
-#warnings("-unused_value-unused_async-unused_error_type")
+#warnings("-unused_async-unused_error_type")
 pub async fn StdioTransport::send(
   self : StdioTransport,
   _message : String,
 ) -> Unit raise @types.TransportError {
   ignore(self)
-  abort("StdioTransport::send is not available on js target")
-}
-
-///|
-/// No-op, identical to the native implementation.
-pub fn StdioTransport::send_event(
-  _self : StdioTransport,
-  event_type~ : String,
-  data~ : String,
-) -> Unit {
-  ignore(event_type)
-  ignore(data)
-  ()
+  abort("StdioTransport is not available on js target")
 }
 
 ///|
@@ -99,20 +76,31 @@ pub async fn StdioTransport::send_notification(
   _notification : @types.Notification,
 ) -> Unit raise @types.TransportError {
   ignore(self)
-  abort("StdioTransport::send_notification is not available on js target")
+  abort("StdioTransport is not available on js target")
+}
+
+///|
+#warnings("-struct_never_constructed")
+pub fn StdioTransport::send_event(
+  self : StdioTransport,
+  event_type~ : String,
+  data~ : String,
+) -> Unit {
+  ignore(self)
+  ignore(event_type)
+  ignore(data)
+  abort("StdioTransport is not available on js target")
 }
 
 ///|
 pub fn StdioTransport::supports_streaming(_self : StdioTransport) -> Bool {
-  false
+  abort("StdioTransport is not available on js target")
 }
 
 ///|
-/// Real (pure logic), identical to the native implementation.
 pub fn StdioTransport::close(self : StdioTransport) -> Unit {
-  if !self.closed {
-    self.closed = true
-  }
+  ignore(self)
+  abort("StdioTransport is not available on js target")
 }
 
 ///|
@@ -184,7 +172,6 @@ pub async fn HttpTransport::send_notification(
 }
 
 ///|
-/// No-op, identical to the native implementation.
 pub fn HttpTransport::supports_streaming(_self : HttpTransport) -> Bool {
   true
 }
@@ -209,7 +196,6 @@ pub async fn HttpTransport::receive_request(
 }
 
 ///|
-/// No-op, identical to the native implementation.
 pub fn HttpTransport::close(self : HttpTransport) -> Unit {
   ignore(self)
 }
@@ -283,7 +269,6 @@ pub fn StdioClientTransport::send_event(
 }
 
 ///|
-/// No-op, identical to the native implementation.
 pub fn StdioClientTransport::supports_streaming(
   _self : StdioClientTransport,
 ) -> Bool {

@@ -1,6 +1,7 @@
 ///| Host routing tests that do not require live transports.
 
 ///|
+#cfg(not(target="wasm-gc"))
 async test "MCPHost lists no tools without connections" {
   let host = MCPHost::MCPHost(name="host", version="1.0.0")
   match host.list_tools() {
@@ -10,6 +11,7 @@ async test "MCPHost lists no tools without connections" {
 }
 
 ///|
+#cfg(not(target="wasm-gc"))
 async test "MCPHost rejects unqualified tool names" {
   let host = MCPHost::MCPHost(name="host", version="1.0.0")
   match host.call_tool("echo") {
@@ -23,6 +25,7 @@ async test "MCPHost rejects unqualified tool names" {
 }
 
 ///|
+#cfg(not(target="wasm-gc"))
 async test "MCPHost reports missing named connection" {
   let host = MCPHost::MCPHost(name="host", version="1.0.0")
   match host.call_tool("local.echo") {

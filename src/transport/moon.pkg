@@ -29,6 +29,10 @@ import {
 
 warnings = "-unused_package"
 
+// http_client/sse rely on @http.Client streaming APIs, which moonbitlang/
+// async ships only for native+wasm (client.mbt) and js (client.js.mbt); they
+// are absent under wasm-gc, where unimplemented.mbt provides abort stubs.
+
 options(
   targets: {
     "unimplemented.mbt": [ "wasm-gc" ],
@@ -36,6 +40,10 @@ options(
     "stdio.mbt": [ "native", "wasm" ],
     "stdio_client.mbt": [ "native", "wasm" ],
     "http_server.mbt": [ "native", "wasm" ],
+    "http_client.mbt": [ "native", "js", "wasm" ],
+    "sse.mbt": [ "native", "js", "wasm" ],
+    "sse_wbtest.mbt": [ "native", "js", "wasm" ],
+    "http_compliance_test.mbt": [ "native", "js", "wasm" ],
     "transport_io_test.mbt": [ "native", "wasm" ],
     "http_compliance_io_test.mbt": [ "native", "wasm" ],
     "sse_flush_io_test.mbt": [ "native" ],

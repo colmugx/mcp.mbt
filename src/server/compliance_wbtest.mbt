@@ -601,6 +601,7 @@ test "compliance: HeaderMismatch carries no structured data" {
 }
 
 ///|
+#cfg(not(target="wasm-gc"))
 async test "mrtr retry: valid requestState passes verification and reaches the tool" {
   let server = MCPServer::MCPServer("test", "1.0.0")
     .with_request_state_codec(
@@ -677,6 +678,7 @@ async test "mrtr retry: valid requestState passes verification and reaches the t
 }
 
 ///|
+#cfg(not(target="wasm-gc"))
 async test "mrtr retry: tampered requestState is rejected" {
   let server = MCPServer::MCPServer("test", "1.0.0")
     .with_request_state_codec(
@@ -752,6 +754,7 @@ fn json_field_int(json : Json, field : String) -> Int {
 }
 
 ///|
+#cfg(not(target="wasm-gc"))
 async test "compliance: unsupported protocol version returns -32022 with data" {
   let server = MCPServer::MCPServer("test", "1.0.0")
   let request = Json::object({
@@ -780,6 +783,7 @@ async test "compliance: unsupported protocol version returns -32022 with data" {
 }
 
 ///|
+#cfg(not(target="wasm-gc"))
 async test "compliance: missing protocol version is tolerated" {
   let server = MCPServer::MCPServer("test", "1.0.0")
   let request = Json::object({
@@ -794,6 +798,7 @@ async test "compliance: missing protocol version is tolerated" {
 }
 
 ///|
+#cfg(not(target="wasm-gc"))
 async test "compliance: undeclared elicitation capability returns -32021" {
   let server = MCPServer::MCPServer("test", "1.0.0").with_request_state_codec(
     AesGcmStateCodec::with_key(Bytes::make(32, b'\x42')),
@@ -836,6 +841,7 @@ async test "compliance: undeclared elicitation capability returns -32021" {
 }
 
 ///|
+#cfg(not(target="wasm-gc"))
 async test "compliance: declared elicitation capability allows input_required" {
   let server = MCPServer::MCPServer("test", "1.0.0")
     .with_request_state_codec(
@@ -878,6 +884,7 @@ async test "compliance: declared elicitation capability allows input_required" {
 }
 
 ///|
+#cfg(not(target="wasm-gc"))
 async test "mrtr: resources/read input_required → retry → complete" {
   let server = MCPServer::MCPServer("test", "1.0.0")
     .with_request_state_codec(
@@ -973,6 +980,7 @@ async test "mrtr: resources/read input_required → retry → complete" {
 }
 
 ///|
+#cfg(not(target="wasm-gc"))
 async test "mrtr: prompts/get input_required → retry → complete" {
   let server = MCPServer::MCPServer("test", "1.0.0")
     .with_request_state_codec(
@@ -1092,6 +1100,7 @@ test "compliance: resources/templates/list returns templates and cache fields" {
 }
 
 ///|
+#cfg(not(target="wasm-gc"))
 async test "compliance: close_subscription sends graceful result and removes subscription" {
   let server = MCPServer::MCPServer("test", "1.0.0")
   let queue : @aqueue.Queue[String] = @aqueue.Queue(
@@ -1120,6 +1129,7 @@ async test "compliance: close_subscription sends graceful result and removes sub
 }
 
 ///|
+#cfg(not(target="wasm-gc"))
 async test "compliance: cancelled notification closes matching subscription" {
   let server = MCPServer::MCPServer("test", "1.0.0")
   let queue : @aqueue.Queue[String] = @aqueue.Queue(
@@ -1213,6 +1223,7 @@ test "compliance: list endpoints return deterministic order" {
 }
 
 ///|
+#cfg(not(target="wasm-gc"))
 async test "compliance: initialize returns modern-only error naming version" {
   let server = MCPServer::MCPServer("test", "1.0.0")
   let request = Json::object({

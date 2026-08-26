@@ -67,6 +67,7 @@ test "subscriptions: parse_subscription_filter reads all fields" {
 }
 
 ///|
+#cfg(not(target="wasm-gc"))
 async test "subscriptions: notify_tools_list_changed routes to matching stream" {
   let server = MCPServer::MCPServer("test", "1.0.0")
   // Stand up a fake reply queue (as stdio transport uses).
@@ -111,6 +112,7 @@ async test "subscriptions: notify_tools_list_changed routes to matching stream" 
 }
 
 ///|
+#cfg(not(target="wasm-gc"))
 async test "subscriptions: non-matching filter receives no notification" {
   let server = MCPServer::MCPServer("test", "1.0.0")
   let reply_queue : @aqueue.Queue[String] = @aqueue.Queue(
@@ -131,6 +133,7 @@ async test "subscriptions: non-matching filter receives no notification" {
 }
 
 ///|
+#cfg(not(target="wasm-gc"))
 async test "subscriptions: notify_resource_updated reaches only matching URI subscribers" {
   let server = MCPServer::MCPServer("test", "1.0.0")
   let sub_a : @aqueue.Queue[String] = @aqueue.Queue(

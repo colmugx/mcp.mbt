@@ -11,3 +11,18 @@ import {
 import {
   "moonbitlang/core/debug",
 } for "wbtest"
+
+// http_session relies on @http streaming APIs, which moonbitlang/async ships
+// only for native+wasm (client.mbt) and js (client.js.mbt); they are absent
+// under wasm-gc, so the file is gated out there.
+// unused_package is noise for gated packages and cannot be suppressed
+// per-target or per-file (same rationale as src/transport).
+
+warnings = "-unused_package"
+
+options(
+  targets: {
+    "http_session.mbt": [ "native", "js", "wasm" ],
+    "unimplemented.mbt": [ "wasm-gc" ],
+  },
+)

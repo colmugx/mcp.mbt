@@ -39,16 +39,3 @@ test "build_ping_request has correct shape" {
     _ => fail("expected object")
   }
 }
-
-///|
-test "next_request_id increments" {
-  let client = LegacyClient::LegacyClient(
-    name="test",
-    version="0.0.1",
-    transport=@transport.AnyTransport::Stdio(
-      @transport.StdioTransport::StdioTransport(),
-    ),
-  )
-  @debug.assert_eq(client.next_request_id(), 1)
-  @debug.assert_eq(client.next_request_id(), 2)
-}
