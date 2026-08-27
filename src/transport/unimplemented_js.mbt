@@ -1,7 +1,8 @@
 ///| js stub — server-side transport I/O is not available on this target
 /// (per the support matrix: client = native + js, server = native + wasm).
 /// HttpClientTransport is absent here: the real implementation in
-/// http_client.mbt compiles on js. Everything else declared below aborts,
+/// http_client.mbt compiles on js, and so does StdioClientTransport
+/// (stdio_client_js.mbt). Everything else declared below aborts,
 /// mirroring the wasm-gc stubs in unimplemented.mbt; the declarations
 /// suppress only the warnings inherent to abort stubs so js CI can run
 /// `--deny-warn`.
@@ -198,86 +199,4 @@ pub async fn HttpTransport::receive_request(
 ///|
 pub fn HttpTransport::close(self : HttpTransport) -> Unit {
   ignore(self)
-}
-
-///|
-#warnings("-struct_never_constructed")
-pub struct StdioClientTransport {
-  closed : Bool
-}
-
-///|
-#warnings("-unused_value")
-pub fn StdioClientTransport::StdioClientTransport(
-  cmd~ : String,
-  args? : Array[String] = [],
-  extra_env? : Map[String, String] = {},
-) -> StdioClientTransport {
-  abort("StdioClientTransport is not available on js target")
-}
-
-///|
-#warnings("-unused_value-unused_async-unused_error_type")
-pub async fn StdioClientTransport::start(
-  self : StdioClientTransport,
-  group : @async.TaskGroup[Unit],
-) -> Unit raise @types.TransportError {
-  ignore(self)
-  ignore(group)
-  abort("StdioClientTransport is not available on js target")
-}
-
-///|
-#warnings("-unused_value-unused_async-unused_error_type")
-pub async fn StdioClientTransport::receive(
-  self : StdioClientTransport,
-) -> String? raise @types.TransportError {
-  ignore(self)
-  abort("StdioClientTransport is not available on js target")
-}
-
-///|
-#warnings("-unused_value-unused_async-unused_error_type")
-pub async fn StdioClientTransport::send(
-  self : StdioClientTransport,
-  _message : String,
-) -> Unit raise @types.TransportError {
-  ignore(self)
-  abort("StdioClientTransport is not available on js target")
-}
-
-///|
-#warnings("-unused_value-unused_async-unused_error_type")
-pub async fn StdioClientTransport::send_notification(
-  self : StdioClientTransport,
-  _notification : @types.Notification,
-) -> Unit raise @types.TransportError {
-  ignore(self)
-  abort("StdioClientTransport is not available on js target")
-}
-
-///|
-#warnings("-unused_value")
-pub fn StdioClientTransport::send_event(
-  _self : StdioClientTransport,
-  event_type~ : String,
-  data~ : String,
-) -> Unit {
-  ignore(event_type)
-  ignore(data)
-  ()
-}
-
-///|
-pub fn StdioClientTransport::supports_streaming(
-  _self : StdioClientTransport,
-) -> Bool {
-  false
-}
-
-///|
-#warnings("-unused_value")
-pub fn StdioClientTransport::close(self : StdioClientTransport) -> Unit {
-  ignore(self)
-  abort("StdioClientTransport is not available on js target")
 }

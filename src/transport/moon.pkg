@@ -10,6 +10,7 @@ import {
   "moonbitlang/async/process",
   "moonbitlang/async",
   "moonbitlang/async/io",
+  "moonbitlang/async/js_async",
 }
 
 import {
@@ -21,6 +22,7 @@ import {
 import {
   "moonbitlang/core/debug",
   "moonbitlang/core/quickcheck" @qc,
+  "moonbitlang/async/js_async",
 } for "wbtest"
 
 // js/wasm-gc gate out the I/O source files, so their imports (stdio/socket/
@@ -39,6 +41,8 @@ options(
     "unimplemented_js.mbt": [ "js" ],
     "stdio.mbt": [ "native", "wasm" ],
     "stdio_client.mbt": [ "native", "wasm" ],
+    "stdio_client_js.mbt": [ "js" ],
+    "stdio_client_js_wbtest.mbt": [ "js" ],
     "http_server.mbt": [ "native", "wasm" ],
     "http_client.mbt": [ "native", "js", "wasm" ],
     "sse.mbt": [ "native", "js", "wasm" ],

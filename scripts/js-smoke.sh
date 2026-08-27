@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# js-smoke.sh — Phase 2 JS-target smoke test for HttpClientTransport.
+# js-smoke.sh — Phase 2/3c JS-target smoke test.
 #
 # Verifies, against this repository's working tree, that:
 #   1. POST + single JSON response round-trips on the js target (node),
@@ -10,23 +10,29 @@
 #   3. The real MCP server flushes subscriptions/listen SSE: the ack event
 #      must reach curl while the stream is still open (headers + events on
 #      the wire immediately, not buffered until end_response).
+#   4. StdioClientTransport (js, stdio_client_js.mbt) drives a real native
+#      MCP stdio server end to end: spawn -> connect_stdio (discover
+#      probe with legacy fallback) -> tools/list -> tools/call -> graceful
+#      close (stdin EOF -> server exits). The client runs twice: under
+#      node (via `moon run --target js`) and under bun (same built ESM).
 #
 # How it runs:
-#   - Builds two native counterparts from the working tree via temporary
+#   - Builds three native/js counterparts from the working tree via temporary
 #     main packages materialized under src/js_smoke_tmp/:
 #       * 127.0.0.1:4240/mcp — real MCP server (mcp_server + HttpTransport)
 #       * 127.0.0.1:4241/sse — raw SSE emitter (3 events, 700ms apart, EOF)
-#   - Runs the js-target client against both.
+#       * stdio server binary — real MCP server (mcp_server + run_stdio)
 #
 # Why temporary packages instead of `moon run -e`: scratch snippets resolve
 # `colmugx/mcp` from the published registry copy, NOT the working tree, so
 # they cannot test local changes.
 #
-# Success = client output contains "SMOKE RESULT: PASS". The js async runtime
-# exits 0 even on unhandled errors, so the marker (not the exit code alone)
-# is authoritative.
+# Success = client output contains "SMOKE RESULT: PASS" (both runs). The js
+# async runtime exits 0 even on unhandled errors, so the marker (not the
+# exit code alone) is authoritative.
 #
-# Requires: moon on PATH, node >= 18 on PATH, free ports 4240/4241.
+# Requires: moon on PATH, node >= 18 on PATH, bun (BUN env or
+# /opt/homebrew/bin/bun), free ports 4240/4241.
 
 set -uo pipefail
 
@@ -83,6 +89,9 @@ command -v moon >/dev/null 2>&1 || fail "moon not found on PATH"
 command -v node >/dev/null 2>&1 || fail "node not found on PATH"
 command -v lsof >/dev/null 2>&1 || fail "lsof not found on PATH"
 command -v curl >/dev/null 2>&1 || fail "curl not found on PATH"
+BUN="${BUN:-/opt/homebrew/bin/bun}"
+[ -x "$BUN" ] || BUN="$(command -v bun || true)"
+[ -n "$BUN" ] && [ -x "$BUN" ] || fail "bun not found (set BUN=/path/to/bun)"
 
 for port in "$MCP_PORT" "$SSE_PORT"; do
   if lsof -i :"$port" -sTCP:LISTEN >/dev/null 2>&1; then
@@ -92,7 +101,7 @@ done
 
 # --- 1. Materialize temporary main packages from the working tree ----------
 
-mkdir -p "$TMP_PKG_DIR/mcp_server_main" "$TMP_PKG_DIR/sse_server_main" "$TMP_PKG_DIR/client_main"
+mkdir -p "$TMP_PKG_DIR/mcp_server_main" "$TMP_PKG_DIR/sse_server_main" "$TMP_PKG_DIR/stdio_server_main" "$TMP_PKG_DIR/client_main"
 
 cat > "$TMP_PKG_DIR/mcp_server_main/moon.pkg" <<'EOF'
 import {
@@ -178,6 +187,45 @@ async fn main {
 }
 EOF
 
+cat > "$TMP_PKG_DIR/stdio_server_main/moon.pkg" <<'EOF'
+import {
+  "colmugx/mcp",
+  "moonbitlang/async",
+  "moonbitlang/core/json",
+}
+
+pkgtype(kind: "executable")
+EOF
+
+cat > "$TMP_PKG_DIR/stdio_server_main/main.mbt" <<'EOF'
+///|
+/// js-smoke counterpart: native MCP stdio server with one echo tool.
+/// Speaks NDJSON JSON-RPC on stdin/stdout until stdin EOF.
+async fn main {
+  let schema = @json.parse(
+    "{\"type\":\"object\",\"properties\":{\"text\":{\"type\":\"string\"}},\"required\":[\"text\"]}",
+  )
+  @mcp.mcp_server(name="js-smoke-stdio-server", version="1.2.3")
+    .tool(
+      "echo",
+      "Echo back text",
+      schema,
+      fn(args) {
+        let text = if args is Object(o) {
+          match o.get("text") {
+            Some(String(s)) => s
+            _ => ""
+          }
+        } else {
+          ""
+        }
+        Ok(@mcp.ToolResult::text("Echo: " + text))
+      },
+    )
+    .run_stdio()
+}
+EOF
+
 cat > "$TMP_PKG_DIR/client_main/moon.pkg" <<'EOF'
 import {
   "colmugx/mcp",
@@ -191,10 +239,11 @@ EOF
 
 cat > "$TMP_PKG_DIR/client_main/main.mbt" <<'EOF'
 ///|
-/// js-target smoke client for HttpClientTransport. Runs against the two
-/// native counterparts started by scripts/js-smoke.sh:
+/// js-target smoke client. Runs against the counterparts started by
+/// scripts/js-smoke.sh:
 ///   - 127.0.0.1:4240/mcp  — real MCP server (single-JSON responses)
 ///   - 127.0.0.1:4241/sse  — raw SSE emitter (3 events, 700ms apart, then EOF)
+///   - $STDIO_SERVER_BIN   — real MCP stdio server binary (spawned child)
 /// Any step failure raises at the end so the process exits non-zero.
 ///
 /// Not probed here from js (the script probes it with curl instead):
@@ -205,6 +254,12 @@ cat > "$TMP_PKG_DIR/client_main/main.mbt" <<'EOF'
 suberror SmokeFailure {
   SmokeFailure(String)
 }
+
+///|
+/// Read an environment variable (empty string when unset) — the script
+/// passes the native stdio server binary path via STDIO_SERVER_BIN.
+extern "js" fn js_env(name : String) -> String =
+  #| (name) => globalThis.process.env[name] ?? ""
 
 ///|
 /// One-line summary of a JSON-RPC response: id, serverInfo, tools count.
@@ -338,6 +393,90 @@ async fn main {
   })
   sse.close()
 
+  // [5] StdioClientTransport (js) against a real native MCP stdio server:
+  // spawn -> connect_stdio (2026-07-28 discover probe, legacy fallback)
+  // -> list_tools -> call_tool -> graceful close (stdin EOF -> exit).
+  let server_bin = js_env("STDIO_SERVER_BIN")
+  if server_bin is "" {
+    failures = failures + 1
+    println("[5] stdio connect FAILED: STDIO_SERVER_BIN not set")
+  } else {
+    match @async.with_timeout_opt(
+        20000,
+        async fn() {
+          @async.with_task_group(group => {
+            match @mcp.MCPClient::connect_stdio(
+                cmd=server_bin,
+                name="js-smoke-client",
+                version="0.1.0",
+                group~,
+              ) {
+              Ok(client) => {
+                println("[5] stdio connect: OK (server/discover negotiated)")
+                match @async.with_timeout_opt(
+                    10000,
+                    async fn() { client.list_tools() },
+                  ) {
+                  Some(Ok(listing)) => {
+                    let names = listing.tools.map(fn(t) { t.name })
+                    println(
+                      "[6] stdio list_tools: count=\{listing.tools.length()} [\{names.join(",")}]",
+                    )
+                    if !names.contains("echo") {
+                      failures = failures + 1
+                      println("[6] stdio list_tools FAILED: echo tool missing")
+                    }
+                  }
+                  _ => {
+                    failures = failures + 1
+                    println("[6] stdio list_tools FAILED")
+                  }
+                }
+                match @async.with_timeout_opt(
+                    10000,
+                    async fn() {
+                      client.call_tool(
+                        "echo",
+                        arguments="{\"text\":\"hello-from-stdio\"}",
+                      )
+                    },
+                  ) {
+                  Some(Ok(result)) => {
+                    let text = match result.content {
+                      [Text(t), ..] => t
+                      _ => "<no text content>"
+                    }
+                    println(
+                      "[7] stdio call_tool: isError=\{result.is_error} text=\{text}",
+                    )
+                    if text != "Echo: hello-from-stdio" {
+                      failures = failures + 1
+                      println("[7] stdio call_tool FAILED: unexpected echo text")
+                    }
+                  }
+                  _ => {
+                    failures = failures + 1
+                    println("[7] stdio call_tool FAILED")
+                  }
+                }
+                client.close()
+              }
+              Err(e) => {
+                failures = failures + 1
+                println("[5] stdio connect FAILED: \{e.message()}")
+              }
+            }
+          })
+        },
+      ) {
+      None => {
+        failures = failures + 1
+        println("[5] stdio connect FAILED: timeout")
+      }
+      Some(_) => ()
+    }
+  }
+
   println("SMOKE RESULT: \{if failures == 0 { "PASS" } else { "FAIL" }} (\{failures} failures)")
   if failures > 0 {
     raise SmokeFailure("\{failures} smoke step(s) failed")
@@ -387,18 +526,39 @@ grep -q 'notifications/subscriptions/acknowledged' "$SSE_PROBE" \
 
 # --- 4. Run the js client ----------------------------------------------------
 
-echo "js-smoke: running js client (node $(node --version))"
-moon run --target js src/js_smoke_tmp/client_main >"$WORK_DIR/client.log" 2>&1
-CLIENT_EXIT=$?
-cat "$WORK_DIR/client.log"
+# Native stdio MCP server counterpart for step [5]-[7]: the js client spawns
+# this binary itself, so only a build is needed (no port to wait for).
+moon build --target native src/js_smoke_tmp/stdio_server_main \
+  >"$WORK_DIR/stdio_server_build.log" 2>&1 \
+  || { cat "$WORK_DIR/stdio_server_build.log" >&2; fail "native stdio server build failed"; }
+SERVER_BIN="$(find "$REPO_ROOT/_build/native" -type f -name 'stdio_server_main.exe' -not -path '*.dSYM*' | head -1)"
+[ -n "$SERVER_BIN" ] || fail "stdio server binary not found under _build/native"
 
-if ! grep -q 'SMOKE RESULT: PASS' "$WORK_DIR/client.log"; then
-  fail "js client did not report PASS (exit=$CLIENT_EXIT, see output above)"
-fi
+run_js_client() {
+  # run_js_client <label> <interpreter...> -- logs to $WORK_DIR/client_<label>.log
+  local label=$1
+  shift
+  local log="$WORK_DIR/client_$label.log"
+  echo "js-smoke: running js client ($label)"
+  if [ "$1" = "--moon" ]; then
+    shift
+    STDIO_SERVER_BIN="$SERVER_BIN" "$@" >"$log" 2>&1
+  else
+    local js_file
+    js_file="$(find "$REPO_ROOT/_build/js/debug/build" -path '*js_smoke_tmp*' -name 'client_main.js' | head -1)"
+    [ -n "$js_file" ] || fail "built client_main.js not found"
+    STDIO_SERVER_BIN="$SERVER_BIN" "$@" "$js_file" >"$log" 2>&1
+  fi
+  local exit_code=$?
+  cat "$log"
+  grep -q 'SMOKE RESULT: PASS' "$log" \
+    || fail "js client ($label) did not report PASS (exit=$exit_code, see output above)"
+  [ "$exit_code" -eq 0 ] \
+    || fail "js client ($label) reported PASS but exited $exit_code"
+}
 
-if [ "$CLIENT_EXIT" -ne 0 ]; then
-  fail "js client reported PASS but exited $CLIENT_EXIT"
-fi
+run_js_client node --moon moon run --target js src/js_smoke_tmp/client_main
+run_js_client bun "$BUN"
 
 echo "js-smoke: PASS"
 exit 0
