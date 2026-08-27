@@ -29,10 +29,7 @@ pub async fn AnyTransport::receive(
 }
 
 ///|
-pub async fn AnyTransport::send(
-  self : AnyTransport,
-  message : String,
-) -> Unit raise @types.TransportError {
+pub async fn AnyTransport::send(self : AnyTransport, message : String) -> Unit {
   match self {
     Stdio(t) => t.send(message)
     StdioClient(t) => t.send(message)
@@ -45,7 +42,7 @@ pub async fn AnyTransport::send(
 pub async fn AnyTransport::send_notification(
   self : AnyTransport,
   notification : @types.Notification,
-) -> Unit raise @types.TransportError {
+) -> Unit {
   match self {
     Stdio(t) => t.send_notification(notification)
     StdioClient(t) => t.send_notification(notification)

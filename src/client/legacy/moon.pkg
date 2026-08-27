@@ -10,6 +10,8 @@ import {
 
 import {
   "moonbitlang/core/debug",
+  "moonbitlang/async",
+  "moonbitlang/async/socket",
 } for "wbtest"
 
 // http_session relies on @http streaming APIs, which moonbitlang/async ships
@@ -24,5 +26,6 @@ options(
   targets: {
     "http_session.mbt": [ "native", "js", "wasm" ],
     "unimplemented.mbt": [ "wasm-gc" ],
+    "http_cancellation_wbtest.mbt": [ "native" ],
   },
 )

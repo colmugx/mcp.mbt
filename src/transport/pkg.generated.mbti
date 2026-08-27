@@ -56,9 +56,9 @@ pub(all) enum AnyTransport {
 }
 pub fn AnyTransport::close(Self) -> Unit
 pub async fn AnyTransport::receive(Self) -> String? raise @types.TransportError
-pub async fn AnyTransport::send(Self, String) -> Unit raise @types.TransportError
+pub async fn AnyTransport::send(Self, String) -> Unit
 pub fn AnyTransport::send_event(Self, event_type~ : String, data~ : String) -> Unit
-pub async fn AnyTransport::send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
+pub async fn AnyTransport::send_notification(Self, @types.Notification) -> Unit
 pub fn AnyTransport::supports_streaming(Self) -> Bool
 
 pub struct AuthConfig {
@@ -80,9 +80,9 @@ pub struct HttpClientTransport {
 pub fn HttpClientTransport::HttpClientTransport(String, auth_token? : String) -> Self
 pub fn HttpClientTransport::close(Self) -> Unit
 pub async fn HttpClientTransport::receive(Self) -> String? noraise
-pub async fn HttpClientTransport::send(Self, String) -> Unit raise @types.TransportError
+pub async fn HttpClientTransport::send(Self, String) -> Unit
 pub fn HttpClientTransport::send_event(Self, event_type~ : String, data~ : String) -> Unit
-pub async fn HttpClientTransport::send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
+pub async fn HttpClientTransport::send_notification(Self, @types.Notification) -> Unit
 pub fn HttpClientTransport::set_tool_header_schemas(Self, Map[String, Array[(Array[String], String)]]) -> Unit
 pub fn HttpClientTransport::supports_streaming(Self) -> Bool
 

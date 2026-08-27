@@ -37,8 +37,8 @@ pub struct LegacyHttpSessionTransport {
 pub fn LegacyHttpSessionTransport::LegacyHttpSessionTransport(url~ : String, auth_token? : String) -> Self
 pub async fn LegacyHttpSessionTransport::close(Self) -> Unit
 pub fn LegacyHttpSessionTransport::receive(Self) -> String?
-pub async fn LegacyHttpSessionTransport::send(Self, String) -> Unit raise @types.TransportError
-pub async fn LegacyHttpSessionTransport::send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
+pub async fn LegacyHttpSessionTransport::send(Self, String) -> Unit
+pub async fn LegacyHttpSessionTransport::send_notification(Self, @types.Notification) -> Unit
 
 pub enum LegacyTransport {
   Wrapped(@transport.AnyTransport)

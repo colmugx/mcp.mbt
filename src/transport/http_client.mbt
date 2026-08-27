@@ -58,10 +58,14 @@ pub fn HttpClientTransport::HttpClientTransport(
 /// headers (`MCP-Protocol-Version`, `Mcp-Method`, `Mcp-Name`) and accepts
 /// either a single JSON object or an SSE stream as the response. All response
 /// messages are pushed onto `pending_responses` for `receive` to drain.
+/// Cancellation note: every error-translating catch below re-raises when
+/// `@async.is_being_cancelled()` — otherwise a `with_timeout` cancellation
+/// injected at a suspension point would be re-labeled as WriteError/ReadError,
+/// losing its identity to the enclosing task group's timeout fallback.
 pub async fn HttpClientTransport::send(
   self : HttpClientTransport,
   message : String,
-) -> Unit raise @types.TransportError {
+) -> Unit {
   if self.closed {
     raise @types.InvalidState("Cannot send on closed transport")
   }
@@ -109,19 +113,39 @@ pub async fn HttpClientTransport::send(
     None => ()
   }
   let client = @http.post_stream(self.base_url, headers~) catch {
-    e => raise @types.WriteError("HTTP POST failed: \{e}")
+    e =>
+      if @async.is_being_cancelled() {
+        raise e
+      } else {
+        raise @types.WriteError("HTTP POST failed: \{e}")
+      }
   }
   // `send` consumes the client on every path, so a plain `defer` covers both
   // the success exits and every raise (including async cancellation) below.
   defer client.close()
   client.write(body_bytes) catch {
-    e => raise @types.WriteError("Failed to write body: \{e}")
+    e =>
+      if @async.is_being_cancelled() {
+        raise e
+      } else {
+        raise @types.WriteError("Failed to write body: \{e}")
+      }
   }
   client.flush() catch {
-    e => raise @types.WriteError("Failed to flush: \{e}")
+    e =>
+      if @async.is_being_cancelled() {
+        raise e
+      } else {
+        raise @types.WriteError("Failed to flush: \{e}")
+      }
   }
   let response = client.end_request() catch {
-    e => raise @types.ReadError("Failed to get response: \{e}")
+    e =>
+      if @async.is_being_cancelled() {
+        raise e
+      } else {
+        raise @types.ReadError("Failed to get response: \{e}")
+      }
   }
   // Stateless transport: 404 no longer means "session expired". Surface it
   // (and other 4xx/5xx) as a transport error for the caller to handle.
@@ -172,10 +196,20 @@ pub async fn HttpClientTransport::send(
   } else {
     // Single JSON response: read the entire body and queue it.
     let body = client.read_all() catch {
-      e => raise @types.ReadError("Failed to read response body: \{e}")
+      e =>
+        if @async.is_being_cancelled() {
+          raise e
+        } else {
+          raise @types.ReadError("Failed to read response body: \{e}")
+        }
     }
     let body_str = body.text() catch {
-      e => raise @types.ReadError("Failed to read response body: \{e}")
+      e =>
+        if @async.is_being_cancelled() {
+          raise e
+        } else {
+          raise @types.ReadError("Failed to read response body: \{e}")
+        }
     }
     self.pending_responses.put(body_str) catch {
       _ => ()
@@ -203,7 +237,7 @@ pub async fn HttpClientTransport::receive(
 pub async fn HttpClientTransport::send_notification(
   self : HttpClientTransport,
   notification : @types.Notification,
-) -> Unit raise @types.TransportError {
+) -> Unit {
   if self.closed {
     raise @types.InvalidState("Cannot send on closed transport")
   }
@@ -222,7 +256,12 @@ pub async fn HttpClientTransport::send_notification(
     None => ()
   }
   let client = @http.post_stream(self.base_url, headers~) catch {
-    e => raise @types.WriteError("Failed to send notification: \{e}")
+    e =>
+      if @async.is_being_cancelled() {
+        raise e
+      } else {
+        raise @types.WriteError("Failed to send notification: \{e}")
+      }
   }
   defer client.close()
   // Fire-and-forget: write body, end request; errors are intentionally swallowed.

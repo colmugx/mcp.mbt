@@ -165,9 +165,30 @@ fn apply_legacy_meta_to_request(request : String, meta : Json) -> String {
 }
 
 ///|
+/// Recover the concrete `TransportError` identity from an `Error` raised by
+/// the widened transport `send` API. Non-cancellation transport errors are
+/// always members of the closed family above; any other payload (not expected
+/// in practice) degrades to `InvalidState` carrying its text so classification
+/// still sees a well-formed value.
+fn transport_error_of(e : Error) -> @types.TransportError {
+  match e {
+    @types.ConnectionClosed => @types.ConnectionClosed
+    @types.ReadError(msg) => @types.ReadError(msg)
+    @types.WriteError(msg) => @types.WriteError(msg)
+    @types.Timeout => @types.Timeout
+    @types.InvalidState(msg) => @types.InvalidState(msg)
+    @types.Unauthorized(msg) => @types.Unauthorized(msg)
+    @types.Forbidden(msg) => @types.Forbidden(msg)
+    @types.HttpError(code, body) => @types.HttpError(code, body)
+    _ => @types.InvalidState(e.to_string())
+  }
+}
+
+///|
 /// Send a raw `server/discover` probe over the given transport and parse the
 /// response. Returns the server capabilities on success, or a failure that can
-/// be classified by `classify_probe_error`.
+/// be classified by `classify_probe_error`. Cancellation is re-raised, not
+/// wrapped, so timeouts keep their identity at the task-group boundary.
 async fn send_discover_probe(
   transport : @transport.AnyTransport,
   meta : Json,
@@ -175,7 +196,12 @@ async fn send_discover_probe(
   let id = 1
   let request = build_discover_request(id, meta)
   transport.send(request) catch {
-    e => return Err(@types.TransportError(e))
+    e =>
+      if @async.is_being_cancelled() {
+        raise e
+      } else {
+        return Err(@types.MCPError::TransportError(transport_error_of(e)))
+      }
   }
   let response = transport.receive() catch {
     e => return Err(@types.TransportError(e))

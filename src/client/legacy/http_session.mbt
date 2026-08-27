@@ -54,10 +54,15 @@ fn LegacyHttpSessionTransport::apply_request_headers(
 ///|
 /// Perform the HTTP POST, handle status codes, capture the session id, and return
 /// the connected client positioned at the response body.
+
+///|
+/// Cancellation note: error-translating catches below re-raise when
+/// `@async.is_being_cancelled()` so a `with_timeout` cancellation keeps its
+/// identity instead of surfacing as WriteError/ReadError to callers.
 async fn LegacyHttpSessionTransport::do_post(
   self : LegacyHttpSessionTransport,
   message : String,
-) -> (@http.Response, @http.Client) raise @types.TransportError {
+) -> (@http.Response, @http.Client) {
   if self.closed {
     raise @types.InvalidState("Cannot send on closed transport")
   }
@@ -65,19 +70,39 @@ async fn LegacyHttpSessionTransport::do_post(
   let headers : @http.Headers = Map([])
   self.apply_request_headers(headers)
   let client = @http.post_stream(self.base_url, headers~) catch {
-    e => raise @types.WriteError("HTTP POST failed: \{e}")
+    e =>
+      if @async.is_being_cancelled() {
+        raise e
+      } else {
+        raise @types.WriteError("HTTP POST failed: \{e}")
+      }
   }
   // On success the client escapes via the return value, so only failure
   // paths (including async cancellation) may release it here.
   errdefer client.close()
   client.write(body_bytes) catch {
-    e => raise @types.WriteError("Failed to write body: \{e}")
+    e =>
+      if @async.is_being_cancelled() {
+        raise e
+      } else {
+        raise @types.WriteError("Failed to write body: \{e}")
+      }
   }
   client.flush() catch {
-    e => raise @types.WriteError("Failed to flush: \{e}")
+    e =>
+      if @async.is_being_cancelled() {
+        raise e
+      } else {
+        raise @types.WriteError("Failed to flush: \{e}")
+      }
   }
   let response = client.end_request() catch {
-    e => raise @types.ReadError("Failed to get response: \{e}")
+    e =>
+      if @async.is_being_cancelled() {
+        raise e
+      } else {
+        raise @types.ReadError("Failed to get response: \{e}")
+      }
   }
   if response.code == 401 {
     let www_auth = match response.headers.get("www-authenticate") {
@@ -116,7 +141,7 @@ async fn LegacyHttpSessionTransport::do_post(
 pub async fn LegacyHttpSessionTransport::send(
   self : LegacyHttpSessionTransport,
   message : String,
-) -> Unit raise @types.TransportError {
+) -> Unit {
   let (response, client) = self.do_post(message)
   // `send` fully consumes the client on every path, so plain `defer` is right.
   defer client.close()
@@ -137,10 +162,20 @@ pub async fn LegacyHttpSessionTransport::send(
     }
   } else {
     let body = client.read_all() catch {
-      e => raise @types.ReadError("Failed to read response body: \{e}")
+      e =>
+        if @async.is_being_cancelled() {
+          raise e
+        } else {
+          raise @types.ReadError("Failed to read response body: \{e}")
+        }
     }
     let body_str = body.text() catch {
-      e => raise @types.ReadError("Failed to decode response body: \{e}")
+      e =>
+        if @async.is_being_cancelled() {
+          raise e
+        } else {
+          raise @types.ReadError("Failed to decode response body: \{e}")
+        }
     }
     self.pending_responses.put(body_str) catch {
       _ => ()
@@ -170,7 +205,7 @@ pub fn LegacyHttpSessionTransport::receive(
 pub async fn LegacyHttpSessionTransport::send_notification(
   self : LegacyHttpSessionTransport,
   notification : @types.Notification,
-) -> Unit raise @types.TransportError {
+) -> Unit {
   let json_body = notification.to_jsonrpc_string()
   let (_, client) = self.do_post(json_body)
   client.close()

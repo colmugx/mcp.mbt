@@ -15,7 +15,7 @@ pub enum LegacyTransport {
 async fn LegacyTransport::send(
   self : LegacyTransport,
   message : String,
-) -> Unit raise @types.TransportError {
+) -> Unit {
   match self {
     Wrapped(t) => t.send(message)
     HttpSession(t) => t.send(message)
@@ -36,7 +36,7 @@ async fn LegacyTransport::receive(
 async fn LegacyTransport::send_notification(
   self : LegacyTransport,
   notification : @types.Notification,
-) -> Unit raise @types.TransportError {
+) -> Unit {
   match self {
     Wrapped(t) => t.send_notification(notification)
     HttpSession(t) => t.send_notification(notification)
