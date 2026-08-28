@@ -1,5 +1,5 @@
 ///| Cancellation regression tests — native only (real sockets + @async
-/// runtime). Regression (Phase 7): a `with_timeout` cancellation injected at
+/// runtime). Regression: a `with_timeout` cancellation injected at
 /// an HttpClientTransport suspension point used to be re-labeled by the
 /// transport's error-translating catches (ReadError / WriteError), so callers
 /// saw the wrong error identity and the timeout fallback could not recognize
@@ -13,7 +13,6 @@
 /// Accept one connection and park forever without writing anything.
 async fn stall_after_accept(server : @socket.TcpServer) -> Unit {
   let (conn, _addr) = server.accept()
-  // Hold the connection open without ever writing a response.
   ignore(conn)
   @async.sleep(3_600_000)
 }

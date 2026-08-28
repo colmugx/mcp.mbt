@@ -1,5 +1,5 @@
 ///| SSE flush regression tests — native only (real sockets + @async runtime).
-/// Regression (Phase 2.5): the server-side SSE response branch must flush the
+/// Regression: the server-side SSE response branch must flush the
 /// response headers and each event as it is written; buffering until
 /// `end_response` starves long-lived streams entirely.
 

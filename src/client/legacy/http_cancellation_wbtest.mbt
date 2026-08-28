@@ -1,5 +1,5 @@
 ///| LegacyHttpSessionTransport cancellation regression tests — native only.
-/// Regression (Phase 7): the session transport's error-translating catches
+/// Regression: the session transport's error-translating catches
 /// used to re-label a `with_timeout` / task-group cancellation injected at an
 /// HTTP suspension point as WriteError/ReadError, hiding the cancellation
 /// identity from callers. They now re-raise when

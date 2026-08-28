@@ -356,10 +356,9 @@ pub async fn StdioClientTransport::receive(
 }
 
 ///|
-/// Send a JSON-RPC message to the child's stdin.
-/// Validates the message, then writes it with a trailing newline in a
-/// single awaited write (equivalent wire bytes to the native
-/// buffered-write + flush).
+/// Send a JSON-RPC message to the child's stdin. One awaited write carries
+/// message + newline — the same wire bytes as the native buffered write +
+/// flush, with backpressure preserved.
 pub async fn StdioClientTransport::send(
   self : StdioClientTransport,
   message : String,
