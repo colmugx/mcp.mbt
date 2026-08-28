@@ -105,6 +105,94 @@ async test "stdio client: state contract after close and on invalid use" {
 }
 
 ///|
+/// Group cancellation must terminate the child: a member task raising fails
+/// the whole group, which cancels the spawned watchdog; the watchdog then
+/// performs the graceful close (stdin EOF + 5s kill timer) and blocks until
+/// the child is really gone, so `with_task_group` returns with no leaked
+/// child process. Echo child stays alive forever without stdin EOF, so the
+/// only way its exit promise can settle is the watchdog's intervention.
+async test "stdio client: task group cancellation terminates the child" {
+  let transport = StdioClientTransport::StdioClientTransport(
+    cmd=node_exec_path(),
+    args=["-e", echo_script],
+  )
+  let failed_as_expected = @async.with_timeout_opt(8000, async fn() {
+    try {
+      @async.with_task_group(group => {
+        transport.start(group)
+        group.spawn_bg(() => {
+          @async.sleep(300)
+          raise @types.InvalidState("cancel the group on purpose")
+        })
+        // Park the main task; the group failure tears it down with the
+        // rest of the group, triggering the watchdog's cleanup path.
+        @async.sleep(8000)
+      })
+      false
+    } catch {
+      @types.InvalidState(_) => true
+      e => fail("group failed with unexpected error: \{e}")
+    }
+  })
+  match failed_as_expected {
+    Some(true) => ()
+    Some(false) => fail("group finished without the expected cancellation")
+    None => fail("group teardown hung past 8s (watchdog deadlocked?)")
+  }
+  // The child is really gone: its pre-registered exit promise has settled
+  // (code 0 = graceful stdin-EOF exit; -1 = killed by the 5s timer).
+  match transport.exit {
+    Some(promise) =>
+      match @async.with_timeout_opt(5000, async fn() { promise.wait() }) {
+        Some(exit_info) =>
+          assert_true(
+            exit_info.code == 0 || exit_info.code == -1,
+            msg="child must exit gracefully (0) or be killed (-1), got \{exit_info.code}",
+          )
+        None => fail("child still alive 5s after group cancellation")
+      }
+    None => fail("transport lost its exit promise")
+  }
+}
+
+///|
+/// A child that exits on its own (nonzero code included) ends the watchdog
+/// normally: the task completes without failing the group, and the group
+/// tears down cleanly. Exit-code semantics belong to receive()'s EOF
+/// handling, not to the watchdog.
+async test "stdio client: self-exiting child ends the watchdog without failing the group" {
+  let transport = StdioClientTransport::StdioClientTransport(
+    cmd=node_exec_path(),
+    args=["-e", "setTimeout(() => process.exit(3), 150)"],
+  )
+  try {
+    match
+      @async.with_timeout_opt(8000, async fn() {
+        @async.with_task_group(group => {
+          transport.start(group)
+          // Park past the child's self-exit: the finished watchdog must
+          // neither fail nor hang the group at teardown.
+          @async.sleep(1000)
+        })
+        true
+      }) {
+      Some(true) => ()
+      _ => fail("group did not complete after child self-exit")
+    }
+  } catch {
+    e => fail("group must not fail when the child exits by itself: \{e}")
+  }
+  match transport.exit {
+    Some(promise) =>
+      match @async.with_timeout_opt(5000, async fn() { promise.wait() }) {
+        Some(exit_info) => inspect(exit_info.code, content="3")
+        None => fail("exit promise did not settle after child self-exit")
+      }
+    None => fail("transport lost its exit promise")
+  }
+}
+
+///|
 test "stdio client: streaming capability matches native" {
   let transport = StdioClientTransport::StdioClientTransport(cmd="unused")
   inspect(transport.supports_streaming(), content="false")

@@ -23,7 +23,11 @@
 ///     child may exit the moment stdin EOF arrives), and every promise the
 ///     MoonBit side waits on is guaranteed to settle;
 ///   - close: stdin EOF + a JS-side kill timer, disarmed by the exit
-///     promise — the sync `close()` cannot hang.
+///     promise — the sync `close()` cannot hang;
+///   - cancel: a watchdog task spawned into the caller's TaskGroup reruns
+///     the same choreography when the group is cancelled/fails, so the
+///     child never outlives the group (native parity via the native
+///     transport's group-attached `cancel_handler`).
 
 ///|
 /// Opaque JavaScript value (spawn options object, node stream handles).
@@ -188,13 +192,19 @@ pub fn StdioClientTransport::StdioClientTransport(
 ///|
 /// Spawn the child process inside the given TaskGroup and build the
 /// stdin/stdout bridges. Must be called before `send()` / `receive()`.
+///
+/// A watchdog task is spawned into `group` after a successful spawn, tying
+/// the child's lifetime to the group (native parity: `@process.spawn` there
+/// attaches `graceful_cancel` to the group). The watchdog waits on the
+/// pre-registered exit promise in a cancellable suspension; when the group
+/// tears down — cancellation, whole-group failure, or body return without a
+/// manual `close()` — it mirrors close()'s JS choreography and only then
+/// lets the group finish, so `with_task_group` never returns with a leaked
+/// child.
 pub async fn StdioClientTransport::start(
   self : StdioClientTransport,
   group : @async.TaskGroup[Unit],
 ) -> Unit raise @types.TransportError {
-  // The js bridge keeps no structured-concurrency state in `group`; the
-  // child's lifetime is owned by the JS-side close choreography instead.
-  ignore(group)
   if self.closed {
     raise @types.InvalidState("Cannot start a closed transport")
   }
@@ -227,11 +237,67 @@ pub async fn StdioClientTransport::start(
   }
   let rs = @js_async.ReadableStream::from_js(stdout_web)
   let reader : &@io.Reader = rs
+  let writer = stream_writer(stdin_web)
   self.reader = Some(reader)
   self.stop_reader = fn() { rs.close() }
   self.child = Some(started.child)
-  self.writer = Some(stream_writer(stdin_web))
+  self.writer = Some(writer)
   self.exit = Some(started.exit)
+  // Watchdog: see watch_child_in_group. `no_wait` matters: the group's
+  // waiting counter must not include the watchdog, so that when the group
+  // body returns without a manual close(), the group still cancels it at
+  // teardown (same as the native group-attached cancel_handler) instead of
+  // waiting forever for a child that nobody asked to exit.
+  group.spawn_bg(no_wait=true, () => {
+    watch_child_in_group(writer, started.child, started.exit)
+  })
+}
+
+///|
+/// TaskGroup watchdog — js counterpart of the native transport attaching
+/// `@process.graceful_cancel` to the group. Spawned after a successful
+/// `start`, it keeps the child's lifetime inside the group:
+///
+/// - Normal path: cancellable wait on the pre-registered exit promise; the
+///   child exits on its own (any code — exit-code semantics belong to
+///   receive()'s EOF handling) and the task ends without failing the group.
+/// - Cancelled path (group cancellation, whole-group failure, or teardown
+///   with the body returned without a manual close): rerun close()'s
+///   JS choreography (stdin EOF + 5s kill timer, guaranteeing the exit
+///   promise settles), then block on the exit promise uncancellably — the
+///   group must not tear down while the child may still be alive, matching
+///   the native SIGTERM → 5s → SIGKILL blocking wait — and finally re-raise
+///   the cancellation (a cancelled task is not a group failure).
+/// - Racing a manual `close()` is safe: JS-side writer.close()/kill are
+///   idempotent, and if close() already ended stdin the wait resolves
+///   instead of hanging.
+///
+/// The catch is a cancellation handler that performs async work, not mere
+/// cleanup, so the errdefer rewrite suggested by fragile_catch_all cannot
+/// express it (same shape as with_task_group's own teardown).
+#warnings("-fragile_catch_all")
+async fn watch_child_in_group(
+  writer : JsStdinWriter,
+  child : JsChildProcess,
+  exit : @js_async.Promise[ChildExit],
+) -> Unit {
+  // The AbortController is never observed by the exit promise itself; it
+  // only makes the suspension yield to group cancellation.
+  let ctrl = @js_async.AbortController::new()
+  let _ = exit.wait(abort_controller=ctrl) catch {
+    err => {
+      graceful_close(writer, child, exit)
+      try {
+        let _ = exit.wait()
+      } catch {
+        // The exit promise never rejects by construction; swallow anyway so
+        // the re-raise below carries the cancellation, not a JsError (a
+        // non-Cancelled error here would fail the whole group).
+        _ => ()
+      }
+      raise err
+    }
+  }
 }
 
 ///|
