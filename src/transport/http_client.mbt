@@ -180,17 +180,19 @@ pub async fn HttpClientTransport::send(
     None => "application/json"
   }
   if content_type.contains("text/event-stream") {
-    // SSE response: read events from the streaming body until the stream ends.
-    // Each event is a JSON-RPC message (progress notifications followed by
-    // the final response). All are queued for `receive`.
+    // SSE response: read events from the streaming body until the stream
+    // ends. Each payload event is a JSON-RPC message (progress notifications
+    // followed by the final response), all queued for `receive`; keepalive
+    // events are skipped (`sse_event_verdict`).
     while true {
-      let (data_opt, _id_opt) = read_sse_event(client)
-      match data_opt {
-        Some(event_json) =>
+      let (data_opt, id_opt) = read_sse_event(client)
+      match sse_event_verdict(data_opt, id_opt) {
+        Message(event_json) =>
           self.pending_responses.put(event_json) catch {
             _ => ()
           }
-        None => break
+        Skip => ()
+        Eof => break
       }
     }
   } else {

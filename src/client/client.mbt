@@ -5,7 +5,7 @@ struct RequestIdCounter {
 
 ///|
 fn RequestIdCounter::RequestIdCounter() -> RequestIdCounter {
-  { next_id: 0 }
+  { next_id: 0, }
 }
 
 ///|
@@ -234,9 +234,9 @@ async fn connect_stdio_legacy(
 ///|
 fn default_capabilities() -> @types.ClientCapabilities {
   {
-    roots: Some({ list_changed: true }),
-    sampling: Some(@types.SamplingCapabilities::{  }),
-    elicitation: Some({ form: true }),
+    roots: Some({ list_changed: true, }),
+    sampling: Some(@types.SamplingCapabilities::{ }),
+    elicitation: Some({ form: true, }),
     extensions: None,
   }
 }
@@ -446,7 +446,7 @@ fn MCPClient::check_input_required(
     Some(String(s)) => Some(s)
     _ => None
   }
-  Some({ input_requests: reqs, request_state })
+  Some({ input_requests: reqs, request_state, })
 }
 
 ///|
@@ -961,7 +961,7 @@ pub fn MCPClient::on_sampling(
   self : MCPClient,
   handler : (Json) -> Result[@types.CreateMessageResult, @types.MCPError],
 ) -> MCPClient {
-  { ..self, sampling_handler: Some(handler) }
+  { ..self, sampling_handler: Some(handler), }
 }
 
 ///|
@@ -969,7 +969,7 @@ pub fn MCPClient::on_roots(
   self : MCPClient,
   handler : () -> Result[Array[@types.Root], @types.MCPError],
 ) -> MCPClient {
-  { ..self, roots_handler: Some(handler) }
+  { ..self, roots_handler: Some(handler), }
 }
 
 ///|
@@ -977,7 +977,7 @@ pub fn MCPClient::on_elicitation(
   self : MCPClient,
   handler : (Json) -> Result[@types.ElicitationResult, @types.MCPError],
 ) -> MCPClient {
-  { ..self, elicitation_handler: Some(handler) }
+  { ..self, elicitation_handler: Some(handler), }
 }
 
 ///|
@@ -985,7 +985,7 @@ pub fn MCPClient::on_notification(
   self : MCPClient,
   handlers : NotificationHandlers,
 ) -> MCPClient {
-  { ..self, notification_handlers: handlers }
+  { ..self, notification_handlers: handlers, }
 }
 
 ///|
@@ -1425,7 +1425,7 @@ fn parse_discover_capabilities(result : Json) -> @types.ServerCapabilities {
   } else {
     None
   }
-  { tools, resources, prompts, extensions }
+  { tools, resources, prompts, extensions, }
 }
 
 ///|
@@ -1477,7 +1477,7 @@ fn parse_tools_list(
             Some(String(c)) => Some(c)
             _ => None
           }
-          Ok({ tools: tools_json.filter_map(parse_tool_def), next_cursor })
+          Ok({ tools: tools_json.filter_map(parse_tool_def), next_cursor, })
         }
         _ => Err(@types.InvalidRequest("Missing 'tools' array in result"))
       }
@@ -1499,7 +1499,7 @@ fn parse_call_tool(
         Some(True) => true
         _ => false
       }
-      Ok({ content: content_items, is_error })
+      Ok({ content: content_items, is_error, })
     }
     _ => Err(@types.ParseError("Result must be a JSON object"))
   }
@@ -1585,7 +1585,7 @@ fn parse_resource_def(json : Json) -> @resource.ResourceDefinition? {
                 Some(String(m)) => Some(m)
                 _ => None
               }
-              Some({ uri: u, name: n, description, mime_type })
+              Some({ uri: u, name: n, description, mime_type, })
             }
             _ => None
           }
@@ -1639,7 +1639,7 @@ fn parse_resource_content(json : Json) -> @resource.ResourceReadResult? {
               }
             _ => return None
           }
-          Some({ uri: u, content })
+          Some({ uri: u, content, })
         }
         _ => None
       }
@@ -1655,7 +1655,7 @@ fn parse_read_resource(
     Object(obj) =>
       match obj.get("contents") {
         Some(Array(contents_json)) =>
-          Ok({ contents: contents_json.filter_map(parse_resource_content) })
+          Ok({ contents: contents_json.filter_map(parse_resource_content), })
         _ => Err(@types.InvalidRequest("Missing 'contents' array in result"))
       }
     _ => Err(@types.ParseError("Result must be a JSON object"))
@@ -1677,7 +1677,7 @@ fn parse_prompt_arg(json : Json) -> @types.PromptArgument? {
             Some(False) => Some(false)
             _ => None
           }
-          Some({ name: n, description, required })
+          Some({ name: n, description, required, })
         }
         _ => None
       }
@@ -1700,7 +1700,7 @@ fn parse_prompt_def(json : Json) -> @prompt.PromptDefinition? {
               Some(args_json.filter_map(parse_prompt_arg))
             _ => None
           }
-          Some({ name: n, description, arguments })
+          Some({ name: n, description, arguments, })
         }
         _ => None
       }
@@ -1720,7 +1720,10 @@ fn parse_list_prompts(
             Some(String(c)) => Some(c)
             _ => None
           }
-          Ok({ prompts: prompts_json.filter_map(parse_prompt_def), next_cursor })
+          Ok({
+            prompts: prompts_json.filter_map(parse_prompt_def),
+            next_cursor,
+          })
         }
         _ => Err(@types.InvalidRequest("Missing 'prompts' array in result"))
       }
@@ -1737,7 +1740,7 @@ fn parse_prompt_message(json : Json) -> @types.PromptMessage? {
           match obj.get("content") {
             Some(content_json) =>
               match parse_content_item(content_json) {
-                Some(item) => Some({ role, content: item })
+                Some(item) => Some({ role, content: item, })
                 None => None
               }
             None => None
@@ -1787,7 +1790,7 @@ fn parse_resource_template(json : Json) -> ResourceTemplate? {
                 Some(String(m)) => Some(m)
                 _ => None
               }
-              Some({ uri_template: u, name: n, description, mime_type })
+              Some({ uri_template: u, name: n, description, mime_type, })
             }
             _ => None
           }
@@ -1848,7 +1851,7 @@ fn parse_completion_result(
             Some(False) => Some(false)
             _ => None
           }
-          Ok({ values, total, has_more })
+          Ok({ values, total, has_more, })
         }
         _ => Err(@types.InvalidRequest("Missing 'values' array in result"))
       }

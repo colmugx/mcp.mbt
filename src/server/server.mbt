@@ -456,7 +456,7 @@ async fn MCPServer::handle_subscriptions_listen(
   let filter = parse_subscription_filter(request.params)
   let sub_id = request.id.to_json_string()
   // Register before acknowledging so notifications aren't lost.
-  self.subscriptions.set(sub_id, { filter, reply })
+  self.subscriptions.set(sub_id, { filter, reply, })
   // Send the acknowledgment as the first stream message.
   let ack = subscriptions_acknowledged_str(request.id, filter)
   reply.send(ack) catch {
@@ -698,7 +698,7 @@ async fn MCPServer::run_stdio_transport(
       }
       Some(message) =>
         self.handle_server_request(
-          { message, reply: ReplyHandle::Stdio(response_queue) },
+          { message, reply: ReplyHandle::Stdio(response_queue), },
           group,
         ) catch {
           _ => ()
@@ -721,7 +721,7 @@ async fn MCPServer::run_http_transport(
       }
       Some((message, reply_queue)) =>
         self.handle_server_request(
-          { message, reply: ReplyHandle::Http(reply_queue) },
+          { message, reply: ReplyHandle::Http(reply_queue), },
           group,
         ) catch {
           _ => ()
@@ -890,7 +890,7 @@ pub fn[T : @prompt.PromptMRTR] MCPServer::with_prompt_mrtr(
 
 ///|
 pub fn MCPServer::with_title(self : MCPServer, title : String) -> MCPServer {
-  { ..self, title: Some(title) }
+  { ..self, title: Some(title), }
 }
 
 ///|
@@ -898,7 +898,7 @@ pub fn MCPServer::with_description(
   self : MCPServer,
   description : String,
 ) -> MCPServer {
-  { ..self, description: Some(description) }
+  { ..self, description: Some(description), }
 }
 
 ///|
@@ -906,7 +906,7 @@ pub fn MCPServer::with_instructions(
   self : MCPServer,
   instructions : String,
 ) -> MCPServer {
-  { ..self, instructions: Some(instructions) }
+  { ..self, instructions: Some(instructions), }
 }
 
 ///|
@@ -914,7 +914,7 @@ pub fn MCPServer::with_auth(
   self : MCPServer,
   auth : @transport.AuthConfig,
 ) -> MCPServer {
-  { ..self, auth_config: Some(auth) }
+  { ..self, auth_config: Some(auth), }
 }
 
 ///|
@@ -925,7 +925,7 @@ pub fn MCPServer::with_request_state_codec(
   self : MCPServer,
   codec : AesGcmStateCodec,
 ) -> MCPServer {
-  { ..self, request_state_codec: Some(codec) }
+  { ..self, request_state_codec: Some(codec), }
 }
 
 ///|

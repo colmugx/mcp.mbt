@@ -51,8 +51,13 @@ impl @mcp.Tool for AddTool with fn description(_) -> String {
 ///|
 impl @mcp.Tool for AddTool with fn params(_) -> Array[@mcp.ParamDef] {
   [
-    { name: "a", description: "First number", type_: "number", required: true },
-    { name: "b", description: "Second number", type_: "number", required: true },
+    { name: "a", description: "First number", type_: "number", required: true, },
+    {
+      name: "b",
+      description: "Second number",
+      type_: "number",
+      required: true,
+    },
   ]
 }
 
@@ -80,7 +85,7 @@ impl @mcp.Tool for AddTool with fn execute(_, args : Json) -> @mcp.ToolCallOutco
 ///|
 async fn main {
   let server = @mcp.mcp_server(name="example-server", version="1.0.0")
-    .with_tool(EchoTool::{  })
-    .with_tool(AddTool::{  })
+    .with_tool(EchoTool::{ })
+    .with_tool(AddTool::{ })
   server.run_stdio()
 }

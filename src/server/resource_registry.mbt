@@ -28,7 +28,7 @@ struct ResourceRegistry {
 
 ///|
 fn ResourceRegistry::ResourceRegistry() -> ResourceRegistry {
-  { resources: Default::default(), templates: Default::default() }
+  { resources: Default::default(), templates: Default::default(), }
 }
 
 ///|
@@ -43,7 +43,7 @@ fn ResourceRegistry::register(
     @types.MCPError,
   ],
 ) -> Unit {
-  self.resources.set(uri, { name, description, uri, mime_type, handler })
+  self.resources.set(uri, { name, description, uri, mime_type, handler, })
 }
 
 ///|

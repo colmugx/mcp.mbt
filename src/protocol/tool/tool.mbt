@@ -27,19 +27,19 @@ pub(all) enum ToolCallOutcome {
 ///|
 /// Create a successful result with text content
 pub fn ToolResult::text(text : String) -> ToolResult {
-  { content: [@types.ContentItem::Text(text)], is_error: false }
+  { content: [@types.ContentItem::Text(text)], is_error: false, }
 }
 
 ///|
 /// Create a successful result with multiple content items
 pub fn ToolResult::success(content : Array[@types.ContentItem]) -> ToolResult {
-  { content, is_error: false }
+  { content, is_error: false, }
 }
 
 ///|
 /// Create an error result with error message
 pub fn ToolResult::error(message : String) -> ToolResult {
-  { content: [@types.ContentItem::Text(message)], is_error: true }
+  { content: [@types.ContentItem::Text(message)], is_error: true, }
 }
 
 ///| ToToolResult Trait (Maria-inspired type conversion)

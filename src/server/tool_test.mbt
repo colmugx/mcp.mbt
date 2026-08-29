@@ -247,7 +247,7 @@ impl Tool for EchoTool with fn execute(_self : EchoTool, args : Json) -> ToolCal
 ///|
 #cfg(not(target="wasm-gc"))
 async test "example: complete tool implementation with EchoTool" {
-  let tool = EchoTool::{  }
+  let tool = EchoTool::{ }
   @debug.assert_eq(@tool.Tool::name(tool), "echo")
   @debug.assert_eq(@tool.Tool::description(tool), "Echo back the input text")
 
@@ -269,7 +269,7 @@ async test "example: complete tool implementation with EchoTool" {
 ///|
 #cfg(not(target="wasm-gc"))
 async test "example: tool with error handling" {
-  let tool = EchoTool::{  }
+  let tool = EchoTool::{ }
 
   // Missing argument
   let args = Json::object({})

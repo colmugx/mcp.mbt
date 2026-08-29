@@ -41,6 +41,8 @@ pub async fn read_sse_event(@http.Client) -> (String?, String?) raise @types.Tra
 
 pub fn sse_event_line(String) -> String
 
+pub fn sse_event_verdict(String?, String?) -> SseEventVerdict
+
 pub fn unsupported_protocol_version_error(String) -> String
 
 pub fn validate_jsonrpc_message(String) -> Result[Unit, @types.MCPError]
@@ -108,6 +110,12 @@ pub(all) enum JsonRpcKind {
   Notification
   FinalResponse
   Other
+} derive(Eq, @debug.Debug)
+
+pub enum SseEventVerdict {
+  Message(String)
+  Skip
+  Eof
 } derive(Eq, @debug.Debug)
 
 pub struct StdioClientTransport {

@@ -15,7 +15,7 @@ struct PromptRegistry {
 
 ///|
 fn PromptRegistry::PromptRegistry() -> PromptRegistry {
-  { prompts: Default::default() }
+  { prompts: Default::default(), }
 }
 
 ///|
@@ -26,7 +26,7 @@ fn PromptRegistry::register(
   arguments : Array[@types.PromptArgument],
   handler : async (Json) -> Result[@prompt.PromptGetOutcome, @types.MCPError],
 ) -> Unit {
-  self.prompts.set(name, { name, description, arguments, handler })
+  self.prompts.set(name, { name, description, arguments, handler, })
 }
 
 ///|

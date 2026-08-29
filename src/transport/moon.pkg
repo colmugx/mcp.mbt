@@ -1,6 +1,7 @@
 import {
   "colmugx/mcp/protocol/types",
   "gmlewis/base64",
+  "moonbitlang/core/debug",
   "moonbitlang/core/json",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/lexbuf",

@@ -80,6 +80,42 @@ test "classify_probe_error: unrecognized failures fall back to legacy" {
 }
 
 ///|
+test "classify_probe_error: HTTP 4xx probe rejections fall back to legacy" {
+  // nowledge-mem (2025-11-25 streamable HTTP) answers a non-initialize
+  // first message with 422 and a plain-text body; the probe must read that
+  // as "legacy-era server", not a fatal failure.
+  match
+    classify_probe_error(
+      @types.TransportError(
+        @types.HttpError(422, "Unexpected message, expect initialize request"),
+      ),
+    ) {
+    FallbackLegacy => ()
+    _ => fail("expected FallbackLegacy for 422 probe rejection")
+  }
+  match
+    classify_probe_error(
+      @types.TransportError(@types.HttpError(404, "no probe here")),
+    ) {
+    FallbackLegacy => ()
+    _ => fail("expected FallbackLegacy for 404 probe rejection")
+  }
+  // A 4xx body that carries a modern JSON-RPC error still surfaces it.
+  let body = "{\"error\":{\"code\":-32021,\"message\":\"need caps\",\"data\":{\"requiredCapabilities\":[\"roots\"]}}}"
+  match
+    classify_probe_error(@types.TransportError(@types.HttpError(422, body))) {
+    ModernError(@types.MissingRequiredClientCapability(_, ..)) => ()
+    _ => fail("expected ModernError for 422 carrying a modern error")
+  }
+  // 5xx is a broken server, not an era signal.
+  match
+    classify_probe_error(@types.TransportError(@types.HttpError(500, "boom"))) {
+    Fatal(_) => ()
+    _ => fail("expected Fatal for 5xx probe failure")
+  }
+}
+
+///|
 test "classify_probe_error: transport failures are fatal" {
   match classify_probe_error(@types.TransportError(@types.ConnectionClosed)) {
     Fatal(_) => ()

@@ -160,7 +160,7 @@ pub fn JsonRpcRequest::from_json(
       _ => return Err(InvalidRequest("Missing or invalid 'method' field"))
     }
     let params = obj.get("params").unwrap_or(null)
-    Ok({ jsonrpc, id, method_name, params })
+    Ok({ jsonrpc, id, method_name, params, })
   } else {
     Err(InvalidRequest("Request must be a JSON object"))
   }

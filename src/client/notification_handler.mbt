@@ -100,7 +100,7 @@ fn parse_progress_notification(
         Some(String(m)) => Some(m)
         _ => None
       }
-      Some({ progress_token: token, progress, total, message })
+      Some({ progress_token: token, progress, total, message, })
     }
     _ => None
   }
@@ -119,5 +119,5 @@ fn parse_cancelled_notification(
     Some(String(r)) => Some(r)
     _ => None
   }
-  Some({ request_id, reason })
+  Some({ request_id, reason, })
 }

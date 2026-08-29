@@ -90,7 +90,7 @@ pub fn HttpTransport::with_auth(
   self : HttpTransport,
   auth : AuthConfig,
 ) -> HttpTransport {
-  { ..self, auth: Some(auth) }
+  { ..self, auth: Some(auth), }
 }
 
 ///|

@@ -9,7 +9,7 @@ pub struct MCPHost {
 
 ///|
 pub fn MCPHost::MCPHost(name~ : String, version~ : String) -> MCPHost {
-  { name, version, connections: {} }
+  { name, version, connections: {}, }
 }
 
 ///|
@@ -70,12 +70,12 @@ pub async fn MCPHost::list_tools(
     match client.list_tools() {
       Ok(result) =>
         for tool in result.tools {
-          tools.push({ ..tool, name: connection_name + "." + tool.name })
+          tools.push({ ..tool, name: connection_name + "." + tool.name, })
         }
       Err(e) => return Err(e)
     }
   }
-  Ok({ tools, next_cursor: None })
+  Ok({ tools, next_cursor: None, })
 }
 
 ///|

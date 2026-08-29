@@ -17,7 +17,7 @@ test "ResourceRegistry::register adds resource entry" {
     "Test resource description",
     "text/plain",
     fn() {
-      Ok({ uri: "file:///test.txt", content: @resource.Text("test content") })
+      Ok({ uri: "file:///test.txt", content: @resource.Text("test content"), })
     },
   )
   @debug.assert_eq(registry.list_resources().length(), 1)
@@ -34,7 +34,7 @@ test "ResourceRegistry::list_resources returns resource definitions" {
     "First resource",
     "text/plain",
     fn() {
-      Ok({ uri: "file:///test1.txt", content: @resource.Text("content1") })
+      Ok({ uri: "file:///test1.txt", content: @resource.Text("content1"), })
     },
   )
   registry.register_simple(
@@ -43,7 +43,7 @@ test "ResourceRegistry::list_resources returns resource definitions" {
     "Second resource",
     "text/plain",
     fn() {
-      Ok({ uri: "file:///test2.txt", content: @resource.Text("content2") })
+      Ok({ uri: "file:///test2.txt", content: @resource.Text("content2"), })
     },
   )
   let resources = registry.list_resources()
@@ -58,7 +58,7 @@ test "ResourceRegistry::list_resources includes optional fields" {
     "test",
     "Test description",
     "text/plain",
-    fn() { Ok({ uri: "file:///test.txt", content: @resource.Text("test") }) },
+    fn() { Ok({ uri: "file:///test.txt", content: @resource.Text("test"), }) },
   )
   let resource = registry.list_resources()[0]
   @debug.assert_eq(resource.description, Some("Test description"))

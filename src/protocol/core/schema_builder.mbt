@@ -27,7 +27,7 @@ pub struct SchemaBuilder {
 ///|
 /// Create a new schema builder
 pub fn schema_builder() -> SchemaBuilder {
-  { fields: [] }
+  { fields: [], }
 }
 
 ///|
@@ -39,8 +39,8 @@ pub fn SchemaBuilder::field(
   required? : Bool = false,
   desc? : String = "",
 ) -> SchemaBuilder {
-  let field_def : FieldDef = { name, field_type, description: desc, required }
-  { fields: self.fields + [field_def] }
+  let field_def : FieldDef = { name, field_type, description: desc, required, }
+  { fields: self.fields + [field_def], }
 }
 
 ///|

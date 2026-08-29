@@ -240,7 +240,7 @@ test "compliance: resources/list returns array with uri and name" {
     "Test File",
     "A test file",
     "text/plain",
-    fn() { Ok({ uri: "file:///test.txt", content: @resource.Text("hello") }) },
+    fn() { Ok({ uri: "file:///test.txt", content: @resource.Text("hello"), }) },
   )
   let result = parse_result(
     handle_resources_list(server, @types.RequestId::Int(1)),
@@ -264,7 +264,7 @@ test "compliance: resources/list includes mimeType" {
     "Data",
     "JSON data",
     "application/json",
-    fn() { Ok({ uri: "file:///data.json", content: @resource.Text("{}") }) },
+    fn() { Ok({ uri: "file:///data.json", content: @resource.Text("{}"), }) },
   )
   let result = parse_result(
     handle_resources_list(server, @types.RequestId::Int(1)),
@@ -286,7 +286,7 @@ test "compliance: resources/list includes description when present" {
     "Test",
     "A test resource",
     "text/plain",
-    fn() { Ok({ uri: "file:///test.txt", content: @resource.Text("hello") }) },
+    fn() { Ok({ uri: "file:///test.txt", content: @resource.Text("hello"), }) },
   )
   let result = parse_result(
     handle_resources_list(server, @types.RequestId::Int(1)),
@@ -310,7 +310,7 @@ test "compliance: prompts/list returns array with name" {
   server.register_prompt("greet", "Greeting prompt", [], fn(_args) {
     Ok({
       description: Some("A greeting"),
-      messages: [{ role: "user", content: @types.Text("Hello") }],
+      messages: [{ role: "user", content: @types.Text("Hello"), }],
     })
   })
   let result = parse_result(
@@ -338,7 +338,7 @@ test "compliance: prompts/list includes arguments" {
   server.register_prompt("greet", "Greeting", [arg], fn(_args) {
     Ok({
       description: Some("Greeting"),
-      messages: [{ role: "user", content: @types.Text("Hello") }],
+      messages: [{ role: "user", content: @types.Text("Hello"), }],
     })
   })
   let result = parse_result(
@@ -367,7 +367,7 @@ test "compliance: prompts/list includes description" {
   server.register_prompt("greet", "A greeting prompt", [], fn(_args) {
     Ok({
       description: Some("Greeting"),
-      messages: [{ role: "user", content: @types.Text("Hello") }],
+      messages: [{ role: "user", content: @types.Text("Hello"), }],
     })
   })
   let result = parse_result(
@@ -995,14 +995,14 @@ async test "mrtr: prompts/get input_required → retry → complete" {
               Ok(
                 @prompt.PromptGetOutcome::Complete({
                   description: None,
-                  messages: [{ role: "user", content: @types.Text("ready") }],
+                  messages: [{ role: "user", content: @types.Text("ready"), }],
                 }),
               )
             } else {
               Ok(
                 @prompt.PromptGetOutcome::Complete({
                   description: None,
-                  messages: [{ role: "user", content: @types.Text("missing") }],
+                  messages: [{ role: "user", content: @types.Text("missing"), }],
                 }),
               )
             }
@@ -1024,7 +1024,7 @@ async test "mrtr: prompts/get input_required → retry → complete" {
         Ok(
           @prompt.PromptGetOutcome::Complete({
             description: None,
-            messages: [{ role: "user", content: @types.Text("bad") }],
+            messages: [{ role: "user", content: @types.Text("bad"), }],
           }),
         )
       }
@@ -1164,16 +1164,16 @@ test "compliance: list endpoints return deterministic order" {
     Ok(@tool.ToolCallOutcome::Complete(@tool.ToolResult::text("a")))
   })
   server.register_resource("file:///z", "Z", "Z resource", "text/plain", fn() {
-    Ok({ uri: "file:///z", content: @resource.Text("z") })
+    Ok({ uri: "file:///z", content: @resource.Text("z"), })
   })
   server.register_resource("file:///a", "A", "A resource", "text/plain", fn() {
-    Ok({ uri: "file:///a", content: @resource.Text("a") })
+    Ok({ uri: "file:///a", content: @resource.Text("a"), })
   })
   server.register_prompt("zebra_prompt", "Z", [], fn(_args) {
-    Ok({ description: None, messages: [] })
+    Ok({ description: None, messages: [], })
   })
   server.register_prompt("alpha_prompt", "A", [], fn(_args) {
-    Ok({ description: None, messages: [] })
+    Ok({ description: None, messages: [], })
   })
   let server = server
     .resource_template(uri_template="z://{x}", name="Z Template")

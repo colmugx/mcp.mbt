@@ -95,12 +95,18 @@ fn parse_jsonrpc_error(body : String) -> @types.MCPError? {
 ///|
 /// Classify a probe failure into one of three verdicts.
 ///
-/// * Modern JSON-RPC errors (directly or carried in an HTTP 400 body) mean the
+/// * Modern JSON-RPC errors (directly or carried in an HTTP 4xx body) mean the
 ///   server is modern but rejected the probe; surface the error.
-/// * HTTP 400 bodies that do not contain a recognized modern error, and direct
-///   modern-era errors that are not transport failures, trigger legacy fallback.
-/// * Non-HTTP transport failures (connection refused, invalid state, etc.) are
-///   fatal and should propagate without fallback.
+/// * Any other HTTP 4xx rejection of the discover probe means the server will
+///   not speak the modern extension — servers implementing only the legacy
+///   flow reject the probe at the HTTP layer (nowledge-mem answers a
+///   non-initialize first message with `422 "Unexpected message, expect
+///   initialize request"`) — so fall back to the initialize handshake.
+/// * Direct modern-era errors that are not transport failures also trigger
+///   legacy fallback.
+/// * Non-HTTP transport failures and HTTP 5xx (connection refused, invalid
+///   state, server broken — not era signals) are fatal and propagate without
+///   fallback.
 fn classify_probe_error(err : @types.MCPError) -> ProbeVerdict {
   match err {
     @types.HeaderMismatch(_)
@@ -108,7 +114,7 @@ fn classify_probe_error(err : @types.MCPError) -> ProbeVerdict {
     | @types.UnsupportedProtocolVersion(_, ..) => ModernError(err)
     @types.TransportError(te) =>
       match te {
-        @types.HttpError(400, body) =>
+        @types.HttpError(code, body) if code >= 400 && code < 500 =>
           match parse_jsonrpc_error(body) {
             Some(modern_err) => ModernError(modern_err)
             None => FallbackLegacy

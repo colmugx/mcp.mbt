@@ -40,6 +40,41 @@ pub async fn read_sse_event(
 }
 
 ///|
+/// What a response-stream consumer should do with one scanned SSE event.
+pub enum SseEventVerdict {
+  /// A JSON-RPC payload to queue for `receive`.
+  Message(String)
+  /// A keepalive/heartbeat event (dispatched but carrying no payload) —
+  /// keep scanning, the stream is still open.
+  Skip
+  /// End of stream.
+  Eof
+} derive(Eq, @debug.Debug)
+
+///|
+/// Classify one `read_sse_event` result for a response stream.
+///
+/// Servers may open or interleave keepalive events: an event dispatched with
+/// an empty or whitespace-only `data:` payload (nowledge-mem opens every
+/// stream with `data:` + `id:` + `retry:`), or a comment-only heartbeat that
+/// carries an `id` but no data lines. None of those are JSON-RPC messages —
+/// queueing an empty payload desyncs response matching (initialize would
+/// parse the empty string), and treating a heartbeat as EOF ends the scan
+/// before the real reply arrives. A heartbeat with neither data nor id is
+/// indistinguishable from EOF by the scan result and still ends the stream.
+pub fn sse_event_verdict(data : String?, id : String?) -> SseEventVerdict {
+  match data {
+    Some(event_json) =>
+      if event_json.trim().length() > 0 {
+        Message(event_json)
+      } else {
+        Skip
+      }
+    None => if id is Some(_) { Skip } else { Eof }
+  }
+}
+
+///|
 /// Scan one event from `buf`, accumulating `data` lines and the last `id`
 /// seen. The recursion is the loop: one arm per SSE line kind, one
 /// terminating arm for the blank dispatch line, and the catch-all for EOF.

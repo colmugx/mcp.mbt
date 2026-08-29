@@ -7,7 +7,7 @@
 ///|
 /// Build a SubscriptionRequest with a toolsListChanged filter.
 fn tools_filter() -> SubscriptionFilter {
-  { ..SubscriptionFilter::empty(), tools_list_changed: true }
+  { ..SubscriptionFilter::empty(), tools_list_changed: true, }
 }
 
 ///|
@@ -120,7 +120,7 @@ async test "subscriptions: non-matching filter receives no notification" {
   )
   // Subscribe only to prompts-list-changed.
   server.subscriptions.set("2", {
-    filter: { ..SubscriptionFilter::empty(), prompts_list_changed: true },
+    filter: { ..SubscriptionFilter::empty(), prompts_list_changed: true, },
     reply: ReplyHandle::Stdio(reply_queue),
   })
   // A tools-list-changed notification should NOT land on this stream.

@@ -151,13 +151,14 @@ pub async fn LegacyHttpSessionTransport::send(
   }
   if content_type.contains("text/event-stream") {
     while true {
-      let (data_opt, _id_opt) = @transport.read_sse_event(client)
-      match data_opt {
-        Some(event_json) =>
+      let (data_opt, id_opt) = @transport.read_sse_event(client)
+      match @transport.sse_event_verdict(data_opt, id_opt) {
+        @transport.SseEventVerdict::Message(event_json) =>
           self.pending_responses.put(event_json) catch {
             _ => ()
           }
-        None => break
+        @transport.SseEventVerdict::Skip => ()
+        @transport.SseEventVerdict::Eof => break
       }
     }
   } else {

@@ -328,7 +328,7 @@ fn parse_payload_json(s : String) -> RequestStatePayload? {
   } else {
     return None
   }
-  Some({ principal, expires_at, request_method, params_digest, state })
+  Some({ principal, expires_at, request_method, params_digest, state, })
 }
 
 ///|

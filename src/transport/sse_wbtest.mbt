@@ -115,3 +115,28 @@ async test "prop: scan_sse_event recovers formatted payloads" {
     }
   }
 }
+
+///|
+test "sse_event_verdict: opening keepalive with empty data is skipped" {
+  // nowledge-mem opens every SSE stream with `data:` (empty) + `id:` +
+  // `retry:` before the first real payload.
+  @debug.assert_eq(sse_event_verdict(Some(""), Some("0")), Skip)
+  @debug.assert_eq(sse_event_verdict(Some("  "), None), Skip)
+}
+
+///|
+test "sse_event_verdict: real payloads pass through verbatim" {
+  @debug.assert_eq(
+    sse_event_verdict(Some("{\"jsonrpc\":\"2.0\"}"), None),
+    Message("{\"jsonrpc\":\"2.0\"}"),
+  )
+}
+
+///|
+test "sse_event_verdict: heartbeat with id is skipped, bare EOF ends" {
+  // A dispatched comment-only heartbeat carries the id but no data lines —
+  // that is not end-of-stream.
+  @debug.assert_eq(sse_event_verdict(None, Some("evt-2")), Skip)
+  // (None, None) is the scan's EOF shape.
+  @debug.assert_eq(sse_event_verdict(None, None), Eof)
+}

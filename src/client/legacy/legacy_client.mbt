@@ -75,7 +75,7 @@ fn parse_initialize_response(
                 Some(String(v)) => v
                 _ => "unknown"
               }
-              Ok({ name, title: None, version, description: None })
+              Ok({ name, title: None, version, description: None, })
             }
             _ =>
               Ok({
