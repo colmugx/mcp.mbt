@@ -41,6 +41,12 @@ pub fn AuthConfig::AuthConfig(
 
 ///|
 /// Not available on js — the stdio server transport requires process pipes.
+/// The constructor is intentionally inert (not an abort): connect_*_legacy
+/// wraps a Legacy client in a dummy StdioTransport that is never used for
+/// I/O — every MCPClient method delegates to the Legacy backend, including
+/// close — but an aborting constructor crashed the js target the moment any
+/// initialize-era server fell back to legacy. The method stubs below still
+/// abort, so the placeholder can never carry real traffic.
 #warnings("-struct_never_constructed")
 pub struct StdioTransport {
   closed : Bool
@@ -48,7 +54,7 @@ pub struct StdioTransport {
 
 ///|
 pub fn StdioTransport::StdioTransport() -> StdioTransport {
-  abort("StdioTransport is not available on js target")
+  { closed: false, }
 }
 
 ///|

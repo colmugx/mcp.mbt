@@ -198,3 +198,12 @@ test "stdio client: streaming capability matches native" {
   inspect(transport.supports_streaming(), content="false")
   transport.send_event(event_type="ignored", data="ignored")
 }
+
+///|
+test "legacy dummy StdioTransport constructs without abort" {
+  // connect_*_legacy wraps a Legacy client in a dummy StdioTransport that is
+  // never used for I/O; the constructor must not abort on js or every
+  // initialize-era server fallback crashes the process.
+  let dummy = StdioTransport::StdioTransport()
+  inspect(dummy.closed, content="false")
+}
