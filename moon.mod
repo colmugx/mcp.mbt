@@ -1,6 +1,6 @@
 name = "colmugx/mcp"
 
-version = "0.17.2"
+version = "0.17.3"
 
 import {
   "moonbitlang/async@0.21.0",

@@ -1,23 +1,32 @@
 ///|
 /// SSE (Server-Sent Events) scanner for streamable HTTP transports.
 ///
-/// `read_sse_event` consumes exactly one event — or detects EOF — from a
-/// streaming HTTP response body. Tokenization runs through `lexscan` over an
-/// `@lexbuf.AsyncLexbuf`, so the per-line matching stays on the
+/// `SseEventReader` consumes one event per `next` call — or detects EOF —
+/// from a streaming HTTP response body. Tokenization runs through `lexscan`
+/// over an `@lexbuf.AsyncLexbuf`, so the per-line matching stays on the
 /// compiler-optimized regex path and patterns may span refill-chunk
-/// boundaries.
+/// boundaries. The lexbuf persists across `next` calls: when one refill
+/// chunk carries a keepalive event plus the start of the next event, the
+/// leftover bytes stay buffered and are scanned by the following `next`,
+/// instead of being discarded with a per-call lexbuf.
 ///
 /// Semantics follow the WHATWG SSE spec: lines end with `\n`, `\r\n`, or
 /// `\r`; a blank line dispatches the accumulated event; `data:`/`id:` values
 /// strip a single leading space; comments and unknown fields are ignored;
 /// consecutive `data:` lines join with `\n`; an unterminated final line at
 /// EOF is dispatched as if the terminator were present.
-pub async fn read_sse_event(
-  client : @http.Client,
-) -> (String?, String?) raise @types.TransportError {
+pub struct SseEventReader {
+  buf : @lexbuf.AsyncLexbuf
+  decode_failed : Ref[Bool]
+}
+
+///|
+/// Build a reader over one streaming response body. The refill closure is
+/// created once here; every `next` call scans the same lexbuf it fills.
+pub fn SseEventReader::new(client : @http.Client) -> SseEventReader {
   // Malformed UTF-8 cannot be raised through `AsyncLexbuf`'s fixed generic
   // refill signature, so the closure flags the failure and reports EOF to
-  // stop the scan; the error is raised here, after scanning unwinds.
+  // stop the scan; `next` raises the error after scanning unwinds.
   let decode_failed = Ref(false)
   let buf = @lexbuf.AsyncLexbuf::from_fn(() => {
     let chunk = client.read_some(max_len=8192)
@@ -32,11 +41,33 @@ pub async fn read_sse_event(
       None => None
     }
   })
-  let scanned = scan_sse_event(buf, [], None) catch { _ => (None, None) }
-  if decode_failed.val {
+  { buf, decode_failed, }
+}
+
+///|
+/// Scan the next event from the response stream, reusing the reader's
+/// persistent lexbuf so bytes buffered by earlier `next` calls are not lost.
+pub async fn SseEventReader::next(
+  self : SseEventReader,
+) -> (String?, String?) raise @types.TransportError {
+  let scanned = scan_sse_event(self.buf, [], None) catch { _ => (None, None) }
+  if self.decode_failed.val {
+    self.decode_failed.val = false
     raise @types.ReadError("SSE body is not valid UTF-8")
   }
   scanned
+}
+
+///|
+/// One-shot wrapper over `SseEventReader`: consume exactly one event from a
+/// streaming response body. Looping consumers should build one reader per
+/// response stream and call `next` repeatedly instead — each `read_sse_event`
+/// call starts a fresh lexbuf, dropping any trailing bytes buffered from its
+/// own scan.
+pub async fn read_sse_event(
+  client : @http.Client,
+) -> (String?, String?) raise @types.TransportError {
+  SseEventReader::new(client).next()
 }
 
 ///|

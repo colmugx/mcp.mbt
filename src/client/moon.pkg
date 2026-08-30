@@ -16,4 +16,13 @@ import {
 
 import {
   "moonbitlang/core/debug",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/async/socket",
 } for "wbtest"
+
+// era_connect_wbtest.mbt drives the public connect APIs against a raw-socket
+// fake HTTP server; the socket server side exists on native only.
+
+options(
+  targets: { "era_connect_wbtest.mbt": [ "native" ] },
+)

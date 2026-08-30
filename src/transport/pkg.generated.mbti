@@ -10,6 +10,8 @@ import {
   "moonbitlang/async/process",
   "moonbitlang/async/stdio",
   "moonbitlang/core/debug",
+  "moonbitlang/core/lexbuf",
+  "moonbitlang/core/ref",
 }
 
 // Values
@@ -113,6 +115,13 @@ pub(all) enum JsonRpcKind {
   FinalResponse
   Other
 } derive(Eq, @debug.Debug)
+
+pub struct SseEventReader {
+  buf : @lexbuf.AsyncLexbuf
+  decode_failed : @ref.Ref[Bool]
+}
+pub fn SseEventReader::new(@http.Client) -> Self
+pub async fn SseEventReader::next(Self) -> (String?, String?) raise @types.TransportError
 
 pub enum SseEventVerdict {
   Message(String)

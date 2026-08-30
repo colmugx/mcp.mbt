@@ -100,6 +100,59 @@ async test "read_sse_event events flow one per call until EOF" {
 }
 
 ///|
+/// Build a `SseEventReader` over a fixed chunk list, mirroring how `new`
+/// wires an `@http.Client` into the persistent lexbuf.
+fn reader_from_feed(parts : Array[String]) -> SseEventReader {
+  let decode_failed = Ref(false)
+  let buf = @lexbuf.AsyncLexbuf::from_fn(feed(parts))
+  { buf, decode_failed, }
+}
+
+///|
+async test "SseEventReader keeps the reply after a same-chunk keepalive" {
+  // One HTTP chunk carrying an empty keepalive event followed by the real
+  // JSON-RPC reply: when the keepalive dispatches, the reply bytes are still
+  // buffered in the lexbuf and must survive into the next `next` call. A
+  // per-call lexbuf drops them and the second call sees EOF.
+  let reader = reader_from_feed([
+    "data: \nid: 0\nretry: 3000\n\ndata: {\"jsonrpc\":\"2.0\"}\n\n",
+  ])
+  let (keepalive_data, keepalive_id) = reader.next()
+  @debug.assert_eq(keepalive_data, Some(""))
+  @debug.assert_eq(keepalive_id, Some("0"))
+  @debug.assert_eq(sse_event_verdict(keepalive_data, keepalive_id), Skip)
+  let (reply, reply_id) = reader.next()
+  @debug.assert_eq(reply, Some("{\"jsonrpc\":\"2.0\"}"))
+  @debug.assert_eq(reply_id, None)
+  @debug.assert_eq(
+    sse_event_verdict(reply, reply_id),
+    Message("{\"jsonrpc\":\"2.0\"}"),
+  )
+  let (eof_data, eof_id) = reader.next()
+  @debug.assert_eq(eof_data, None)
+  @debug.assert_eq(eof_id, None)
+  @debug.assert_eq(sse_event_verdict(eof_data, eof_id), Eof)
+}
+
+///|
+async test "SseEventReader reads events split across chunks" {
+  // The keepalive and the reply in separate chunks — the pre-reader behavior
+  // — must keep working.
+  let reader = reader_from_feed([
+    "data: \nid: 0\nretry: 3000\n\n", "data: {\"jsonrpc\":\"2.0\"}\n\n",
+  ])
+  let (keepalive_data, keepalive_id) = reader.next()
+  @debug.assert_eq(keepalive_data, Some(""))
+  @debug.assert_eq(keepalive_id, Some("0"))
+  @debug.assert_eq(sse_event_verdict(keepalive_data, keepalive_id), Skip)
+  let (reply, _) = reader.next()
+  @debug.assert_eq(reply, Some("{\"jsonrpc\":\"2.0\"}"))
+  let (eof_data, eof_id) = reader.next()
+  @debug.assert_eq(eof_data, None)
+  @debug.assert_eq(eof_id, None)
+}
+
+///|
 /// `@qc.check` predicates are synchronous, so the async scanner is driven
 /// over pre-generated samples instead. Payloads containing line terminators
 /// are excluded: they legitimately frame as multiple SSE lines.

@@ -13,11 +13,20 @@ pub fn MCPHost::MCPHost(name~ : String, version~ : String) -> MCPHost {
 }
 
 ///|
+/// Register a named connection to a remote MCP server over HTTP. `era` is
+/// passed through to `MCPClient::connect_http`:
+///
+/// | era    | `server/discover` probe | legacy fallback |
+/// |--------|-------------------------|-----------------|
+/// | Auto   | yes (default)           | allowed         |
+/// | Legacy | skipped                 | direct connect  |
+/// | Modern | yes                     | forbidden (Err) |
 pub async fn MCPHost::connect_http(
   self : MCPHost,
   name~ : String,
   url~ : String,
   auth_token? : String = "",
+  era? : ProtocolEra = Auto,
 ) -> Result[Unit, @types.MCPError] {
   match
     MCPClient::connect_http(
@@ -25,6 +34,7 @@ pub async fn MCPHost::connect_http(
       name=self.name + "/" + name,
       version=self.version,
       auth_token~,
+      era~,
     ) {
     Ok(client) => {
       self.connections[name] = client
@@ -35,6 +45,9 @@ pub async fn MCPHost::connect_http(
 }
 
 ///|
+/// Register a named connection to a spawned MCP server. `era` is passed
+/// through to `MCPClient::connect_stdio` (same semantics table as
+/// `MCPHost::connect_http`).
 pub async fn MCPHost::connect_stdio(
   self : MCPHost,
   name~ : String,
@@ -42,6 +55,7 @@ pub async fn MCPHost::connect_stdio(
   args? : Array[String] = [],
   extra_env? : Map[String, String] = {},
   group~ : @async.TaskGroup[Unit],
+  era? : ProtocolEra = Auto,
 ) -> Result[Unit, @types.MCPError] {
   match
     MCPClient::connect_stdio(
@@ -51,6 +65,7 @@ pub async fn MCPHost::connect_stdio(
       version=self.version,
       extra_env~,
       group~,
+      era~,
     ) {
     Ok(client) => {
       self.connections[name] = client

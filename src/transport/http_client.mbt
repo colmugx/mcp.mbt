@@ -186,9 +186,11 @@ pub async fn HttpClientTransport::send(
     // SSE response: read events from the streaming body until the stream
     // ends. Each payload event is a JSON-RPC message (progress notifications
     // followed by the final response), all queued for `receive`; keepalive
-    // events are skipped (`sse_event_verdict`).
+    // events are skipped (`sse_event_verdict`). One reader per response
+    // stream keeps bytes buffered between events instead of dropping them.
+    let reader = SseEventReader::new(client)
     while true {
-      let (data_opt, id_opt) = read_sse_event(client)
+      let (data_opt, id_opt) = reader.next()
       match sse_event_verdict(data_opt, id_opt) {
         Message(event_json) =>
           self.pending_responses.put(event_json) catch {

@@ -68,12 +68,51 @@ fn MCPClient::MCPClient(
 }
 
 ///|
+/// Protocol era a client should assume when connecting.
+pub(all) enum ProtocolEra {
+  /// Probe with `server/discover` and silently fall back to the legacy
+  /// 2025-11-25 client when the probe signals a legacy-era server. The
+  /// default, era-unaware behavior.
+  Auto
+  /// Skip the probe entirely and connect directly through the legacy
+  /// 2025-11-25 `initialize` handshake.
+  Legacy
+  /// Probe with `server/discover`, but treat any legacy-fallback signal as a
+  /// connection error instead of silently downgrading.
+  Modern
+} derive(Eq)
+
+///|
+/// Error returned when `era=Modern` receives a legacy-fallback signal from
+/// the probe. Wraps the original probe failure so callers can still see why
+/// the server was classified as legacy-era.
+fn modern_forbids_fallback_error(cause : @types.MCPError) -> @types.MCPError {
+  @types.InvalidRequest(
+    "era=Modern forbids legacy fallback (connect with era=Legacy for a 2025-11-25 server); probe failure: " +
+    cause.message(),
+  )
+}
+
+///|
+/// Connect to a remote MCP server over HTTP.
+///
+/// `era` constrains how the protocol era is negotiated:
+///
+/// | era    | `server/discover` probe | legacy fallback |
+/// |--------|-------------------------|-----------------|
+/// | Auto   | yes (default)           | allowed         |
+/// | Legacy | skipped                 | direct connect  |
+/// | Modern | yes                     | forbidden (Err) |
 pub async fn MCPClient::connect_http(
   url~ : String,
   name~ : String,
   version~ : String,
   auth_token? : String = "",
+  era? : ProtocolEra = Auto,
 ) -> Result[MCPClient, @types.MCPError] {
+  if era is Legacy {
+    return connect_http_legacy(url~, name~, version~, auth_token~)
+  }
   let transport = @transport.AnyTransport::HttpClient(
     @transport.HttpClientTransport::HttpClientTransport(url, auth_token~),
   )
@@ -108,7 +147,11 @@ pub async fn MCPClient::connect_http(
                   }
                   FallbackLegacy => {
                     transport.close()
-                    connect_http_legacy(url~, name~, version~, auth_token~)
+                    if era is Modern {
+                      Err(modern_forbids_fallback_error(e2))
+                    } else {
+                      connect_http_legacy(url~, name~, version~, auth_token~)
+                    }
                   }
                 }
             }
@@ -122,7 +165,11 @@ pub async fn MCPClient::connect_http(
         }
         FallbackLegacy => {
           transport.close()
-          connect_http_legacy(url~, name~, version~, auth_token~)
+          if era is Modern {
+            Err(modern_forbids_fallback_error(e))
+          } else {
+            connect_http_legacy(url~, name~, version~, auth_token~)
+          }
         }
       }
   }
@@ -159,6 +206,15 @@ async fn connect_http_legacy(
 }
 
 ///|
+/// Connect to a local MCP server by spawning it as a child process.
+///
+/// `era` constrains era negotiation exactly like `connect_http`:
+///
+/// | era    | `server/discover` probe | legacy fallback |
+/// |--------|-------------------------|-----------------|
+/// | Auto   | yes (default)           | allowed         |
+/// | Legacy | skipped                 | direct connect  |
+/// | Modern | yes                     | forbidden (Err) |
 pub async fn MCPClient::connect_stdio(
   cmd~ : String,
   args? : Array[String] = [],
@@ -166,6 +222,7 @@ pub async fn MCPClient::connect_stdio(
   version~ : String,
   extra_env? : Map[String, String] = {},
   group~ : @async.TaskGroup[Unit],
+  era? : ProtocolEra = Auto,
 ) -> Result[MCPClient, @types.MCPError] {
   let stdio = @transport.StdioClientTransport::StdioClientTransport(
     cmd~,
@@ -177,6 +234,9 @@ pub async fn MCPClient::connect_stdio(
       return Err(@types.InternalError("Stdio start failed: " + e.to_string()))
   }
   let transport = @transport.AnyTransport::StdioClient(stdio)
+  if era is Legacy {
+    return connect_stdio_legacy(name~, version~, transport~)
+  }
   let client = MCPClient::MCPClient(name~, version~, transport~)
   let meta = client.request_meta()
   let probe : Result[@types.ServerCapabilities, @types.MCPError]? = Some(
@@ -187,7 +247,16 @@ pub async fn MCPClient::connect_stdio(
     _ => None
   }
   match probe {
-    None => connect_stdio_legacy(name~, version~, transport~)
+    None => {
+      // Probe timeout: an era signal that the server may be legacy.
+      let cause = @types.TransportError(@types.Timeout)
+      if era is Modern {
+        transport.close()
+        Err(modern_forbids_fallback_error(cause))
+      } else {
+        connect_stdio_legacy(name~, version~, transport~)
+      }
+    }
     Some(Ok(caps)) => {
       client.server_capabilities = Some(caps)
       Ok(client)
@@ -202,7 +271,13 @@ pub async fn MCPClient::connect_stdio(
           transport.close()
           Err(e)
         }
-        FallbackLegacy => connect_stdio_legacy(name~, version~, transport~)
+        FallbackLegacy =>
+          if era is Modern {
+            transport.close()
+            Err(modern_forbids_fallback_error(e))
+          } else {
+            connect_stdio_legacy(name~, version~, transport~)
+          }
       }
   }
 }

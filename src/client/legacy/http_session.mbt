@@ -137,7 +137,7 @@ async fn LegacyHttpSessionTransport::do_post(
 /// `Mcp-Session-Id` header, it is stored for all later requests. Responses may be
 /// a single JSON object or an SSE stream; every JSON-RPC payload is queued for
 /// `receive`. SSE tokenization is shared with the modern transport via
-/// `@transport.read_sse_event`.
+/// `@transport.SseEventReader`.
 pub async fn LegacyHttpSessionTransport::send(
   self : LegacyHttpSessionTransport,
   message : String,
@@ -150,8 +150,11 @@ pub async fn LegacyHttpSessionTransport::send(
     None => "application/json"
   }
   if content_type.contains("text/event-stream") {
+    // One reader per response stream keeps lexbuf state between events, so a
+    // keepalive and the JSON-RPC reply arriving in one chunk are both read.
+    let reader = @transport.SseEventReader::new(client)
     while true {
-      let (data_opt, id_opt) = @transport.read_sse_event(client)
+      let (data_opt, id_opt) = reader.next()
       match @transport.sse_event_verdict(data_opt, id_opt) {
         @transport.SseEventVerdict::Message(event_json) =>
           self.pending_responses.put(event_json) catch {
