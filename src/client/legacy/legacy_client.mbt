@@ -13,9 +13,9 @@
 /// ecosystem has migrated is a clean cut.
 ///
 /// Scope of this module: the handshake and a minimal request send/receive
-/// loop. Era probing and ClientBackend dispatch in the modern client are the
-/// integration layer that decides when to construct a LegacyClient; that
-/// integration is tracked as a follow-up.
+/// loop. Era probing and ClientBackend dispatch live in the modern client
+/// (`client/era_probe.mbt` drives the probe; `MCPClient` holds the
+/// `ClientBackend` enum) and decide when to construct a LegacyClient.
 
 ///|
 /// Protocol version this legacy client advertises during initialize.

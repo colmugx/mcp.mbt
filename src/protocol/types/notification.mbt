@@ -11,15 +11,6 @@ pub(all) struct Notification {
 } derive(Eq, Debug)
 
 ///|
-/// Server notification capabilities
-pub(all) struct NotificationCapabilities {
-  tools_list_changed : Bool
-  resources_list_changed : Bool
-  resources_updated : Bool
-  prompts_list_changed : Bool
-} derive(Eq, Debug)
-
-///|
 /// Create tools list changed notification
 pub fn tools_list_changed_notification() -> Notification {
   { method_name: "notifications/tools/list_changed", params: None, }

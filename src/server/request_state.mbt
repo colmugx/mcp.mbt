@@ -14,9 +14,10 @@
 /// The sealed blob is base64url-encoded (RFC 4648 §5, no padding) for
 /// transport safety in JSON strings and URL parameters.
 ///
-/// Per spec (basic/patterns/mrtr#server-requirements), the integrity-protected
-/// payload carries: the authenticated principal, a short expiry, and a digest
-/// of the originating request's salient params. `open` verifies all three.
+/// Per spec (basic/patterns/mrtr#server-requirements-basic-workflow), the
+/// integrity-protected payload carries: the authenticated principal, a short
+/// expiry, and a digest of the originating request's salient params. `open`
+/// verifies all three.
 
 ///|
 /// Domain-separation constant mixed into AES-GCM AAD so a `requestState` blob
@@ -162,7 +163,8 @@ impl RequestStateCodec for AesGcmStateCodec with fn open(
     Some(p) => p
     None => return None
   }
-  // Replay/integrity controls per spec §mrtr server-requirements.
+  // Replay/integrity controls per spec
+  // basic/patterns/mrtr#server-requirements-basic-workflow.
   if payload.principal != ctx.principal {
     return None
   }

@@ -1,32 +1,11 @@
 ///| MCPServer - Main Server Implementation
 
 ///|
-pub(all) enum ReplyHandle {
-  Stdio(@aqueue.Queue[String])
-  Http(@async.Queue[String])
-}
-
-///|
 pub(all) struct ServerRequest {
   message : String
-  reply : ReplyHandle
-}
-
-///|
-async fn ReplyHandle::send(
-  self : ReplyHandle,
-  response : String,
-) -> Unit raise @types.TransportError {
-  match self {
-    Stdio(queue) =>
-      queue.put(response) catch {
-        e => raise @types.WriteError(e.to_string())
-      }
-    Http(queue) =>
-      queue.put(response) catch {
-        e => raise @types.WriteError(e.to_string())
-      }
-  }
+  /// Queue carrying the request's response string back to the transport
+  /// writer (`@async.Queue` and `@aqueue.Queue` are the same type).
+  reply : @aqueue.Queue[String]
 }
 
 ///|
@@ -37,11 +16,12 @@ pub(all) struct ActiveSubscription {
   /// Which notification types this subscription opted into.
   filter : SubscriptionFilter
   /// Where to send notifications for this subscription.
-  reply : ReplyHandle
+  reply : @aqueue.Queue[String]
 }
 
 ///|
-/// A `subscriptions/listen` notification filter (spec §subscriptions). Each
+/// A `subscriptions/listen` notification filter (spec
+/// basic/patterns/subscriptions#notification-filter). Each
 /// field is optional; omitting a field means "not subscribed to that type".
 pub(all) struct SubscriptionFilter {
   mut tools_list_changed : Bool
@@ -285,21 +265,15 @@ fn parse_request_message(
   request_json : String,
 ) -> Result[@types.JsonRpcRequest, String] {
   let parsed = @json.parse(request_json) catch {
-    _ =>
-      return Err(
-        jsonrpc_error_str(@types.RequestId::Int(0), -32700, "Parse error"),
-      )
+    _ => return Err(jsonrpc_error_str_no_id(-32700, "Parse error"))
   }
   match @types.JsonRpcRequest::from_json(parsed) {
     Ok(request) => Ok(request)
     Err(e) =>
-      Err(
-        jsonrpc_error_str(
-          @types.RequestId::Int(0),
-          e.to_error_code(),
-          e.message(),
-        ),
-      )
+      // The message failed structural validation, so its id (if any) is not
+      // trustworthy — respond without an id member (see
+      // `jsonrpc_error_str_no_id`).
+      Err(jsonrpc_error_str_no_id(e.to_error_code(), e.message()))
   }
 }
 
@@ -314,7 +288,8 @@ fn is_fast_method(method_name : String) -> Bool {
 
 ///|
 /// A JSON-RPC message with a `method` but no `id` is a notification; the
-/// receiver MUST NOT respond to it (spec §basic). Used to route inbound
+/// receiver MUST NOT respond to it (spec basic/index#notifications). Used to
+/// route inbound
 /// notifications (e.g. stdio `notifications/cancelled`) away from the
 /// request path, which would otherwise reject them for the missing `id`.
 fn is_notification_message(message : String) -> Bool {
@@ -443,7 +418,8 @@ fn parse_subscription_filter(params : Json) -> SubscriptionFilter {
 }
 
 ///|
-/// Handle `subscriptions/listen` (spec §subscriptions). Registers the
+/// Handle `subscriptions/listen` (spec basic/patterns/subscriptions).
+/// Registers the
 /// subscription, sends the acknowledgment (the first message on the stream),
 /// and keeps the subscription registered so later `notify_*` calls route
 /// matching notifications to this stream. The stream ends when the client
@@ -451,7 +427,7 @@ fn parse_subscription_filter(params : Json) -> SubscriptionFilter {
 async fn MCPServer::handle_subscriptions_listen(
   self : MCPServer,
   request : @types.JsonRpcRequest,
-  reply : ReplyHandle,
+  reply : @aqueue.Queue[String],
 ) -> Unit {
   let filter = parse_subscription_filter(request.params)
   let sub_id = request.id.to_json_string()
@@ -459,7 +435,7 @@ async fn MCPServer::handle_subscriptions_listen(
   self.subscriptions.set(sub_id, { filter, reply, })
   // Send the acknowledgment as the first stream message.
   let ack = subscriptions_acknowledged_str(request.id, filter)
-  reply.send(ack) catch {
+  reply.put(ack) catch {
     _ => self.subscriptions.remove(sub_id)
   }
 }
@@ -482,7 +458,7 @@ async fn MCPServer::notify_subscriptions(
       Some(sub) =>
         if SubscriptionFilter::matches(sub.filter, kind) {
           let tagged = tag_notification_with_subscription(notification_json, id)
-          sub.reply.send(tagged) catch {
+          sub.reply.put(tagged) catch {
             _ => self.subscriptions.remove(id)
           }
         }
@@ -563,7 +539,7 @@ pub async fn MCPServer::close_subscription(
         "id": id_json,
         "result": Json::object(result),
       }).stringify()
-      sub.reply.send(response) catch {
+      sub.reply.put(response) catch {
         _ => ()
       }
       self.subscriptions.remove(subscription_id)
@@ -627,13 +603,13 @@ async fn MCPServer::handle_server_request(
     return
   }
   match parse_request_message(request.message) {
-    Err(response) => request.reply.send(response) catch { _ => () }
+    Err(response) => request.reply.put(response) catch { _ => () }
     Ok(parsed_request) => {
       // Reject unsupported protocol versions before routing. This covers the
       // stdio/HTTP common path, including subscriptions/listen.
       match check_protocol_version(parsed_request.id, parsed_request.params) {
         Some(error_response) => {
-          request.reply.send(error_response) catch {
+          request.reply.put(error_response) catch {
             _ => ()
           }
           return
@@ -654,7 +630,7 @@ async fn MCPServer::handle_server_request(
         let response = self.handle_parsed_request(parsed_request) catch {
           _ => internal_error_response(parsed_request.id)
         }
-        request.reply.send(response) catch {
+        request.reply.put(response) catch {
           _ => ()
         }
       } else {
@@ -662,7 +638,7 @@ async fn MCPServer::handle_server_request(
           let response = self.handle_parsed_request(parsed_request) catch {
             _ => internal_error_response(parsed_request.id)
           }
-          request.reply.send(response) catch {
+          request.reply.put(response) catch {
             _ => ()
           }
         })
@@ -697,10 +673,7 @@ async fn MCPServer::run_stdio_transport(
         break
       }
       Some(message) =>
-        self.handle_server_request(
-          { message, reply: ReplyHandle::Stdio(response_queue), },
-          group,
-        ) catch {
+        self.handle_server_request({ message, reply: response_queue, }, group) catch {
           _ => ()
         }
     }
@@ -720,10 +693,7 @@ async fn MCPServer::run_http_transport(
         break
       }
       Some((message, reply_queue)) =>
-        self.handle_server_request(
-          { message, reply: ReplyHandle::Http(reply_queue), },
-          group,
-        ) catch {
+        self.handle_server_request({ message, reply: reply_queue, }, group) catch {
           _ => ()
         }
     }
@@ -969,9 +939,4 @@ pub async fn MCPServer::run_http(
   }) catch {
     e => raise @types.ReadError("TaskGroup error: " + e.to_string())
   }
-}
-
-///|
-pub fn mcp_server(name~ : String, version~ : String) -> MCPServer {
-  MCPServer::MCPServer(name, version)
 }

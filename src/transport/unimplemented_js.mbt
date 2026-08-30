@@ -19,7 +19,8 @@ pub struct AuthConfig {
   authorization_servers : Array[String]
   /// Required scopes (e.g. "mcp:read mcp:write"). None = no scope check.
   required_scopes : String?
-  /// Allowed Origins for DNS rebinding prevention. None = allow all.
+  /// Allowed Origins for DNS rebinding prevention. None = loopback-only
+  /// default policy (see `origin_allowed`).
   allowed_origins : Array[String]?
 }
 
@@ -87,24 +88,6 @@ pub async fn StdioTransport::send_notification(
 }
 
 ///|
-#warnings("-struct_never_constructed")
-pub fn StdioTransport::send_event(
-  self : StdioTransport,
-  event_type~ : String,
-  data~ : String,
-) -> Unit {
-  ignore(self)
-  ignore(event_type)
-  ignore(data)
-  abort("StdioTransport is not available on js target")
-}
-
-///|
-pub fn StdioTransport::supports_streaming(_self : StdioTransport) -> Bool {
-  abort("StdioTransport is not available on js target")
-}
-
-///|
 pub fn StdioTransport::close(self : StdioTransport) -> Unit {
   ignore(self)
   abort("StdioTransport is not available on js target")
@@ -156,19 +139,6 @@ pub async fn HttpTransport::send(
 }
 
 ///|
-#warnings("-unused_value")
-pub fn HttpTransport::send_event(
-  self : HttpTransport,
-  event_type~ : String,
-  data~ : String,
-) -> Unit {
-  ignore(self)
-  ignore(event_type)
-  ignore(data)
-  ()
-}
-
-///|
 #warnings("-unused_value-unused_async-unused_error_type")
 pub async fn HttpTransport::send_notification(
   self : HttpTransport,
@@ -176,11 +146,6 @@ pub async fn HttpTransport::send_notification(
 ) -> Unit raise @types.TransportError {
   ignore(self)
   abort("HttpTransport is not available on js target")
-}
-
-///|
-pub fn HttpTransport::supports_streaming(_self : HttpTransport) -> Bool {
-  true
 }
 
 ///|

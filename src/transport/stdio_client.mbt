@@ -184,25 +184,6 @@ pub async fn StdioClientTransport::send_notification(
 }
 
 ///|
-/// Client transport does not push events to child process.
-pub fn StdioClientTransport::send_event(
-  _self : StdioClientTransport,
-  event_type~ : String,
-  data~ : String,
-) -> Unit {
-  ignore(event_type)
-  ignore(data)
-  ()
-}
-
-///|
-pub fn StdioClientTransport::supports_streaming(
-  _self : StdioClientTransport,
-) -> Bool {
-  false
-}
-
-///|
 /// Graceful shutdown per MCP spec:
 /// 1. Close stdin writer → signals EOF to child process
 /// 2. Close stdout reader → release pipe resources

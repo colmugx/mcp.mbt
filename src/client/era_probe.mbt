@@ -98,10 +98,9 @@ fn parse_jsonrpc_error(body : String) -> @types.MCPError? {
 /// * Modern JSON-RPC errors (directly or carried in an HTTP 4xx body) mean the
 ///   server is modern but rejected the probe; surface the error.
 /// * Any other HTTP 4xx rejection of the discover probe means the server will
-///   not speak the modern extension — servers implementing only the legacy
-///   flow reject the probe at the HTTP layer (nowledge-mem answers a
-///   non-initialize first message with `422 "Unexpected message, expect
-///   initialize request"`) — so fall back to the initialize handshake.
+///   not speak the modern extension — certain legacy/intermediary servers
+///   answer a non-initialize first message with a 4xx "expect initialize"
+///   error — so fall back to the initialize handshake.
 /// * Direct modern-era errors that are not transport failures also trigger
 ///   legacy fallback.
 /// * Non-HTTP transport failures and HTTP 5xx (connection refused, invalid

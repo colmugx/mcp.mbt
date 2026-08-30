@@ -128,12 +128,6 @@ pub(all) enum InputRequestKind {
 } derive(Eq, @debug.Debug)
 pub fn InputRequestKind::to_method(Self) -> String
 
-pub(all) struct JsonRpcError {
-  code : Int
-  message : String
-  data : Json?
-} derive(Eq, @debug.Debug)
-
 pub(all) struct JsonRpcRequest {
   jsonrpc : String
   id : RequestId
@@ -142,36 +136,17 @@ pub(all) struct JsonRpcRequest {
 } derive(Eq, @debug.Debug)
 pub fn JsonRpcRequest::from_json(Json) -> Result[Self, MCPError]
 
-pub(all) struct JsonRpcResponse {
-  jsonrpc : String
-  id : RequestId
-  result : Result[Json, JsonRpcError]
-} derive(Eq, @debug.Debug)
-
 pub(all) struct Notification {
   method_name : String
   params : Json?
 } derive(Eq, @debug.Debug)
 pub fn Notification::to_jsonrpc_string(Self) -> String
 
-pub(all) struct NotificationCapabilities {
-  tools_list_changed : Bool
-  resources_list_changed : Bool
-  resources_updated : Bool
-  prompts_list_changed : Bool
-} derive(Eq, @debug.Debug)
-
 pub(all) struct ProgressNotification {
   progress_token : String
   progress : Double
   total : Double?
   message : String?
-} derive(Eq, @debug.Debug)
-
-pub(all) struct Prompt {
-  name : String
-  description : String?
-  arguments : Array[PromptArgument]?
 } derive(Eq, @debug.Debug)
 
 pub(all) struct PromptArgument {
@@ -250,8 +225,6 @@ pub(all) struct ToolDefinition {
   name : String
   description : String
   input_schema : Json
-  cached_schema_json : String
-  icon : String?
 } derive(Eq, @debug.Debug)
 
 // Type aliases

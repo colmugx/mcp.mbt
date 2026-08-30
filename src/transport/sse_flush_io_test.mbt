@@ -42,7 +42,9 @@ async test "HttpTransport SSE stream delivers events before end_response" {
     "http://127.0.0.1:47331/mcp",
   )
   let ack_seen = @async.Queue(kind=Blocking(1))
-  let request = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"subscriptions/listen\",\"params\":{}}"
+  // Requests must carry params._meta (protocolVersion + clientCapabilities)
+  // or the server rejects the POST with 400 before it reaches the app.
+  let request = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"subscriptions/listen\",\"params\":{\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":\"2026-07-28\",\"io.modelcontextprotocol/clientCapabilities\":{}}}}"
   let first_event = "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/message\",\"params\":{\"progress\":50}}"
   let final_response = "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"done\":true}}"
   @async.with_task_group(group => {

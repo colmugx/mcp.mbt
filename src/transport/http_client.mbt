@@ -20,7 +20,9 @@ pub struct HttpClientTransport {
   /// `x-mcp-header` mirror schemas learned from `tools/list`, keyed by tool
   /// name. Each entry is (property path from the arguments root, header name
   /// suffix): on `tools/call`, the value at that path is mirrored into the
-  /// `Mcp-Param-{suffix}` request header per spec §B (SEP-2243).
+  /// `Mcp-Param-{suffix}` request header per spec
+  /// basic/transports/streamable-http#custom-headers-from-tool-parameters
+  /// (SEP-2243).
   tool_header_schemas : Map[String, Array[(Array[String], String)]]
 }
 
@@ -75,7 +77,8 @@ pub async fn HttpClientTransport::send(
   headers["Accept"] = "application/json, text/event-stream"
   headers["Content-Length"] = body_bytes.length().to_string()
   headers["MCP-Protocol-Version"] = @types.ProtocolVersion
-  // Mirror body fields into headers for intermediary routing (spec §B).
+  // Mirror body fields into headers for intermediary routing (spec
+  // basic/transports/streamable-http#request-metadata).
   // Mcp-Method is required for all requests; Mcp-Name for the three
   // name-bearing methods.
   match extract_field(message, "method") {
@@ -234,7 +237,8 @@ pub async fn HttpClientTransport::receive(
 }
 
 ///|
-/// Send a JSON-RPC notification (no id, fire-and-forget). Per spec §B, a
+/// Send a JSON-RPC notification (no id, fire-and-forget). Per spec
+/// basic/transports/streamable-http#sending-messages, a
 /// notification POST is answered with `202 Accepted` and no body.
 pub async fn HttpClientTransport::send_notification(
   self : HttpClientTransport,
@@ -274,24 +278,6 @@ pub async fn HttpClientTransport::send_notification(
   } catch {
     _ => ()
   }
-}
-
-///|
-/// Client transport does not push events to server.
-pub fn HttpClientTransport::send_event(
-  _self : HttpClientTransport,
-  event_type~ : String,
-  data~ : String,
-) -> Unit {
-  ignore(event_type)
-  ignore(data)
-}
-
-///|
-pub fn HttpClientTransport::supports_streaming(
-  _self : HttpClientTransport,
-) -> Bool {
-  true
 }
 
 ///|

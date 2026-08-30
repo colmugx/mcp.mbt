@@ -30,20 +30,6 @@ test "StdioTransport::close is idempotent" {
 }
 
 ///|
-test "StdioTransport::supports_streaming returns false" {
-  let transport = StdioTransport::StdioTransport()
-  @debug.assert_eq(transport.supports_streaming(), false)
-}
-
-///|
-test "StdioTransport::send_event is no-op" {
-  let transport = StdioTransport::StdioTransport()
-  // Should not panic or raise error
-  transport.send_event(event_type="test", data="data")
-  ()
-}
-
-///|
 test "StdioTransport::send raises error on closed transport" {
   let transport = StdioTransport::StdioTransport()
   transport.close()
@@ -84,20 +70,6 @@ test "HttpTransport::HttpTransport with custom port and endpoint" {
   let transport = HttpTransport::HttpTransport(port=8080, endpoint_path="/api")
   @debug.assert_eq(transport.port, 8080)
   @debug.assert_eq(transport.endpoint_path, "/api")
-}
-
-///|
-test "HttpTransport::supports_streaming returns true" {
-  let transport = HttpTransport::HttpTransport()
-  @debug.assert_eq(transport.supports_streaming(), true)
-}
-
-///|
-test "HttpTransport::send_event is no_op" {
-  let transport = HttpTransport::HttpTransport()
-  // Should not panic or raise error
-  transport.send_event(event_type="test", data="data")
-  ()
 }
 
 ///|
@@ -157,14 +129,6 @@ test "AnyTransport::Http variant creation" {
 }
 
 ///|
-test "AnyTransport::supports_streaming dispatches correctly" {
-  let stdio = StdioTransport::StdioTransport()
-  let http = HttpTransport::HttpTransport()
-  @debug.assert_eq(AnyTransport::Stdio(stdio).supports_streaming(), false)
-  @debug.assert_eq(AnyTransport::Http(http).supports_streaming(), true)
-}
-
-///|
 test "AnyTransport::close dispatches correctly" {
   let stdio = StdioTransport::StdioTransport()
   let any_transport = AnyTransport::Stdio(stdio)
@@ -172,57 +136,6 @@ test "AnyTransport::close dispatches correctly" {
   // Should not panic
   any_transport.close()
   ()
-}
-
-///|
-test "AnyTransport::send_event dispatches correctly" {
-  let stdio = StdioTransport::StdioTransport()
-  let any_transport = AnyTransport::Stdio(stdio)
-
-  // Should not panic
-  any_transport.send_event(event_type="test", data="data")
-  ()
-}
-
-///| =====================================================
-
-///| Example: Transport Factory Pattern
-
-///|
-/// =====================================================
-test "example: create stdio transport via enum" {
-  let transport = AnyTransport::Stdio(StdioTransport::StdioTransport())
-  match transport {
-    Stdio(t) => {
-      @debug.assert_eq(t.closed, false)
-      @debug.assert_eq(transport.supports_streaming(), false)
-    }
-    _ => panic()
-  }
-}
-
-///|
-test "example: create http transport via enum" {
-  let transport = AnyTransport::Http(HttpTransport::HttpTransport(port=5000))
-  match transport {
-    Http(t) => {
-      @debug.assert_eq(t.port, 5000)
-      @debug.assert_eq(transport.supports_streaming(), true)
-    }
-    _ => panic()
-  }
-}
-
-///|
-test "example: transport configuration builder pattern" {
-  // Simulate builder pattern for HTTP transport
-  let transport = HttpTransport::HttpTransport(
-    port=9000,
-    endpoint_path="/mcp/endpoint",
-  )
-  @debug.assert_eq(transport.port, 9000)
-  @debug.assert_eq(transport.endpoint_path, "/mcp/endpoint")
-  @debug.assert_eq(transport.supports_streaming(), true)
 }
 
 ///| =====================================================

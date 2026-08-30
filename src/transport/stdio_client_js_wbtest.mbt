@@ -193,13 +193,6 @@ async test "stdio client: self-exiting child ends the watchdog without failing t
 }
 
 ///|
-test "stdio client: streaming capability matches native" {
-  let transport = StdioClientTransport::StdioClientTransport(cmd="unused")
-  inspect(transport.supports_streaming(), content="false")
-  transport.send_event(event_type="ignored", data="ignored")
-}
-
-///|
 test "legacy dummy StdioTransport constructs without abort" {
   // connect_*_legacy wraps a Legacy client in a dummy StdioTransport that is
   // never used for I/O; the constructor must not abort on js or every

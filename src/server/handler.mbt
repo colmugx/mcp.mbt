@@ -10,12 +10,18 @@ fn request_id_to_json(id : @types.RequestId) -> Json {
 
 ///|
 /// Build the `_meta.io.modelcontextprotocol/serverInfo` value for a response.
+/// `description` is optional on the spec's `Implementation` schema and is
+/// emitted only when set (B10).
 fn server_info_meta(server : MCPServer) -> Json {
   let info : Map[String, Json] = Map([])
   info.set("name", Json::string(server.name))
   info.set("version", Json::string(server.version))
   match server.title {
     Some(t) => info.set("title", Json::string(t))
+    None => ()
+  }
+  match server.description {
+    Some(d) => info.set("description", Json::string(d))
     None => ()
   }
   Json::object(info)
@@ -110,7 +116,8 @@ fn jsonrpc_success_str(
 ///|
 /// Like `jsonrpc_success_str`, but also injects `ttlMs` + `cacheScope` into
 /// the result for cacheable endpoints (tools/list, prompts/list,
-/// resources/list, resources/read, server/discover) per spec §F.
+/// resources/list, resources/read, server/discover) per spec
+/// server/utilities/caching#cacheable-results (SEP-2549).
 /// `ttl_ms` is a freshness hint in milliseconds (clients may cache the
 /// response up to that long); `cache_scope` is "public" or "private".
 fn jsonrpc_cacheable_success_str(
@@ -159,6 +166,19 @@ fn jsonrpc_error_str(
 }
 
 ///|
+/// JSON-RPC error response with the `id` member omitted. Used when the
+/// request could not be parsed, so no trustworthy id exists: JSON-RPC 2.0
+/// says the id is null/absent there, while MCP forbids null ids — omitting
+/// the field satisfies both. A fixed placeholder id (e.g. 0) would misroute
+/// the error onto a live request that genuinely used that id.
+fn jsonrpc_error_str_no_id(code : Int, message : String) -> String {
+  let error_map : Map[String, Json] = Default::default()
+  error_map.set("code", Json::number(code.to_double()))
+  error_map.set("message", Json::string(message))
+  Json::object({ "jsonrpc": "2.0", "error": Json::object(error_map) }).stringify()
+}
+
+///|
 /// Build a JSON-RPC error response from an `MCPError`, automatically
 /// populating the `data` member for spec-defined errors
 /// (`UnsupportedProtocolVersion`, `MissingRequiredClientCapability`).
@@ -172,18 +192,12 @@ fn jsonrpc_error_from(id : @types.RequestId, err : @types.MCPError) -> String {
 }
 
 ///|
-/// Extract the protocol version declared in a request's `params._meta`.
-/// Returns `Some(requested_version)` when the field is present, or `None` when
-/// it is missing. A missing version is tolerated; the spec requires rejecting
-/// only explicit mismatches.
-fn extract_protocol_version(params : Json) -> String? {
+/// Extract a request's `params._meta` object, or `None` when `params` is not
+/// an object or its `_meta` is absent/non-object.
+fn request_meta(params : Json) -> Map[String, Json]? {
   if params is Object(obj) {
     match obj.get("_meta") {
-      Some(Object(meta)) =>
-        match meta.get("io.modelcontextprotocol/protocolVersion") {
-          Some(String(v)) => Some(v)
-          _ => None
-        }
+      Some(Object(meta)) => Some(meta)
       _ => None
     }
   } else {
@@ -192,27 +206,82 @@ fn extract_protocol_version(params : Json) -> String? {
 }
 
 ///|
-/// Check whether a request declares a protocol version this server does not
-/// implement. Returns the JSON-RPC error response when there is a mismatch, or
-/// `None` when the version is supported or not provided.
-fn check_protocol_version(id : @types.RequestId, params : Json) -> String? {
-  match extract_protocol_version(params) {
-    Some(version) =>
-      if version != @types.ProtocolVersion {
-        Some(
-          jsonrpc_error_from(
-            id,
-            @types.UnsupportedProtocolVersion(
-              "Unsupported protocol version",
-              supported=[@types.ProtocolVersion],
-              requested=version,
-            ),
-          ),
-        )
-      } else {
-        None
+/// Extract the protocol version declared in a request's `params._meta`.
+/// Returns `Some(requested_version)` when the field is present as a string,
+/// `None` when it is missing or non-string. The field is required on every
+/// request (spec basic/index#_meta): `check_protocol_version` rejects a
+/// missing/non-string value with -32602 before the mismatch check applies.
+fn extract_protocol_version(params : Json) -> String? {
+  match request_meta(params) {
+    Some(meta) =>
+      match meta.get("io.modelcontextprotocol/protocolVersion") {
+        Some(String(v)) => Some(v)
+        _ => None
       }
     None => None
+  }
+}
+
+///|
+/// JSON-RPC -32602 "Invalid params" response for a request missing one of
+/// the `params._meta` fields the spec makes mandatory on every request.
+fn missing_meta_field_error(id : @types.RequestId, field : String) -> String {
+  jsonrpc_error_str(id, -32602, "Missing required _meta field: " + field)
+}
+
+///|
+/// Validate a request's `params._meta` at the request entry point (spec
+/// basic/index#_meta): every request MUST carry
+/// `io.modelcontextprotocol/protocolVersion` (string) and
+/// `io.modelcontextprotocol/clientCapabilities` (object). A missing or
+/// wrongly-typed field makes the params malformed → -32602. A present-but-
+/// unsupported version keeps the existing -32022 `UnsupportedProtocolVersion`
+/// error (with supported/requested data); that check runs before the
+/// clientCapabilities presence check so version-mismatched legacy requests
+/// still get the version signal. Returns `None` when the request passes.
+///
+/// Called by both request entry points — `handle_parsed_request` (public
+/// `handle_request`) and `handle_server_request` (stdio/HTTP, including
+/// `subscriptions/listen`) — before method routing. Notifications never
+/// reach this check: they are routed to `handle_inbound_notification`.
+fn check_protocol_version(id : @types.RequestId, params : Json) -> String? {
+  match request_meta(params) {
+    None =>
+      Some(
+        missing_meta_field_error(id, "io.modelcontextprotocol/protocolVersion"),
+      )
+    Some(meta) =>
+      match extract_protocol_version(params) {
+        None =>
+          Some(
+            missing_meta_field_error(
+              id, "io.modelcontextprotocol/protocolVersion",
+            ),
+          )
+        Some(version) =>
+          if version != @types.ProtocolVersion {
+            Some(
+              jsonrpc_error_from(
+                id,
+                @types.UnsupportedProtocolVersion(
+                  "Unsupported protocol version",
+                  supported=[@types.ProtocolVersion],
+                  requested=version,
+                ),
+              ),
+            )
+          } else {
+            match meta.get("io.modelcontextprotocol/clientCapabilities") {
+              Some(Object(_)) => None
+              _ =>
+                Some(
+                  missing_meta_field_error(
+                    id, "io.modelcontextprotocol/clientCapabilities",
+                  ),
+                )
+            }
+          }
+      }
   }
 }
 
@@ -220,18 +289,17 @@ fn check_protocol_version(id : @types.RequestId, params : Json) -> String? {
 /// Extract the set of client capabilities declared in a request's
 /// `params._meta.io.modelcontextprotocol/clientCapabilities`. Keys that are
 /// present in the object count as declared; the value is ignored. A missing or
-/// malformed field is treated as an empty capability set.
+/// malformed field is treated as an empty capability set (presence itself is
+/// enforced by `check_protocol_version`).
 fn extract_client_capabilities(params : Json) -> Map[String, Unit] {
   let caps : Map[String, Unit] = Default::default()
-  if params is Object(obj) {
-    match obj.get("_meta") {
-      Some(Object(meta)) =>
-        match meta.get("io.modelcontextprotocol/clientCapabilities") {
-          Some(Object(caps_obj)) => caps_obj.each(fn(k, _) { caps.set(k, ()) })
-          _ => ()
-        }
-      _ => ()
-    }
+  match request_meta(params) {
+    Some(meta) =>
+      match meta.get("io.modelcontextprotocol/clientCapabilities") {
+        Some(Object(caps_obj)) => caps_obj.each(fn(k, _) { caps.set(k, ()) })
+        _ => ()
+      }
+    None => ()
   }
   caps
 }
@@ -392,52 +460,60 @@ fn handle_tools_list(server : MCPServer, id : @types.RequestId) -> String {
 }
 
 ///|
-/// Serialize a `ToolResult` into the JSON object shape used in `tools/call`
-/// responses (`{ content: [...], isError: bool }`).
-fn tool_result_to_json(tool_result : @tool.ToolResult) -> Json {
-  let content_items = tool_result.content.map(fn(item) {
-    match item {
-      @types.Text(text) =>
-        Json::object({
-          "type": Json::string("text"),
-          "text": Json::string(text),
-        })
-      @types.Image(data, mime_type~) =>
-        Json::object({
-          "type": Json::string("image"),
-          "data": Json::string(data),
-          "mimeType": Json::string(mime_type),
-        })
-      @types.ResourceLink(uri) =>
-        Json::object({
-          "type": Json::string("resource_link"),
-          "uri": Json::string(uri),
-        })
-      @types.EmbeddedResource(content) =>
-        match content {
-          @types.Text(text, uri~, mime_type~) => {
-            let map : Map[String, Json] = Default::default()
-            map.set("type", Json::string("resource"))
-            map.set("uri", Json::string(uri))
-            map.set("text", Json::string(text))
-            match mime_type {
-              Some(mt) => map.set("mimeType", Json::string(mt))
-              None => ()
-            }
-            Json::object(map)
+/// Serialize one `@types.ContentItem` to its wire shape. Embedded resources
+/// use the nested form the spec requires — `{type:"resource", resource:{uri,
+/// text|blob, mimeType?}}` — matching the client's `serialize_content_item`
+/// (the flat `{type:"resource", uri, ...}` layout is not spec-conformant).
+/// Shared by `tools/call` and `prompts/get` results.
+fn content_item_to_json(item : @types.ContentItem) -> Json {
+  match item {
+    @types.Text(text) =>
+      Json::object({ "type": Json::string("text"), "text": Json::string(text) })
+    @types.Image(data, mime_type~) =>
+      Json::object({
+        "type": Json::string("image"),
+        "data": Json::string(data),
+        "mimeType": Json::string(mime_type),
+      })
+    @types.ResourceLink(uri) =>
+      Json::object({
+        "type": Json::string("resource_link"),
+        "uri": Json::string(uri),
+      })
+    @types.EmbeddedResource(content) =>
+      match content {
+        @types.Text(text, uri~, mime_type~) => {
+          let res : Map[String, Json] = Default::default()
+          res.set("uri", Json::string(uri))
+          res.set("text", Json::string(text))
+          match mime_type {
+            Some(mt) => res.set("mimeType", Json::string(mt))
+            None => ()
           }
-          @types.Blob(data, uri~, mime_type~) =>
-            Json::object({
-              "type": Json::string("resource"),
+          Json::object({
+            "type": Json::string("resource"),
+            "resource": Json::object(res),
+          })
+        }
+        @types.Blob(data, uri~, mime_type~) =>
+          Json::object({
+            "type": Json::string("resource"),
+            "resource": Json::object({
               "uri": Json::string(uri),
               "blob": Json::string(data),
               "mimeType": Json::string(mime_type),
-            })
-        }
-    }
-  })
+            }),
+          })
+      }
+  }
+}
+
+///|
+/// Serialize a `ToolResult` into the JSON object shape used in `tools/call`
+/// responses (`{ content: [...], isError: bool }`).
+fn tool_result_to_json(tool_result : @tool.ToolResult) -> Json {
   Json::object({
-    "content": Json::array(content_items),
+    "content": Json::array(tool_result.content.map(content_item_to_json)),
     "isError": Json::boolean(tool_result.is_error),
   })
 }
@@ -780,12 +856,10 @@ async fn handle_prompts_get(
       match server.prompt_registry.get_prompt(name, handler_params) {
         Ok(@prompt.Complete(prompt_result)) => {
           let messages_json = prompt_result.messages.map(fn(msg) {
-            let content = match msg.content {
-              @types.Text(text) =>
-                Json::object({ "type": "text", "text": text })
-              _ => Json::null()
-            }
-            Json::object({ "role": msg.role, "content": content })
+            Json::object({
+              "role": msg.role,
+              "content": content_item_to_json(msg.content),
+            })
           })
           let result_map : Map[String, Json] = Default::default()
           match prompt_result.description {

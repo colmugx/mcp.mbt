@@ -4,7 +4,6 @@ pub using @ptypes {
   type MCPError,
   type TransportError,
   type JsonRpcRequest,
-  type JsonRpcResponse,
   type ServerInfo,
   type ServerCapabilities,
   type ToolDefinition,
@@ -36,7 +35,7 @@ pub using @pcore {
 
 ///|
 /// Server
-pub using @server {mcp_server, type MCPServer}
+pub using @server {type MCPServer}
 
 ///|
 /// Client and Host

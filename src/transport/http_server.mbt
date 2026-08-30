@@ -11,7 +11,8 @@ pub struct AuthConfig {
   authorization_servers : Array[String]
   /// Required scopes (e.g. "mcp:read mcp:write"). None = no scope check.
   required_scopes : String?
-  /// Allowed Origins for DNS rebinding prevention. None = allow all.
+  /// Allowed Origins for DNS rebinding prevention. None = loopback-only
+  /// default policy (see `origin_allowed`).
   allowed_origins : Array[String]?
 }
 
@@ -94,21 +95,35 @@ pub fn HttpTransport::with_auth(
 }
 
 ///|
+/// `@stdio.stderr` wraps one IO handle: two overlapping writes abort the
+/// runtime (`guard! handle.write is Idle` in the async event loop), so
+/// concurrent HttpTransport instances (or concurrent request handlers)
+/// serialize their diagnostic logging through this try-lock. A busy lock
+/// drops the line — logging here is best-effort, every write is already
+/// `catch`-guarded.
+let stderr_log_busy : Ref[Bool] = Ref(false)
+
+///|
+/// Best-effort, concurrency-safe stderr log line.
+async fn log_stderr(line : String) -> Unit noraise {
+  if stderr_log_busy.val {
+    return
+  }
+  stderr_log_busy.val = true
+  let _ = @stdio.stderr.write(line) catch { _ => () }
+  stderr_log_busy.val = false
+}
+
+///|
 pub async fn HttpTransport::start(
   self : HttpTransport,
 ) -> Unit raise @types.TransportError {
   let addr = "127.0.0.1:" + self.port.to_string()
-  let _ = @stdio.stderr.write(
-    "[HttpTransport] Binding to " + addr + self.endpoint_path + "\n",
-  ) catch {
-    _ => ()
-  }
+  log_stderr("[HttpTransport] Binding to " + addr + self.endpoint_path + "\n")
   let server = @http.Server(@socket.Addr::parse(addr), reuse_addr=true) catch {
     e => raise @types.WriteError("Failed to create server: " + e.to_string())
   }
-  let _ = @stdio.stderr.write("[HttpTransport] Streamable HTTP server ready\n") catch {
-    _ => ()
-  }
+  log_stderr("[HttpTransport] Streamable HTTP server ready\n")
   server.run_forever(async fn(req, body, conn) {
     // Protected Resource Metadata endpoint (RFC 9728)
     if req.path == "/.well-known/oauth-protected-resource" {
@@ -145,26 +160,31 @@ pub async fn HttpTransport::start(
       conn.end_response()
       return
     }
+    // Origin validation for DNS rebinding prevention (spec
+    // basic/transports/streamable-http#security-endpoint): every request to
+    // the MCP endpoint is checked, with or without configured auth. An
+    // explicit allowlist wins; otherwise only loopback origins pass by
+    // default. Requests without an Origin header are non-browser clients
+    // and are allowed.
+    let allowed_origins = match self.auth {
+      Some(auth) => auth.allowed_origins
+      None => None
+    }
+    match req.headers.get("origin") {
+      Some(origin) =>
+        if !origin_allowed(origin, allowed_origins) {
+          conn.send_response(403, "Forbidden", extra_headers={
+            "Content-Type": "application/json",
+          })
+          conn.write("{\"error\":\"invalid_origin\"}")
+          conn.end_response()
+          return
+        }
+      None => ()
+    }
     // Auth validation (when configured)
     match self.auth {
       Some(auth) => {
-        // Origin validation for DNS rebinding prevention
-        match auth.allowed_origins {
-          Some(origins) =>
-            match req.headers.get("origin") {
-              Some(origin) =>
-                if !origins.exists(fn(o) { o == origin }) {
-                  conn.send_response(403, "Forbidden", extra_headers={
-                    "Content-Type": "application/json",
-                  })
-                  conn.write("{\"error\":\"invalid_origin\"}")
-                  conn.end_response()
-                  return
-                }
-              None => ()
-            }
-          None => ()
-        }
         // Token validation
         let auth_header = match req.headers.get("authorization") {
           Some(h) => h
@@ -198,9 +218,7 @@ pub async fn HttpTransport::start(
       }
       None => ()
     }
-    let _ = @stdio.stderr.write("[HttpTransport] Request to " + req.path + "\n") catch {
-      _ => ()
-    }
+    log_stderr("[HttpTransport] Request to " + req.path + "\n")
     match req.meth {
       Post => {
         let message = body.read_all().text() catch {
@@ -304,7 +322,7 @@ pub async fn HttpTransport::start(
 /// the JSON-RPC body. Returns `Err(json_rpc_error_string)` (a complete
 /// JSON-RPC error response body) on mismatch, `Ok(())` otherwise.
 ///
-/// Checked per spec §B (Server Validation):
+/// Checked per spec basic/transports/streamable-http#server-validation:
 /// - `MCP-Protocol-Version` present, equals the server's supported version,
 ///   and matches body `_meta.protocolVersion` when present.
 /// - `Mcp-Method` present and matches body `method` for requests.
@@ -312,9 +330,16 @@ pub async fn HttpTransport::start(
 ///   and matches body `params.name` (or `params.uri` for resources/read).
 /// - `Mcp-Name`/`Mcp-Param-*` values contain only permitted characters or
 ///   a valid Base64 sentinel encoding.
+/// - Requests (notifications excluded) carry the required `params._meta`
+///   fields `io.modelcontextprotocol/protocolVersion` (string) and
+///   `io.modelcontextprotocol/clientCapabilities` (object) per basic/index
+///   #_meta.
 ///
-/// Failures return `HeaderMismatch` (-32020) except for an unsupported
-/// protocol version, which returns `UnsupportedProtocolVersion` (-32022).
+/// Header/value failures return `HeaderMismatch` (-32020) except for an
+/// unsupported protocol version, which returns `UnsupportedProtocolVersion`
+/// (-32022). A missing or ill-typed required `_meta` field returns
+/// `InvalidParams` (-32602). Every error body echoes the request `id` when
+/// it can be read from the body; the caller maps all of these to HTTP 400.
 fn HttpTransport::validate_request_headers(
   self : HttpTransport,
   req : @http.Request,
@@ -323,7 +348,7 @@ fn HttpTransport::validate_request_headers(
 ) -> Result[Unit, String] {
   ignore(self)
   let json = @json.parse(body) catch {
-    _ => return Err(header_mismatch_error("malformed JSON body"))
+    _ => return Err(header_mismatch_error("malformed JSON body", body~))
   }
   let body_method = if json is Object(obj) {
     match obj.get("method") {
@@ -342,7 +367,7 @@ fn HttpTransport::validate_request_headers(
   match req.headers.get("mcp-protocol-version") {
     Some(h) => {
       if h != @types.ProtocolVersion {
-        return Err(unsupported_protocol_version_error(h))
+        return Err(unsupported_protocol_version_error(h, body~))
       }
       match body_pv {
         Some(bpv) =>
@@ -354,6 +379,7 @@ fn HttpTransport::validate_request_headers(
                 "' does not match body '" +
                 bpv +
                 "'",
+                body~,
               ),
             )
           }
@@ -362,7 +388,10 @@ fn HttpTransport::validate_request_headers(
     }
     None =>
       return Err(
-        header_mismatch_error("missing required MCP-Protocol-Version header"),
+        header_mismatch_error(
+          "missing required MCP-Protocol-Version header",
+          body~,
+        ),
       )
   }
   // Method header is required only for requests. Notification POSTs do not
@@ -378,11 +407,14 @@ fn HttpTransport::validate_request_headers(
               "' does not match body method '" +
               body_method +
               "'",
+              body~,
             ),
           )
         }
       None =>
-        return Err(header_mismatch_error("missing required Mcp-Method header"))
+        return Err(
+          header_mismatch_error("missing required Mcp-Method header", body~),
+        )
     }
   }
   // Mcp-Name for the three name-bearing methods (requests only).
@@ -392,7 +424,7 @@ fn HttpTransport::validate_request_headers(
         match req.headers.get("mcp-name") {
           Some(h) => {
             let body_name = extract_body_string(json, "params", "name")
-            match validate_name_header(h, body_name) {
+            match validate_name_header(h, body_name, body~) {
               Err(e) => return Err(e)
               Ok(_) => ()
             }
@@ -401,6 +433,7 @@ fn HttpTransport::validate_request_headers(
             return Err(
               header_mismatch_error(
                 "missing required Mcp-Name header for " + body_method,
+                body~,
               ),
             )
         }
@@ -408,7 +441,7 @@ fn HttpTransport::validate_request_headers(
         match req.headers.get("mcp-name") {
           Some(h) => {
             let body_uri = extract_body_string(json, "params", "uri")
-            match validate_name_header(h, body_uri) {
+            match validate_name_header(h, body_uri, body~) {
               Err(e) => return Err(e)
               Ok(_) => ()
             }
@@ -417,6 +450,7 @@ fn HttpTransport::validate_request_headers(
             return Err(
               header_mismatch_error(
                 "missing required Mcp-Name header for resources/read",
+                body~,
               ),
             )
         }
@@ -426,13 +460,40 @@ fn HttpTransport::validate_request_headers(
   // Character-set check for any Mcp-Param-* headers. This server has no
   // tool-schema awareness, so it cannot compare values against body arguments;
   // it only rejects header values containing characters outside the safe set
-  // (or a valid Base64 sentinel) per spec §B.
+  // (or a valid Base64 sentinel) per spec
+  // basic/transports/streamable-http#value-encoding.
   for k, v in req.headers {
     if k.0.to_lower().has_prefix("mcp-param-") {
-      match validate_header_value_characters(k.0, v) {
+      match validate_header_value_characters(k.0, v, body~) {
         Err(e) => return Err(e)
         Ok(_) => ()
       }
+    }
+  }
+  // Required body `_meta` fields (requests only; notifications carry no
+  // mandatory `_meta` in this revision, so they are left unconstrained).
+  // Headers are valid at this point; a request whose `_meta` is missing a
+  // required field (or carries it with the wrong type) is malformed and
+  // gets `Invalid params` (-32602), returned as HTTP 400 by the caller.
+  // `body_pv` doubles as the protocolVersion presence check: it is `None`
+  // when the field is absent or not a string.
+  if !is_notif {
+    if body_pv is None {
+      return Err(
+        invalid_params_error(
+          "Missing required _meta field: io.modelcontextprotocol/protocolVersion",
+          body~,
+        ),
+      )
+    }
+    if !(extract_meta_field(json, "io.modelcontextprotocol/clientCapabilities")
+      is Some(Object(_))) {
+      return Err(
+        invalid_params_error(
+          "Missing required _meta field: io.modelcontextprotocol/clientCapabilities",
+          body~,
+        ),
+      )
     }
   }
   Ok(())
@@ -441,27 +502,36 @@ fn HttpTransport::validate_request_headers(
 ///|
 /// Validate an `Mcp-Name` header value: decode Base64 sentinels, reject
 /// invalid characters in plain values, and compare with the body value.
+/// `body` is the raw request body, used to echo the request `id` in error
+/// responses.
 fn validate_name_header(
   header_value : String,
   body_value : String?,
+  body~ : String,
 ) -> Result[Unit, String] {
   let expected = body_value.unwrap_or("")
   match decode_base64_sentinel(header_value) {
     Some(decoded) =>
       if decoded != expected {
         return Err(
-          header_mismatch_error("Mcp-Name header does not match body value"),
+          header_mismatch_error(
+            "Mcp-Name header does not match body value",
+            body~,
+          ),
         )
       }
     None => {
       if !is_valid_header_characters(header_value) {
         return Err(
-          header_mismatch_error("Invalid characters in Mcp-Name header"),
+          header_mismatch_error("Invalid characters in Mcp-Name header", body~),
         )
       }
       if header_value != expected {
         return Err(
-          header_mismatch_error("Mcp-Name header does not match body value"),
+          header_mismatch_error(
+            "Mcp-Name header does not match body value",
+            body~,
+          ),
         )
       }
     }
@@ -471,53 +541,47 @@ fn validate_name_header(
 
 ///|
 /// Reject header values that contain characters outside the permitted HTTP
-/// header value set unless they are encoded as a Base64 sentinel.
+/// header value set unless they are encoded as a Base64 sentinel. `body` is
+/// the raw request body, used to echo the request `id` in error responses.
 fn validate_header_value_characters(
   name : String,
   value : String,
+  body~ : String,
 ) -> Result[Unit, String] {
   if looks_like_sentinel(value) {
     return Ok(())
   }
   if !is_valid_header_characters(value) {
     return Err(
-      header_mismatch_error("Invalid characters in " + name + " header"),
+      header_mismatch_error("Invalid characters in " + name + " header", body~),
     )
   }
   Ok(())
 }
 
 ///|
-/// Build a `HeaderMismatch` (-32020) JSON-RPC error response body.
-fn header_mismatch_error(detail : String) -> String {
-  let err = @types.HeaderMismatch(detail)
-  Json::object({
-    "jsonrpc": Json::string("2.0"),
-    "error": Json::object({
-      "code": Json::number(err.to_error_code().to_double()),
-      "message": Json::string(err.message()),
-    }),
-  }).stringify()
-}
-
-///|
-/// Extract `_meta[key]` as a string from a JSON-RPC message body.
-fn extract_meta_string(body : Json, key : String) -> String? {
+/// Extract `_meta[key]` from a JSON-RPC message body.
+fn extract_meta_field(body : Json, key : String) -> Json? {
   if body is Object(obj) {
     match obj.get("params") {
       Some(Object(params)) =>
         match params.get("_meta") {
-          Some(Object(meta)) =>
-            match meta.get(key) {
-              Some(String(s)) => Some(s)
-              _ => None
-            }
+          Some(Object(meta)) => meta.get(key)
           _ => None
         }
       _ => None
     }
   } else {
     None
+  }
+}
+
+///|
+/// Extract `_meta[key]` as a string from a JSON-RPC message body.
+fn extract_meta_string(body : Json, key : String) -> String? {
+  match extract_meta_field(body, key) {
+    Some(String(s)) => Some(s)
+    _ => None
   }
 }
 
@@ -599,22 +663,6 @@ pub fn HttpTransport::send_notification(
   _notification : @types.Notification,
 ) -> Unit {
   ignore(self)
-}
-
-///|
-pub fn HttpTransport::send_event(
-  self : HttpTransport,
-  event_type~ : String,
-  data~ : String,
-) -> Unit {
-  ignore(event_type)
-  ignore(data)
-  ignore(self)
-}
-
-///|
-pub fn HttpTransport::supports_streaming(_self : HttpTransport) -> Bool {
-  true
 }
 
 ///|

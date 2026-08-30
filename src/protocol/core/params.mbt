@@ -21,11 +21,6 @@ pub suberror ToolError {
 }
 
 ///|
-pub fn tool_error(msg : String) -> ToolError {
-  ToolError(msg)
-}
-
-///|
 pub(all) enum ParamKind {
   String
   Integer

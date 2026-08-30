@@ -32,10 +32,23 @@ test "MCPClient next_id increments" {
 
 ///|
 /// `check_input_required` detects an input_required result and extracts the
-/// requestState + inputRequests; complete results yield None.
+/// requestState + inputRequests; complete results yield Ok(None); an
+/// unrecognized non-empty resultType yields Err(InvalidParams).
 #cfg(any(target="native", target="wasm"))
 fn mrtr_complete_response() -> String {
   "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"resultType\":\"complete\"}}"
+}
+
+///|
+#cfg(any(target="native", target="wasm"))
+fn mrtr_no_result_type_response() -> String {
+  "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"values\":[]}}"
+}
+
+///|
+#cfg(any(target="native", target="wasm"))
+fn mrtr_unknown_result_type_response() -> String {
+  "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"resultType\":\"partially_done\"}}"
 }
 
 ///|
@@ -46,33 +59,64 @@ fn mrtr_input_required_response() -> String {
 
 ///|
 #cfg(any(target="native", target="wasm"))
-test "mrtr: complete response is not input_required" {
+fn mrtr_client() -> MCPClient {
   let transport = @transport.AnyTransport::Stdio(
     @transport.StdioTransport::StdioTransport(),
   )
-  let client = MCPClient::MCPClient(name="t", version="1", transport~)
-  match client.check_input_required(mrtr_complete_response()) {
-    Some(_) => panic()
-    None => ()
+  MCPClient::MCPClient(name="t", version="1", transport~)
+}
+
+///|
+#cfg(any(target="native", target="wasm"))
+test "mrtr: complete response is not input_required" {
+  match mrtr_client().check_input_required(mrtr_complete_response()) {
+    Ok(None) => ()
+    _ => panic()
+  }
+}
+
+///|
+#cfg(any(target="native", target="wasm"))
+test "mrtr: absent resultType is treated as complete" {
+  match mrtr_client().check_input_required(mrtr_no_result_type_response()) {
+    Ok(None) => ()
+    _ => panic()
+  }
+}
+
+///|
+#cfg(any(target="native", target="wasm"))
+test "mrtr: unrecognized resultType is an InvalidParams error" {
+  match
+    mrtr_client().check_input_required(mrtr_unknown_result_type_response()) {
+    Err(@types.InvalidParams(msg)) =>
+      assert_true(msg.contains("partially_done"))
+    _ => panic()
+  }
+}
+
+///|
+#cfg(any(target="native", target="wasm"))
+test "mrtr: non-string resultType is an InvalidParams error" {
+  let response = "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"resultType\":7}}"
+  match mrtr_client().check_input_required(response) {
+    Err(@types.InvalidParams(_)) => ()
+    _ => panic()
   }
 }
 
 ///|
 #cfg(any(target="native", target="wasm"))
 test "mrtr: input_required response extracts requestState and inputRequests" {
-  let transport = @transport.AnyTransport::Stdio(
-    @transport.StdioTransport::StdioTransport(),
-  )
-  let client = MCPClient::MCPClient(name="t", version="1", transport~)
-  match client.check_input_required(mrtr_input_required_response()) {
-    Some(info) => {
+  match mrtr_client().check_input_required(mrtr_input_required_response()) {
+    Ok(Some(info)) => {
       assert_eq(info.request_state, Some("blob"))
       match info.input_requests.get("login") {
         Some((method_name, _)) => assert_eq(method_name, "elicitation/create")
         None => panic()
       }
     }
-    None => panic()
+    _ => panic()
   }
 }
 
@@ -103,5 +147,40 @@ test "maybe_store_server_info stores serverInfo from result _meta" {
       @debug.assert_eq(info.version, "2.0")
     }
     None => panic()
+  }
+}
+
+/// === cancel_request transport gating (A9a) ===
+
+///|
+#cfg(any(target="native", target="wasm"))
+async test "cancel_request on stdio client takes the send path" {
+  // An unstarted StdioClientTransport still proves the branch: the send is
+  // attempted (transport error surfaces as "Failed to send cancellation")
+  // rather than rejected as unsupported.
+  let transport = @transport.AnyTransport::StdioClient(
+    @transport.StdioClientTransport::StdioClientTransport(cmd="cat"),
+  )
+  let client = MCPClient::MCPClient(name="t", version="1", transport~)
+  match client.cancel_request("5", reason="test") {
+    Err(@types.InternalError(msg)) =>
+      assert_true(msg.contains("Failed to send cancellation"))
+    _ => panic()
+  }
+}
+
+///|
+#cfg(any(target="native", target="wasm"))
+async test "cancel_request on non-client stdio transport is unsupported" {
+  // The server-side Stdio transport is not a client channel: no
+  // notifications/cancelled may be sent on it.
+  let transport = @transport.AnyTransport::Stdio(
+    @transport.StdioTransport::StdioTransport(),
+  )
+  let client = MCPClient::MCPClient(name="t", version="1", transport~)
+  match client.cancel_request("5") {
+    Err(@types.InternalError(msg)) =>
+      assert_true(msg.contains("not supported for this transport"))
+    _ => panic()
   }
 }

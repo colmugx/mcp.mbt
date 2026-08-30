@@ -29,8 +29,6 @@ pub using @types {type ContentItem}
 
 pub using @types {type JsonRpcRequest}
 
-pub using @types {type JsonRpcResponse}
-
 pub using @core {type JsonSchema}
 
 pub using @types {type MCPError}

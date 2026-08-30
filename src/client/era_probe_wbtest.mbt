@@ -81,7 +81,7 @@ test "classify_probe_error: unrecognized failures fall back to legacy" {
 
 ///|
 test "classify_probe_error: HTTP 4xx probe rejections fall back to legacy" {
-  // nowledge-mem (2025-11-25 streamable HTTP) answers a non-initialize
+  // A legacy (2025-11-25 streamable HTTP) server answers a non-initialize
   // first message with 422 and a plain-text body; the probe must read that
   // as "legacy-era server", not a fatal failure.
   match

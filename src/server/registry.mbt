@@ -3,7 +3,6 @@ priv struct ToolEntry {
   name : String
   description : String
   input_schema : Json
-  cached_schema_json : String
   handler : async (Json) -> Result[@tool.ToolCallOutcome, @types.MCPError]
 }
 
@@ -25,14 +24,7 @@ fn ToolRegistry::register(
   input_schema : Json,
   handler : async (Json) -> Result[@tool.ToolCallOutcome, @types.MCPError],
 ) -> Unit {
-  let cached_schema_json = input_schema.stringify()
-  self.tools.set(name, {
-    name,
-    description,
-    input_schema,
-    cached_schema_json,
-    handler,
-  })
+  self.tools.set(name, { name, description, input_schema, handler, })
 }
 
 ///|
@@ -46,8 +38,6 @@ fn ToolRegistry::list_tools(
       name: entry.name,
       description: entry.description,
       input_schema: entry.input_schema,
-      cached_schema_json: entry.cached_schema_json,
-      icon: None,
     }
   })
 }

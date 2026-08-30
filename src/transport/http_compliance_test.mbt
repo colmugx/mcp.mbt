@@ -200,8 +200,14 @@ test "compliance: is_notification recognizes notification bodies" {
 
 ///|
 test "compliance: unsupported_protocol_version_error carries -32022 data" {
-  let body = unsupported_protocol_version_error("2025-03-26")
+  // Probe-shaped body without an id: the response must omit `id` (JSON-RPC
+  // allows omission when the id is unreadable/absent).
+  let body = unsupported_protocol_version_error(
+    "2025-03-26",
+    body="{\"jsonrpc\":\"2.0\",\"method\":\"probe\"}",
+  )
   let json = parse(body)
+  assert_false(jhas(json, "id"))
   if json is Object(obj) {
     match obj.get("error") {
       Some(Object(err)) => {
@@ -223,6 +229,151 @@ test "compliance: unsupported_protocol_version_error carries -32022 data" {
   } else {
     panic()
   }
+}
+
+///|
+test "compliance: unsupported_protocol_version_error echoes request id" {
+  let request = "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"initialize\",\"params\":{}}"
+  let json = parse(
+    unsupported_protocol_version_error("2025-03-26", body=request),
+  )
+  match _jget(json, "id") {
+    Number(n, ..) => @debug.assert_eq(n.to_int(), 7)
+    _ => panic()
+  }
+}
+
+///|
+test "compliance: header_mismatch_error echoes request id (-32020)" {
+  let request = "{\"jsonrpc\":\"2.0\",\"id\":\"req-1\",\"method\":\"tools/call\",\"params\":{\"name\":\"t\"}}"
+  let json = parse(
+    header_mismatch_error(
+      "missing required MCP-Protocol-Version header",
+      body=request,
+    ),
+  )
+  @debug.assert_eq(jstr(json, "id"), "req-1")
+  match _jget(_jget(json, "error"), "code") {
+    Number(n, ..) => @debug.assert_eq(n.to_int(), -32020)
+    _ => panic()
+  }
+}
+
+///|
+test "compliance: invalid_params_error echoes request id (-32602)" {
+  let request = "{\"jsonrpc\":\"2.0\",\"id\":41,\"method\":\"ping\",\"params\":{}}"
+  let json = parse(
+    invalid_params_error(
+      "Missing required _meta field: io.modelcontextprotocol/protocolVersion",
+      body=request,
+    ),
+  )
+  match _jget(json, "id") {
+    Number(n, ..) => @debug.assert_eq(n.to_int(), 41)
+    _ => panic()
+  }
+  match _jget(_jget(json, "error"), "code") {
+    Number(n, ..) => @debug.assert_eq(n.to_int(), -32602)
+    _ => panic()
+  }
+  @debug.assert_eq(
+    jstr(_jget(json, "error"), "message"),
+    "Missing required _meta field: io.modelcontextprotocol/protocolVersion",
+  )
+}
+
+///|
+test "compliance: error bodies omit id when the request body has none" {
+  // Unparseable bodies (parse-level rejection) and id-less bodies both
+  // leave the error response without an id.
+  assert_false(
+    jhas(
+      parse(header_mismatch_error("malformed JSON body", body="not-json")),
+      "id",
+    ),
+  )
+  assert_false(
+    jhas(
+      parse(
+        invalid_params_error(
+          "Missing required _meta field: io.modelcontextprotocol/clientCapabilities",
+          body="{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}",
+        ),
+      ),
+      "id",
+    ),
+  )
+}
+
+///|
+test "compliance: request_id_from_body reads string, number and missing ids" {
+  match
+    request_id_from_body("{\"jsonrpc\":\"2.0\",\"id\":\"a\",\"method\":\"m\"}") {
+    Some(String("a")) => ()
+    _ => panic()
+  }
+  match
+    request_id_from_body("{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"m\"}") {
+    Some(Number(n, ..)) => @debug.assert_eq(n.to_int(), 3)
+    _ => panic()
+  }
+  match request_id_from_body("{\"jsonrpc\":\"2.0\",\"method\":\"m\"}") {
+    None => ()
+    _ => panic()
+  }
+  match request_id_from_body("not-json") {
+    None => ()
+    _ => panic()
+  }
+}
+
+///| =====================================================
+
+///| Origin Policy (DNS rebinding prevention)
+
+///|
+/// =====================================================
+test "compliance: origin_allowed matches configured allowlist exactly" {
+  let allow : Array[String]? = Some([
+    "https://app.example.com", "http://localhost:3000",
+  ])
+  assert_true(origin_allowed("https://app.example.com", allow))
+  assert_true(origin_allowed("http://localhost:3000", allow))
+  // The allowlist replaces, not extends, the default: no substring or
+  // default-loopback bypass, and the port is part of the origin.
+  assert_false(origin_allowed("https://app.example.com.evil.com", allow))
+  assert_false(origin_allowed("https://evil.com", allow))
+  assert_false(origin_allowed("http://localhost:3001", allow))
+  assert_false(origin_allowed("http://127.0.0.1:4240", allow))
+}
+
+///|
+test "compliance: origin_allowed defaults to loopback hosts on any port" {
+  assert_true(origin_allowed("http://127.0.0.1:4240", None))
+  assert_true(origin_allowed("https://127.0.0.1", None))
+  assert_true(origin_allowed("http://localhost:3000", None))
+  assert_true(origin_allowed("https://LOCALHOST", None))
+  assert_true(origin_allowed("http://[::1]:8080", None))
+  assert_true(origin_allowed("http://[::1]", None))
+  assert_false(origin_allowed("http://127.0.0.1.evil.com", None))
+  assert_false(origin_allowed("http://localhost.evil.com", None))
+  assert_false(origin_allowed("https://evil.com", None))
+  assert_false(origin_allowed("http://192.168.1.5:4240", None))
+  assert_false(origin_allowed("http://[::2]:1", None))
+}
+
+///|
+test "compliance: origin_allowed fails closed on malformed origins" {
+  assert_false(origin_allowed("null", None))
+  assert_false(origin_allowed("", None))
+  assert_false(origin_allowed("localhost:3000", None))
+  assert_false(origin_allowed("ftp://127.0.0.1:3000", None))
+  assert_false(origin_allowed("http://127.0.0.1:3000/path", None))
+  assert_false(origin_allowed("http://127.0.0.1:3000?q=1", None))
+  assert_false(origin_allowed("http://127.0.0.1:abc", None))
+  assert_false(origin_allowed("http://127.0.0.1:", None))
+  assert_false(origin_allowed("http://[::1:3000", None))
+  assert_false(origin_allowed("http://user@127.0.0.1", None))
 }
 
 ///| =====================================================

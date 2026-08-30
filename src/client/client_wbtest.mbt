@@ -195,15 +195,21 @@ test "build_subscriptions_listen_request includes enabled channels only" {
       Some(Object(p)) => p
       _ => panic()
     }
+    // `notifications` is a boolean opt-in object (SubscriptionFilter), with
+    // only the enabled channels present.
     let notifications = match params.get("notifications") {
-      Some(Array(a)) => a.map(fn(j) { j.stringify() })
+      Some(Object(n)) => n
       _ => panic()
     }
-    @debug.assert_eq(notifications.length(), 2)
-    assert_true(notifications.contains("\"notifications/tools/list_changed\""))
-    assert_true(
-      notifications.contains("\"notifications/resources/list_changed\""),
+    assert_eq(notifications.get("toolsListChanged"), Some(Json::boolean(true)))
+    assert_eq(
+      notifications.get("resourcesListChanged"),
+      Some(Json::boolean(true)),
     )
+    assert_eq(notifications.contains("promptsListChanged"), false)
+    // `resourceSubscriptions` nests inside `notifications` and is omitted
+    // when empty.
+    assert_eq(notifications.contains("resourceSubscriptions"), false)
     assert_eq(params.contains("resourceSubscriptions"), false)
   } else {
     panic()
@@ -211,7 +217,7 @@ test "build_subscriptions_listen_request includes enabled channels only" {
 }
 
 ///|
-test "build_subscriptions_listen_request includes resourceSubscriptions when set" {
+test "build_subscriptions_listen_request nests resourceSubscriptions in notifications" {
   let filter = {
     tools_list_changed: false,
     prompts_list_changed: false,
@@ -225,15 +231,38 @@ test "build_subscriptions_listen_request includes resourceSubscriptions when set
       Some(Object(p)) => p
       _ => panic()
     }
-    let subs = match params.get("resourceSubscriptions") {
+    let notifications = match params.get("notifications") {
+      Some(Object(n)) => n
+      _ => panic()
+    }
+    let subs = match notifications.get("resourceSubscriptions") {
       Some(Array(a)) => a
       _ => panic()
     }
     @debug.assert_eq(subs.length(), 2)
     assert_eq(subs[0], Json::string("file:///a.txt"))
+    assert_eq(params.contains("resourceSubscriptions"), false)
   } else {
     panic()
   }
+}
+
+///|
+test "build_subscriptions_listen_request emits spec-shaped params" {
+  let filter = {
+    tools_list_changed: true,
+    prompts_list_changed: true,
+    resources_list_changed: true,
+    resource_subscriptions: ["file:///notes.txt"],
+  }
+  let req = build_subscriptions_listen_request(9, test_meta(), filter)
+  let actual = @json.parse(req) catch { _ => Json::null() }
+  let expected = @json.parse(
+    "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"subscriptions/listen\",\"params\":{\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":\"2026-07-28\",\"io.modelcontextprotocol/clientCapabilities\":{},\"io.modelcontextprotocol/clientInfo\":{\"name\":\"test-client\",\"version\":\"1.0.0\"}},\"notifications\":{\"toolsListChanged\":true,\"promptsListChanged\":true,\"resourcesListChanged\":true,\"resourceSubscriptions\":[\"file:///notes.txt\"]}}}",
+  ) catch {
+    _ => Json::null()
+  }
+  @debug.assert_eq(actual, expected)
 }
 
 ///|
@@ -338,4 +367,87 @@ test "x-mcp-header: rejects annotation at root schema" {
     Invalid(_) => ()
     Valid(_) => panic()
   }
+}
+
+/// === completion/complete result parsing (A7) ===
+
+///|
+test "parse_completion_result reads nested completion object" {
+  let result = @json.parse(
+    "{\"completion\":{\"values\":[\"red\",\"blue\"],\"total\":10,\"hasMore\":true}}",
+  ) catch {
+    _ => panic()
+  }
+  match parse_completion_result(result) {
+    Ok(r) => {
+      @debug.assert_eq(r.values, ["red", "blue"])
+      assert_eq(r.total, Some(10))
+      assert_eq(r.has_more, Some(true))
+    }
+    Err(_) => panic()
+  }
+}
+
+///|
+test "parse_completion_result with optional fields omitted" {
+  let result = @json.parse("{\"completion\":{\"values\":[]}}") catch {
+    _ => panic()
+  }
+  match parse_completion_result(result) {
+    Ok(r) => {
+      @debug.assert_eq(r.values.length(), 0)
+      assert_eq(r.total, None)
+      assert_eq(r.has_more, None)
+    }
+    Err(_) => panic()
+  }
+}
+
+///|
+test "parse_completion_result rejects missing completion object" {
+  // Top-level values (the pre-2026-07-28 layout) must no longer parse.
+  let result = @json.parse("{\"values\":[\"red\"],\"total\":1}") catch {
+    _ => panic()
+  }
+  match parse_completion_result(result) {
+    Err(@types.InvalidParams(_)) => ()
+    _ => panic()
+  }
+}
+
+///|
+test "parse_completion_result rejects non-object completion" {
+  let result = @json.parse("{\"completion\":[\"red\"]}") catch { _ => panic() }
+  match parse_completion_result(result) {
+    Err(@types.InvalidParams(_)) => ()
+    _ => panic()
+  }
+}
+
+/// === cancel_request transport gating (A9a) ===
+
+///|
+async test "cancel_request on HTTP transport rejects with SSE-stream guidance" {
+  let transport = @transport.AnyTransport::HttpClient(
+    @transport.HttpClientTransport::HttpClientTransport("http://127.0.0.1:9/"),
+  )
+  let client = MCPClient::MCPClient(name="t", version="1", transport~)
+  match client.cancel_request("1") {
+    Err(@types.InternalError(msg)) =>
+      assert_true(msg.contains("closing the SSE response stream"))
+    _ => panic()
+  }
+}
+
+/// === RequestId JSON serialization (A9e) ===
+
+///|
+test "RequestId::to_json_string escapes control characters as valid JSON" {
+  @debug.assert_eq(@types.RequestId::Str("plain").to_json_string(), "\"plain\"")
+  @debug.assert_eq(@types.RequestId::Int(42).to_json_string(), "42")
+  // \b, \f and other control chars < 0x20 must round-trip as valid JSON.
+  let raw = "a\b\f\u{0001}z"
+  let encoded = @types.RequestId::Str(raw).to_json_string()
+  let reparsed = @json.parse(encoded) catch { _ => panic() }
+  assert_eq(reparsed, Json::string(raw))
 }

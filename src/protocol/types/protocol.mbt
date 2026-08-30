@@ -46,8 +46,6 @@ pub(all) struct ToolDefinition {
   name : String
   description : String
   input_schema : Json
-  cached_schema_json : String
-  icon : String?
 } derive(Debug, Eq)
 
 ///|
@@ -62,16 +60,10 @@ pub(all) enum RequestId {
 pub fn RequestId::to_json_string(self : RequestId) -> String {
   match self {
     Int(n) => n.to_string()
-    Str(s) => {
-      // Produce a JSON-quoted string: "escaped_content"
-      let escaped = s
-        .replace(old="\\", new="\\\\")
-        .replace(old="\"", new="\\\"")
-        .replace(old="\n", new="\\n")
-        .replace(old="\r", new="\\r")
-        .replace(old="\t", new="\\t")
-      "\"" + escaped + "\""
-    }
+    // Delegate string quoting to the Json serializer so every JSON escape
+    // (\b, \f, other control chars < 0x20) is emitted correctly; a
+    // hand-rolled escape list could produce invalid JSON text.
+    Str(s) => Json::string(s).stringify()
   }
 }
 
@@ -84,31 +76,10 @@ pub(all) struct JsonRpcRequest {
 } derive(Debug, Eq)
 
 ///|
-pub(all) struct JsonRpcResponse {
-  jsonrpc : String
-  id : RequestId
-  result : Result[Json, JsonRpcError]
-} derive(Debug, Eq)
-
-///|
-pub(all) struct JsonRpcError {
-  code : Int
-  message : String
-  data : Json?
-} derive(Debug, Eq)
-
-///|
 pub(all) struct PromptArgument {
   name : String
   description : String?
   required : Bool?
-} derive(Debug, Eq)
-
-///|
-pub(all) struct Prompt {
-  name : String
-  description : String?
-  arguments : Array[PromptArgument]?
 } derive(Debug, Eq)
 
 ///|
@@ -167,7 +138,7 @@ pub fn JsonRpcRequest::from_json(
 }
 
 ///|
-/// MRTR (Multi Round-Trip Requests) — 2026-07-28 spec §E.
+/// MRTR (Multi Round-Trip Requests) — 2026-07-28 spec basic/patterns/mrtr.
 ///
 /// When a server needs client input (sampling/elicitation/roots) to finish a
 /// request, it returns an `InputRequiredResult` whose `inputRequests` lists

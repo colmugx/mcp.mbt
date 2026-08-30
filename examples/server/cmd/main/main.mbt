@@ -84,7 +84,7 @@ impl @mcp.Tool for AddTool with fn execute(_, args : Json) -> @mcp.ToolCallOutco
 
 ///|
 async fn main {
-  let server = @mcp.mcp_server(name="example-server", version="1.0.0")
+  let server = @mcp.MCPServer("example-server", "1.0.0")
     .with_tool(EchoTool::{ })
     .with_tool(AddTool::{ })
   server.run_stdio()

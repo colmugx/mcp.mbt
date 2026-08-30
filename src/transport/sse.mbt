@@ -55,8 +55,9 @@ pub enum SseEventVerdict {
 /// Classify one `read_sse_event` result for a response stream.
 ///
 /// Servers may open or interleave keepalive events: an event dispatched with
-/// an empty or whitespace-only `data:` payload (nowledge-mem opens every
-/// stream with `data:` + `id:` + `retry:`), or a comment-only heartbeat that
+/// an empty or whitespace-only `data:` payload (some servers open every
+/// stream with `data:` (empty) + `id:` + `retry:` heartbeat events), or a
+/// comment-only heartbeat that
 /// carries an `id` but no data lines. None of those are JSON-RPC messages —
 /// queueing an empty payload desyncs response matching (initialize would
 /// parse the empty string), and treating a heartbeat as EOF ends the scan

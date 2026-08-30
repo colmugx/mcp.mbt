@@ -75,10 +75,7 @@ async test "subscriptions: notify_tools_list_changed routes to matching stream" 
     kind=@aqueue.Kind::Unbounded,
   )
   // Register a subscription with id "1" and a tools-list filter.
-  server.subscriptions.set("1", {
-    filter: tools_filter(),
-    reply: ReplyHandle::Stdio(reply_queue),
-  })
+  server.subscriptions.set("1", { filter: tools_filter(), reply: reply_queue, })
   // Trigger a tools-list-changed notification.
   server.notify_tools_list_changed()
   // The first message on the queue should be the tagged notification.
@@ -121,7 +118,7 @@ async test "subscriptions: non-matching filter receives no notification" {
   // Subscribe only to prompts-list-changed.
   server.subscriptions.set("2", {
     filter: { ..SubscriptionFilter::empty(), prompts_list_changed: true, },
-    reply: ReplyHandle::Stdio(reply_queue),
+    reply: reply_queue,
   })
   // A tools-list-changed notification should NOT land on this stream.
   server.notify_tools_list_changed()
@@ -147,14 +144,14 @@ async test "subscriptions: notify_resource_updated reaches only matching URI sub
       ..SubscriptionFilter::empty(),
       resource_subscriptions: ["file:///watched"],
     },
-    reply: ReplyHandle::Stdio(sub_a),
+    reply: sub_a,
   })
   server.subscriptions.set("2", {
     filter: {
       ..SubscriptionFilter::empty(),
       resource_subscriptions: ["file:///other"],
     },
-    reply: ReplyHandle::Stdio(sub_b),
+    reply: sub_b,
   })
   server.notify_resource_updated("file:///watched")
   // Sub 1 receives the update, tagged with its subscription id.

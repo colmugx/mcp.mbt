@@ -118,7 +118,7 @@ async test "prop: scan_sse_event recovers formatted payloads" {
 
 ///|
 test "sse_event_verdict: opening keepalive with empty data is skipped" {
-  // nowledge-mem opens every SSE stream with `data:` (empty) + `id:` +
+  // Some legacy servers open every SSE stream with `data:` (empty) + `id:` +
   // `retry:` before the first real payload.
   @debug.assert_eq(sse_event_verdict(Some(""), Some("0")), Skip)
   @debug.assert_eq(sse_event_verdict(Some("  "), None), Skip)

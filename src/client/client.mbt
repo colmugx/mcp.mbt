@@ -356,7 +356,8 @@ fn MCPClient::maybe_store_server_info(
 /// retries the original request with `inputResponses` + the echoed
 /// `requestState`, using a new JSON-RPC id. Repeats until a `complete` result
 /// (or an error) is returned. A missing `resultType` is treated as `complete`
-/// per spec (back-compat with older servers).
+/// per spec (back-compat with older servers); an unrecognized non-empty
+/// `resultType` surfaces as an InvalidParams error.
 ///
 /// `max_rounds` bounds the retry count to prevent infinite loops if the server
 /// keeps requesting input.
@@ -373,8 +374,9 @@ async fn MCPClient::send_with_mrtr(
       Err(e) => return Err(e)
       Ok(response) =>
         match self.check_input_required(response) {
-          None => return Ok(response)
-          Some(input_req) =>
+          Err(e) => return Err(e)
+          Ok(None) => return Ok(response)
+          Ok(Some(input_req)) =>
             match self.fulfill_input_requests(input_req.input_requests) {
               Err(e) => return Err(e)
               Ok(responses) => {
@@ -395,8 +397,13 @@ async fn MCPClient::send_with_mrtr(
 }
 
 ///|
-/// If `response` is an `input_required` result, extract the `inputRequests`
-/// map and `requestState`; otherwise return None (complete or error).
+/// Classify a response for the MRTR loop:
+/// * `Ok(None)` — a `complete` result (a missing `resultType` also means
+///   `complete`, for back-compat with pre-MRTR servers);
+/// * `Ok(Some(info))` — an `input_required` result with the extracted
+///   `inputRequests` map and `requestState`;
+/// * `Err(InvalidParams)` — a non-empty `resultType` this SDK cannot
+///   recognize, which MUST be treated as invalid per the 2026-07-28 spec.
 priv struct InputRequiredInfo {
   input_requests : Map[String, (String, Json)]
   request_state : String?
@@ -406,26 +413,26 @@ priv struct InputRequiredInfo {
 fn MCPClient::check_input_required(
   self : MCPClient,
   response : String,
-) -> InputRequiredInfo? {
+) -> Result[InputRequiredInfo?, @types.MCPError] {
   ignore(self)
-  let json = @json.parse(response) catch { _ => return None }
-  if !(json is Object(_)) {
-    return None
+  let json = @json.parse(response) catch { _ => return Ok(None) }
+  let result = match json {
+    Object(obj) =>
+      match obj.get("result") {
+        Some(Object(r)) => r
+        _ => return Ok(None) // no result object (e.g. an error response)
+      }
+    _ => return Ok(None)
   }
-  let result = if json is Object(obj) {
-    match obj.get("result") {
-      Some(Object(r)) => r
-      _ => return None
-    }
-  } else {
-    return None
-  }
-  let result_type = match result.get("resultType") {
-    Some(String(s)) => s
-    _ => return None // absent => "complete"
-  }
-  if result_type != "input_required" {
-    return None
+  match result.get("resultType") {
+    None => return Ok(None) // absent => "complete"
+    Some(String("complete")) => return Ok(None)
+    Some(String("input_required")) => ()
+    Some(String(other)) =>
+      return Err(
+        @types.InvalidParams("Unrecognized resultType: '" + other + "'"),
+      )
+    Some(_) => return Err(@types.InvalidParams("resultType must be a string"))
   }
   let reqs : Map[String, (String, Json)] = Default::default()
   match result.get("inputRequests") {
@@ -446,7 +453,7 @@ fn MCPClient::check_input_required(
     Some(String(s)) => Some(s)
     _ => None
   }
-  Some({ input_requests: reqs, request_state, })
+  Ok(Some({ input_requests: reqs, request_state, }))
 }
 
 ///|
@@ -608,6 +615,12 @@ fn extract_request_id(request : String) -> Int {
 }
 
 ///|
+/// Cancel an in-flight request. Per the 2026-07-28 spec
+/// (transports/streamable-http), the core protocol defines no
+/// client→server notification on Streamable HTTP: cancellation there is
+/// signalled by closing the SSE response stream. So only stdio client
+/// transports send `notifications/cancelled`; HTTP and other transports
+/// return a clear error instead (same style as `cancel_listen`).
 pub async fn MCPClient::cancel_request(
   self : MCPClient,
   request_id : String,
@@ -620,18 +633,36 @@ pub async fn MCPClient::cancel_request(
       ),
     )
   }
-  let notif = match reason {
-    Some(r) => @types.cancelled_notification(request_id, reason=r)
-    None => @types.cancelled_notification(request_id)
-  }
-  let t = self.transport
-  t.send_notification(notif) catch {
-    e =>
-      return Err(
-        @types.InternalError("Failed to send cancellation: " + e.to_string()),
+  match self.transport {
+    @transport.AnyTransport::StdioClient(_) => {
+      let notif = match reason {
+        Some(r) => @types.cancelled_notification(request_id, reason=r)
+        None => @types.cancelled_notification(request_id)
+      }
+      let t = self.transport
+      t.send_notification(notif) catch {
+        e =>
+          return Err(
+            @types.InternalError(
+              "Failed to send cancellation: " + e.to_string(),
+            ),
+          )
+      }
+      Ok(())
+    }
+    @transport.AnyTransport::HttpClient(_) =>
+      Err(
+        @types.InternalError(
+          "HTTP cancellation is not yet supported; cancel by closing the SSE response stream",
+        ),
+      )
+    _ =>
+      Err(
+        @types.InternalError(
+          "request cancellation is not supported for this transport",
+        ),
       )
   }
-  Ok(())
 }
 
 ///|
@@ -1330,13 +1361,7 @@ fn parse_tool_def(json : Json) -> @types.ToolDefinition? {
         _ => ""
       }
       let input_schema = obj.get("inputSchema").unwrap_or(Json::null())
-      Some({
-        name,
-        description,
-        input_schema,
-        cached_schema_json: "",
-        icon: None,
-      })
+      Some({ name, description, input_schema, })
     }
     _ => None
   }
@@ -1829,31 +1854,40 @@ fn parse_list_resource_templates(
 }
 
 ///|
+/// Parse a `completion/complete` result. The 2026-07-28 schema nests the
+/// payload under `result.completion` (`CompleteResult`), so the fields are
+/// read from that object; a missing or non-object `completion` is an
+/// InvalidParams error.
 fn parse_completion_result(
   result_json : Json,
 ) -> Result[CompletionResult, @types.MCPError] {
   match result_json {
     Object(obj) =>
-      match obj.get("values") {
-        Some(Array(values_json)) => {
-          let values = values_json.filter_map(fn(v) {
-            match v {
-              String(s) => Some(s)
-              _ => None
+      match obj.get("completion") {
+        Some(Object(completion)) =>
+          match completion.get("values") {
+            Some(Array(values_json)) => {
+              let values = values_json.filter_map(fn(v) {
+                match v {
+                  String(s) => Some(s)
+                  _ => None
+                }
+              })
+              let total = match completion.get("total") {
+                Some(Number(n, ..)) => Some(n.to_int())
+                _ => None
+              }
+              let has_more = match completion.get("hasMore") {
+                Some(True) => Some(true)
+                Some(False) => Some(false)
+                _ => None
+              }
+              Ok({ values, total, has_more, })
             }
-          })
-          let total = match obj.get("total") {
-            Some(Number(n, ..)) => Some(n.to_int())
-            _ => None
+            _ =>
+              Err(@types.InvalidParams("Missing 'values' array in completion"))
           }
-          let has_more = match obj.get("hasMore") {
-            Some(True) => Some(true)
-            Some(False) => Some(false)
-            _ => None
-          }
-          Ok({ values, total, has_more, })
-        }
-        _ => Err(@types.InvalidRequest("Missing 'values' array in result"))
+        _ => Err(@types.InvalidParams("Missing 'completion' object in result"))
       }
     _ => Err(@types.ParseError("Result must be a JSON object"))
   }

@@ -26,7 +26,6 @@ pub using @types {
   type TransportError,
   type RequestId,
   type JsonRpcRequest,
-  type JsonRpcResponse,
   type ServerInfo,
   type ServerCapabilities,
   type ToolDefinition,

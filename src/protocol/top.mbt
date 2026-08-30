@@ -3,7 +3,6 @@ pub using @types {
   type MCPError,
   type TransportError,
   type JsonRpcRequest,
-  type JsonRpcResponse,
   type ServerInfo,
   type ServerCapabilities,
   type ToolDefinition,

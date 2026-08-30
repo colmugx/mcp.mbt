@@ -69,24 +69,70 @@ pub fn sse_event_line(json : String) -> String {
 }
 
 ///|
-/// Build an `UnsupportedProtocolVersion` (-32022) JSON-RPC error response
-/// body. The response has no `id` because the failure is transport-level.
-pub fn unsupported_protocol_version_error(requested : String) -> String {
-  let err = @types.UnsupportedProtocolVersion(
-    "Unsupported protocol version",
-    supported=[@types.ProtocolVersion],
-    requested~,
-  )
-  let data = match err.to_error_data() {
-    Some(d) => d
-    None => null
+/// Extract the JSON-RPC `id` member from a serialized request body, for
+/// echoing in transport-level error responses. Returns `None` when the body
+/// is not a JSON object or carries no `id` — JSON-RPC allows omitting `id`
+/// when it cannot be determined from the (possibly malformed) request.
+pub fn request_id_from_body(body : String) -> Json? {
+  let json = @json.parse(body) catch { _ => return None }
+  if json is Object(obj) {
+    obj.get("id")
+  } else {
+    None
   }
-  Json::object({
-    "jsonrpc": Json::string("2.0"),
-    "error": Json::object({
-      "code": Json::number(err.to_error_code().to_double()),
-      "message": Json::string(err.message()),
-      "data": data,
-    }),
-  }).stringify()
+}
+
+///|
+/// Serialize a JSON-RPC 2.0 error response body for a transport-level
+/// rejection, echoing the request `id` extracted from `body` when readable.
+fn jsonrpc_error_body(error : @types.MCPError, body~ : String) -> String {
+  let error_obj : Map[String, Json] = Default::default()
+  error_obj.set("code", Json::number(error.to_error_code().to_double()))
+  error_obj.set("message", Json::string(error.message()))
+  match error.to_error_data() {
+    Some(data) => error_obj.set("data", data)
+    None => ()
+  }
+  let response : Map[String, Json] = Default::default()
+  response.set("jsonrpc", Json::string("2.0"))
+  response.set("error", Json::object(error_obj))
+  match request_id_from_body(body) {
+    Some(id) => response.set("id", id)
+    None => ()
+  }
+  Json::object(response).stringify()
+}
+
+///|
+/// Build a `HeaderMismatch` (-32020) JSON-RPC error response body. The
+/// request `id` is echoed when readable from `body`.
+pub fn header_mismatch_error(detail : String, body~ : String) -> String {
+  jsonrpc_error_body(@types.HeaderMismatch(detail), body~)
+}
+
+///|
+/// Build an `Invalid params` (-32602) JSON-RPC error response body for a
+/// malformed request rejected at transport entry (e.g. a request whose
+/// `params._meta` is missing required fields). The request `id` is echoed
+/// when readable from `body`.
+pub fn invalid_params_error(detail : String, body~ : String) -> String {
+  jsonrpc_error_body(@types.InvalidParams(detail), body~)
+}
+
+///|
+/// Build an `UnsupportedProtocolVersion` (-32022) JSON-RPC error response
+/// body. The request `id` is echoed when readable from `body`; the error is
+/// transport-level, so unreadable ids are simply omitted.
+pub fn unsupported_protocol_version_error(
+  requested : String,
+  body~ : String,
+) -> String {
+  jsonrpc_error_body(
+    @types.UnsupportedProtocolVersion(
+      "Unsupported protocol version",
+      supported=[@types.ProtocolVersion],
+      requested~,
+    ),
+    body~,
+  )
 }

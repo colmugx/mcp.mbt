@@ -9,33 +9,17 @@ import {
 // Values
 pub fn arr_schema(JsonSchema, desc? : String) -> JsonSchema
 
-pub fn arr_type(SchemaType) -> SchemaType
-
 pub fn bool_schema(desc? : String) -> JsonSchema
-
-pub fn bool_type() -> SchemaType
 
 pub fn int_schema(desc? : String) -> JsonSchema
 
-pub fn int_type() -> SchemaType
-
 pub fn num_schema(desc? : String) -> JsonSchema
 
-pub fn num_type() -> SchemaType
-
 pub fn obj_schema(Map[String, JsonSchema], Array[String], desc? : String) -> JsonSchema
-
-pub fn obj_type() -> SchemaType
-
-pub fn schema_builder() -> SchemaBuilder
 
 pub fn simple_tool(String, String, (Json) -> @tool.ToolResult) -> ToolWrapper
 
 pub fn str_schema(desc? : String) -> JsonSchema
-
-pub fn str_type() -> SchemaType
-
-pub fn tool_error(String) -> ToolError
 
 pub fn[Args : Params, Ret : ToToolResult] tool_fn((Args) -> Ret, name~ : String, description~ : String) -> ToolWrapper
 
@@ -45,8 +29,6 @@ pub suberror ToolError {
 }
 
 // Types and methods
-type FieldDef
-
 pub struct JsonSchema {
   type_name : String
   description : String
@@ -64,21 +46,6 @@ pub(all) enum ParamKind {
   Boolean
   Array(ParamKind)
   Object(Map[String, ParamKind])
-}
-
-pub struct SchemaBuilder {
-  fields : Array[FieldDef]
-}
-pub fn SchemaBuilder::build(Self, desc? : String) -> JsonSchema
-pub fn SchemaBuilder::field(Self, String, SchemaType, required? : Bool, desc? : String) -> Self
-
-pub enum SchemaType {
-  Str
-  Int
-  Num
-  Bool
-  Arr(SchemaType)
-  Obj
 }
 
 pub(all) struct ToolWrapper {

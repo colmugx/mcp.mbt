@@ -77,22 +77,6 @@ pub async fn StdioTransport::send(
 }
 
 ///|
-pub fn StdioTransport::send_event(
-  _self : StdioTransport,
-  event_type~ : String,
-  data~ : String,
-) -> Unit {
-  ignore(event_type)
-  ignore(data)
-  ()
-}
-
-///|
-pub fn StdioTransport::supports_streaming(_self : StdioTransport) -> Bool {
-  false
-}
-
-///|
 pub async fn StdioTransport::send_notification(
   self : StdioTransport,
   notification : @types.Notification,

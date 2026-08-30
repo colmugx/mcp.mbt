@@ -217,32 +217,36 @@ fn build_completion_complete_request(
 }
 
 ///|
-/// Build a `subscriptions/listen` request. The `notifications` array only
-/// contains the channels the filter has enabled; `resourceSubscriptions` is
-/// omitted when empty per the 2026-07-28 stateless spec.
+/// Build a `subscriptions/listen` request. Per the 2026-07-28 spec
+/// (basic/patterns/subscriptions), `params.notifications` is a boolean
+/// opt-in object (SubscriptionFilter), not a list of method names; each
+/// field is emitted only when the filter enables it, and
+/// `resourceSubscriptions` nests inside `notifications` and is omitted
+/// when empty. This mirrors the server-side `parse_subscription_filter`
+/// semantics: absent fields simply mean "not subscribed".
 fn build_subscriptions_listen_request(
   id : Int,
   meta : Json,
   filter : ListenFilter,
 ) -> String {
-  let notifications : Array[Json] = []
+  let notifications : Map[String, Json] = Default::default()
   if filter.tools_list_changed {
-    notifications.push(Json::string("notifications/tools/list_changed"))
+    notifications.set("toolsListChanged", Json::boolean(true))
   }
   if filter.prompts_list_changed {
-    notifications.push(Json::string("notifications/prompts/list_changed"))
+    notifications.set("promptsListChanged", Json::boolean(true))
   }
   if filter.resources_list_changed {
-    notifications.push(Json::string("notifications/resources/list_changed"))
+    notifications.set("resourcesListChanged", Json::boolean(true))
   }
-  let params : Map[String, Json] = Default::default()
-  params.set("notifications", Json::array(notifications))
   if filter.resource_subscriptions.length() > 0 {
-    params.set(
+    notifications.set(
       "resourceSubscriptions",
       Json::array(filter.resource_subscriptions.map(Json::string)),
     )
   }
+  let params : Map[String, Json] = Default::default()
+  params.set("notifications", Json::object(notifications))
   params.set("_meta", meta)
   Json::object({
     "jsonrpc": "2.0",

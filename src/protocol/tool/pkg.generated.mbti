@@ -37,19 +37,10 @@ pub struct ToolResult {
 pub fn ToolResult::error(String) -> Self
 pub fn ToolResult::success(Array[@types.ContentItem]) -> Self
 pub fn ToolResult::text(String) -> Self
-pub impl ToToolResult for ToolResult
 
 // Type aliases
 
 // Traits
-pub trait ToToolResult {
-  fn to_tool_result(Self) -> ToolResult
-}
-pub impl ToToolResult for Bool
-pub impl ToToolResult for Int
-pub impl ToToolResult for Double
-pub impl ToToolResult for String
-
 pub(open) trait Tool {
   fn name(Self) -> String
   fn description(Self) -> String

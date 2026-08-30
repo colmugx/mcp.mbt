@@ -59,6 +59,19 @@ fn parse_result(response : String) -> Json {
   json_get(json, "result")
 }
 
+///|
+/// Helper: the `_meta` object every well-formed request must carry in its
+/// `params` (spec basic/index#_meta) — required protocolVersion plus
+/// clientCapabilities (an empty object = no optional capabilities).
+fn valid_request_meta(client_capabilities? : Json = Json::object({})) -> Json {
+  Json::object({
+    "io.modelcontextprotocol/protocolVersion": Json::string(
+      @types.ProtocolVersion,
+    ),
+    "io.modelcontextprotocol/clientCapabilities": client_capabilities,
+  })
+}
+
 ///| =====================================================
 
 ///| JSON-RPC Message Format
@@ -764,6 +777,7 @@ async test "compliance: unsupported protocol version returns -32022 with data" {
     "params": Json::object({
       "_meta": Json::object({
         "io.modelcontextprotocol/protocolVersion": Json::string("2025-11-25"),
+        "io.modelcontextprotocol/clientCapabilities": Json::object({}),
       }),
     }),
   }).stringify()
@@ -784,13 +798,83 @@ async test "compliance: unsupported protocol version returns -32022 with data" {
 
 ///|
 #cfg(not(target="wasm-gc"))
-async test "compliance: missing protocol version is tolerated" {
+async test "compliance: missing protocol version returns -32602" {
+  let server = MCPServer::MCPServer("test", "1.0.0")
+  let request = Json::object({
+    "jsonrpc": Json::string("2.0"),
+    "id": Json::number(1.0),
+    "method": Json::string("tools/list"),
+    "params": Json::object({
+      "_meta": Json::object({
+        "io.modelcontextprotocol/clientCapabilities": Json::object({}),
+      }),
+    }),
+  }).stringify()
+  let response = server.handle_request(request) catch { _ => panic() }
+  let json = @json.parse(response) catch { _ => panic() }
+  let err = json_get(json, "error")
+  assert_eq(json_field_int(err, "code"), -32602)
+  assert_eq(
+    json_field_str(err, "message"),
+    "Missing required _meta field: io.modelcontextprotocol/protocolVersion",
+  )
+}
+
+///|
+#cfg(not(target="wasm-gc"))
+async test "compliance: missing clientCapabilities returns -32602" {
+  let server = MCPServer::MCPServer("test", "1.0.0")
+  let request = Json::object({
+    "jsonrpc": Json::string("2.0"),
+    "id": Json::number(1.0),
+    "method": Json::string("tools/list"),
+    "params": Json::object({
+      "_meta": Json::object({
+        "io.modelcontextprotocol/protocolVersion": Json::string(
+          @types.ProtocolVersion,
+        ),
+      }),
+    }),
+  }).stringify()
+  let response = server.handle_request(request) catch { _ => panic() }
+  let json = @json.parse(response) catch { _ => panic() }
+  let err = json_get(json, "error")
+  assert_eq(json_field_int(err, "code"), -32602)
+  assert_eq(
+    json_field_str(err, "message"),
+    "Missing required _meta field: io.modelcontextprotocol/clientCapabilities",
+  )
+}
+
+///|
+#cfg(not(target="wasm-gc"))
+async test "compliance: request without _meta at all returns -32602" {
   let server = MCPServer::MCPServer("test", "1.0.0")
   let request = Json::object({
     "jsonrpc": Json::string("2.0"),
     "id": Json::number(1.0),
     "method": Json::string("tools/list"),
     "params": Json::object({}),
+  }).stringify()
+  let response = server.handle_request(request) catch { _ => panic() }
+  let json = @json.parse(response) catch { _ => panic() }
+  let err = json_get(json, "error")
+  assert_eq(json_field_int(err, "code"), -32602)
+  assert_eq(
+    json_field_str(err, "message"),
+    "Missing required _meta field: io.modelcontextprotocol/protocolVersion",
+  )
+}
+
+///|
+#cfg(not(target="wasm-gc"))
+async test "compliance: request carrying required _meta fields is accepted" {
+  let server = MCPServer::MCPServer("test", "1.0.0")
+  let request = Json::object({
+    "jsonrpc": Json::string("2.0"),
+    "id": Json::number(1.0),
+    "method": Json::string("tools/list"),
+    "params": Json::object({ "_meta": valid_request_meta() }),
   }).stringify()
   let response = server.handle_request(request) catch { _ => panic() }
   let json = @json.parse(response) catch { _ => panic() }
@@ -1108,7 +1192,7 @@ async test "compliance: close_subscription sends graceful result and removes sub
   )
   server.subscriptions.set("42", {
     filter: SubscriptionFilter::empty(),
-    reply: ReplyHandle::Stdio(queue),
+    reply: queue,
   })
   server.close_subscription("42") catch {
     _ => panic()
@@ -1137,7 +1221,7 @@ async test "compliance: cancelled notification closes matching subscription" {
   )
   server.subscriptions.set("7", {
     filter: SubscriptionFilter::empty(),
-    reply: ReplyHandle::Stdio(queue),
+    reply: queue,
   })
   let notif = Json::object({
     "jsonrpc": Json::string("2.0"),
@@ -1230,11 +1314,157 @@ async test "compliance: initialize returns modern-only error naming version" {
     "jsonrpc": Json::string("2.0"),
     "id": Json::number(1.0),
     "method": Json::string("initialize"),
-    "params": Json::object({}),
+    "params": Json::object({ "_meta": valid_request_meta() }),
   }).stringify()
   let response = server.handle_request(request) catch { _ => panic() }
   let json = @json.parse(response) catch { _ => panic() }
   let err = json_get(json, "error")
   assert_eq(json_field_int(err, "code"), -32601)
   assert_true(json_field_str(err, "message").contains("2026-07-28"))
+}
+
+///|
+test "compliance: serverInfo includes description when set" {
+  let server = MCPServer::MCPServer("test", "1.0.0").with_description(
+    "A compliance test server",
+  )
+  let result = parse_result(handle_tools_list(server, @types.RequestId::Int(1)))
+  let info = json_get(
+    json_get(result, "_meta"),
+    "io.modelcontextprotocol/serverInfo",
+  )
+  assert_eq(json_field_str(info, "description"), "A compliance test server")
+}
+
+///|
+test "compliance: serverInfo omits description when unset" {
+  let server = MCPServer::MCPServer("test", "1.0.0")
+  let result = parse_result(handle_tools_list(server, @types.RequestId::Int(1)))
+  let info = json_get(
+    json_get(result, "_meta"),
+    "io.modelcontextprotocol/serverInfo",
+  )
+  assert_false(json_has(info, "description"))
+}
+
+///|
+#cfg(not(target="wasm-gc"))
+async test "compliance: tools/call embedded resource nests contents under resource" {
+  let server = MCPServer::MCPServer("test", "1.0.0")
+  server.register_tool(
+    "embed",
+    "Embedded resource tool",
+    Json::object({ "type": "object" }),
+    fn(_args) {
+      Ok(
+        @tool.ToolCallOutcome::Complete(
+          @tool.ToolResult::success([
+            @types.ContentItem::EmbeddedResource(
+              @types.EmbeddedResourceContent::Text(
+                "memo body",
+                uri="memo://1",
+                mime_type=Some("text/plain"),
+              ),
+            ),
+            @types.ContentItem::EmbeddedResource(
+              @types.EmbeddedResourceContent::Blob(
+                "aGk=",
+                uri="memo://2",
+                mime_type="application/octet-stream",
+              ),
+            ),
+          ]),
+        ),
+      )
+    },
+  )
+  let params = Json::object({
+    "name": Json::string("embed"),
+    "arguments": Json::object({}),
+  })
+  let response = handle_tools_call(server, @types.RequestId::Int(1), params) catch {
+    _ => panic()
+  }
+  let result = parse_result(response)
+  let content = json_get(result, "content")
+  if content is Array(arr) {
+    assert_eq(arr.length(), 2)
+    // Text variant: {type:"resource", resource:{uri, text, mimeType?}} —
+    // uri/text/mimeType live nested, not flattened onto the item.
+    let text_item = arr[0]
+    assert_eq(json_field_str(text_item, "type"), "resource")
+    assert_false(json_has(text_item, "uri"))
+    assert_false(json_has(text_item, "text"))
+    let text_res = json_get(text_item, "resource")
+    assert_eq(json_field_str(text_res, "uri"), "memo://1")
+    assert_eq(json_field_str(text_res, "text"), "memo body")
+    assert_eq(json_field_str(text_res, "mimeType"), "text/plain")
+    // Blob variant: {type:"resource", resource:{uri, blob, mimeType}}.
+    let blob_item = arr[1]
+    assert_false(json_has(blob_item, "blob"))
+    let blob_res = json_get(blob_item, "resource")
+    assert_eq(json_field_str(blob_res, "uri"), "memo://2")
+    assert_eq(json_field_str(blob_res, "blob"), "aGk=")
+    assert_eq(json_field_str(blob_res, "mimeType"), "application/octet-stream")
+  } else {
+    panic()
+  }
+}
+
+///|
+#cfg(not(target="wasm-gc"))
+async test "compliance: prompts/get serializes non-text content without data loss" {
+  let server = MCPServer::MCPServer("test", "1.0.0")
+  server.register_prompt("mixed", "Mixed content prompt", [], fn(_args) {
+    Ok({
+      description: None,
+      messages: [
+        {
+          role: "user",
+          content: @types.ContentItem::Image("aGk=", mime_type="image/png"),
+        },
+        { role: "user", content: @types.ContentItem::ResourceLink("memo://1"), },
+        {
+          role: "assistant",
+          content: @types.ContentItem::EmbeddedResource(
+            @types.EmbeddedResourceContent::Text(
+              "memo body",
+              uri="memo://9",
+              mime_type=None,
+            ),
+          ),
+        },
+      ],
+    })
+  })
+  let params = Json::object({
+    "name": Json::string("mixed"),
+    "arguments": Json::object({}),
+  })
+  let response = handle_prompts_get(server, @types.RequestId::Int(1), params) catch {
+    _ => panic()
+  }
+  let result = parse_result(response)
+  let messages = json_get(result, "messages")
+  if messages is Array(arr) {
+    assert_eq(arr.length(), 3)
+    // Image content survives (was previously dropped to JSON null).
+    let img = json_get(arr[0], "content")
+    assert_eq(json_field_str(img, "type"), "image")
+    assert_eq(json_field_str(img, "data"), "aGk=")
+    assert_eq(json_field_str(img, "mimeType"), "image/png")
+    // Resource link survives.
+    let link = json_get(arr[1], "content")
+    assert_eq(json_field_str(link, "type"), "resource_link")
+    assert_eq(json_field_str(link, "uri"), "memo://1")
+    // Embedded resource uses the nested wire shape.
+    let emb = json_get(arr[2], "content")
+    assert_eq(json_field_str(emb, "type"), "resource")
+    assert_false(json_has(emb, "text"))
+    let emb_res = json_get(emb, "resource")
+    assert_eq(json_field_str(emb_res, "uri"), "memo://9")
+    assert_eq(json_field_str(emb_res, "text"), "memo body")
+  } else {
+    panic()
+  }
 }

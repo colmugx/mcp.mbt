@@ -18,8 +18,6 @@ pub fn get_optional_string(Json, String) -> Result[String?, @tool.ToolResult]
 
 pub fn get_string(Json, String) -> Result[String, @tool.ToolResult]
 
-pub fn mcp_server(name~ : String, version~ : String) -> @server.MCPServer
-
 pub fn simple_tool(String, String, (Json) -> @tool.ToolResult) -> @core.ToolWrapper
 
 pub fn[Args : @core.Params, Ret : @core.ToToolResult] tool_fn((Args) -> Ret, name~ : String, description~ : String) -> @core.ToolWrapper
@@ -36,8 +34,6 @@ pub using @client {type CompletionResult}
 pub using @types {type ContentItem}
 
 pub using @types {type JsonRpcRequest}
-
-pub using @types {type JsonRpcResponse}
 
 pub using @core {type JsonSchema}
 
