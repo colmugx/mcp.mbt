@@ -40,7 +40,7 @@ Potentially suspending methods are spawned on the task group:
 - `resources/read`
 - `prompts/get`
 
-STDIO responses are serialized through one output queue. HTTP requests carry their own reply handle, so responses are returned to the matching request even when handlers complete out of order.
+STDIO responses are serialized through one output queue. HTTP requests carry their own reply queue, so responses are returned to the matching request even when handlers complete out of order.
 
 ## Authentication
 

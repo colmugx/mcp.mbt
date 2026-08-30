@@ -16,7 +16,7 @@ The SDK uses four concrete I/O shapes:
 | Shape | Owner | Semantics |
 |-------|-------|-----------|
 | Server STDIO | `ServerRuntime` | newline-delimited JSON-RPC, serialized output queue |
-| Server HTTP | `ServerRuntime` | per-request reply handle, Streamable HTTP/SSE |
+| Server HTTP | `ServerRuntime` | per-request reply queue, Streamable HTTP/SSE |
 | Client STDIO | `ClientRuntime` | child process stdin/stdout pipes |
 | Client HTTP | `ClientRuntime` | POST request/response plus optional SSE events |
 
@@ -24,7 +24,13 @@ The old generic `send/receive String` mental model is no longer the design cente
 
 ## HTTP Server
 
-HTTP server requests are received with a payload and a reply queue. Slow handlers can complete out of order because each request carries its own reply handle.
+HTTP server requests are received with a payload and a reply queue. Slow handlers can complete out of order because each request carries its own reply queue.
+
+Every request to the MCP endpoint is Origin-checked for DNS rebinding prevention (spec basic/transports/streamable-http#security-endpoint). Invalid origins get `403 Forbidden`.
+
+- No `Origin` header: allowed (non-browser clients).
+- `Origin` present without an allowlist: only loopback origins pass (`127.0.0.1`, `localhost`, `[::1]`, any port, `http`/`https`).
+- `AuthConfig` with `allowed_origins` (set via `MCPServer::with_auth`): exact match against the configured list; the allowlist replaces the loopback default.
 
 ## HTTP Client
 

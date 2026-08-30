@@ -38,7 +38,6 @@ The main client methods are:
 - `list_prompts`
 - `get_prompt`
 - `complete`
-- `ping`
 - `close`
 
 ```moonbit

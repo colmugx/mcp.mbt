@@ -16,7 +16,7 @@ Runtime code owns concurrency semantics.
 - classify fast and slow methods
 - dispatch server handlers
 - serialize STDIO output
-- preserve HTTP per-request reply handles
+- preserve HTTP per-request reply queues
 
 `ClientRuntime` responsibilities:
 
@@ -49,4 +49,4 @@ Host is layered above client. It is not a replacement for client internals; it i
 
 ## Performance Notes
 
-Fast server methods avoid spawning. Slow methods spawn only when handler execution can suspend. HTTP uses request-local reply handles, while STDIO uses a single output queue to avoid interleaved writes.
+Fast server methods avoid spawning. Slow methods spawn only when handler execution can suspend. HTTP uses request-local reply queues, while STDIO uses a single output queue to avoid interleaved writes.

@@ -41,37 +41,6 @@ match JsonRpcRequest::from_json(json) {
 }
 ```
 
-### JsonRpcResponse
-
-```moonbit
-pub(all) struct JsonRpcResponse {
-  jsonrpc : String
-  id : RequestId
-  result : Result[Json, JsonRpcError]
-} derive(Eq, Show)
-```
-
-### JsonRpcError
-
-```moonbit
-pub(all) struct JsonRpcError {
-  code : Int       // 错误码
-  message : String // 错误信息
-  data : Json?     // 附加数据
-} derive(Eq, Show)
-```
-
-标准错误码：
-
-| 错误码 | 含义 |
-|--------|------|
-| -32700 | ParseError — JSON 解析失败 |
-| -32600 | InvalidRequest — 请求格式无效 |
-| -32601 | MethodNotFound — 方法不存在 |
-| -32602 | InvalidParams — 参数无效 |
-| -32603 | InternalError — 服务器内部错误 |
-| -32000 | ToolError — 工具执行错误 |
-
 ## 2.2 MCP 错误类型
 
 ### MCPError（协议层错误）
@@ -161,17 +130,6 @@ progress_notification(token : String, progress : Double, total? : Double) -> Not
 cancelled_notification(request_id : String, reason? : String) -> Notification
 ```
 
-### NotificationCapabilities
-
-```moonbit
-pub(all) struct NotificationCapabilities {
-  tools_list_changed : Bool
-  resources_list_changed : Bool
-  resources_updated : Bool
-  prompts_list_changed : Bool
-} derive(Eq, Show)
-```
-
 ## 2.5 Server 类型
 
 ### ServerInfo
@@ -202,8 +160,6 @@ pub(all) struct ToolDefinition {
   name : String
   description : String
   input_schema : Json
-  cached_schema_json : String
-  icon : String?  // 可选图标
 } derive(Eq, Show)
 ```
 
@@ -355,12 +311,6 @@ pub(all) struct PromptArgument {
   name : String
   description : String?
   required : Bool?
-} derive(Eq, Show)
-
-pub(all) struct Prompt {
-  name : String
-  description : String?
-  arguments : Array[PromptArgument]?
 } derive(Eq, Show)
 
 pub(all) struct PromptMessage {

@@ -30,7 +30,6 @@ async fn main {
     version="1.0.0",
   ) {
     Ok(client) => {
-      ignore(client.ping())
       ignore(client.list_tools())
       client.close()
     }
