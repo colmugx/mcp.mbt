@@ -12,12 +12,17 @@ pub struct LegacyHttpSessionTransport {
   mut session_id : String?
   mut closed : Bool
   pending_responses : @async.Queue[String]
+  /// Caller-supplied headers appended to every outgoing request after the
+  /// built-in set; same-name entries override the built-ins (last write wins,
+  /// same contract as the modern `HttpClientTransport`).
+  extra_headers : Array[(String, String)]
 }
 
 ///|
 pub fn LegacyHttpSessionTransport::LegacyHttpSessionTransport(
   url~ : String,
   auth_token? : String = "",
+  extra_headers? : Array[(String, String)] = [],
 ) -> LegacyHttpSessionTransport {
   {
     base_url: url,
@@ -29,6 +34,7 @@ pub fn LegacyHttpSessionTransport::LegacyHttpSessionTransport(
     session_id: None,
     closed: false,
     pending_responses: @async.Queue(kind=Unbounded),
+    extra_headers,
   }
 }
 
@@ -48,6 +54,10 @@ fn LegacyHttpSessionTransport::apply_request_headers(
   match self.session_id {
     Some(s) => headers["Mcp-Session-Id"] = s
     None => ()
+  }
+  for entry in self.extra_headers {
+    let (name, value) = entry
+    headers[name] = value
   }
 }
 
@@ -119,9 +129,16 @@ async fn LegacyHttpSessionTransport::do_post(
     raise @types.Forbidden("HTTP 403 Forbidden — insufficient permissions")
   }
   if response.code >= 400 {
-    raise @types.WriteError(
-      "HTTP " + response.code.to_string() + " " + response.reason,
-    )
+    // Read the response body so gate/protocol rejections keep their reason
+    // (same shape as the modern `HttpClientTransport` 4xx error). The outer
+    // errdefer releases the client on this raise.
+    let body_str = try {
+      let body = client.read_all()
+      body.text()
+    } catch {
+      _ => ""
+    }
+    raise @types.HttpError(response.code, body_str)
   }
   // @http.Headers lookups are case-insensitive, so servers that spell the
   // header `mcp-session-id` or `MCP-SESSION-ID` are still recognized.
@@ -231,6 +248,10 @@ pub async fn LegacyHttpSessionTransport::close(
       match self.auth_token {
         Some(t) => headers["Authorization"] = "Bearer " + t
         None => ()
+      }
+      for entry in self.extra_headers {
+        let (name, value) = entry
+        headers[name] = value
       }
       try {
         let _ = @http.request(self.base_url, @http.Delete, headers, b"")

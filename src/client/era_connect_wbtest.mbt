@@ -367,3 +367,121 @@ async test "MCPHost::connect_http passes era through" {
     server_task.cancel()
   })
 }
+
+///|
+/// Answer like a header-gated streamable-HTTP server (the lody shape): the
+/// `server/discover` probe is rejected with a plain JSON-RPC "method not
+/// found" over HTTP 200 — the standard-server signal that triggers the legacy
+/// fallback — while `initialize` succeeds only when the request carried the
+/// marker header. Every marker sighting is recorded in `marker_seen`.
+async fn era_gate_handle_conn(
+  conn : @socket.Tcp,
+  marker_seen : Array[Bool],
+) -> Unit {
+  let head = match conn.read_until("\r\n\r\n") {
+    Some(h) => h
+    None => return
+  }
+  let len = era_content_length(head)
+  let body = if head.to_lower().contains("transfer-encoding: chunked") {
+    era_read_chunked_body(conn)
+  } else if len > 0 {
+    @utf8.decode(conn.read_exactly(len)) catch {
+      _ => ""
+    }
+  } else {
+    ""
+  }
+  if head.to_lower().contains("x-r6-marker:") && head.contains("marker-value") {
+    marker_seen.push(true)
+  }
+  let response : String = match era_jsonrpc_method(body) {
+    "server/discover" =>
+      era_http_response(
+        "200 OK", "application/json", "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32601,\"message\":\"Method not found\"}}",
+      )
+    "initialize" =>
+      if marker_seen.length() > 0 {
+        era_http_response(
+          "200 OK", "application/json", "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2025-11-25\",\"capabilities\":{},\"serverInfo\":{\"name\":\"gate-fake\",\"version\":\"0.1\"}}}",
+        )
+      } else {
+        era_http_response(
+          "400 Bad Request", "application/json", "{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32000,\"message\":\"Missing or invalid Lody MCP session context headers\"},\"id\":null}",
+        )
+      }
+    _ => era_http_response("202 Accepted", "application/json", "")
+  }
+  conn.write(response) catch {
+    _ => ()
+  }
+}
+
+///|
+async test "legacy fallback carries extra_headers through initialize" {
+  let server = try! @socket.TcpServer::TcpServer(
+    @socket.Addr::parse("127.0.0.1:47367"),
+    reuse_addr=true,
+  )
+  defer server.close()
+  let marker_seen : Array[Bool] = []
+  @async.with_task_group(group => {
+    let server_task = group.spawn(async fn() {
+      while true {
+        let (conn, _addr) = server.accept()
+        era_gate_handle_conn(conn, marker_seen)
+        conn.close()
+      }
+    })
+    match
+      MCPClient::connect_http(
+        url="http://127.0.0.1:47367/",
+        name="era-test",
+        version="0.1",
+        extra_headers=[("X-R6-Marker", "marker-value")],
+      ) {
+      Ok(client) => {
+        // The probe rejection (-32601) must have fallen back to the legacy
+        // initialize, and that initialize must have carried the marker.
+        assert_true(client.backend is Legacy(_))
+        assert_true(marker_seen.length() > 0)
+        client.close()
+      }
+      Err(e) => fail("gated fallback connect failed: \{e.message()}")
+    }
+    server_task.cancel()
+  })
+}
+
+///|
+async test "legacy initialize 4xx error carries the response body" {
+  let server = try! @socket.TcpServer::TcpServer(
+    @socket.Addr::parse("127.0.0.1:47368"),
+    reuse_addr=true,
+  )
+  defer server.close()
+  @async.with_task_group(group => {
+    let server_task = group.spawn(async fn() {
+      while true {
+        let (conn, _addr) = server.accept()
+        era_gate_handle_conn(conn, [])
+      }
+    })
+    match
+      MCPClient::connect_http(
+        url="http://127.0.0.1:47368/",
+        name="era-test",
+        version="0.1",
+        era=Legacy,
+      ) {
+      Ok(_) => fail("expected the initialize rejection to surface")
+      Err(e) =>
+        assert_true(
+          e
+          .message()
+          .contains("Missing or invalid Lody MCP session context headers"),
+        )
+    }
+    server_task.cancel()
+  })
+}

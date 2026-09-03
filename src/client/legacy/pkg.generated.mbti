@@ -22,7 +22,7 @@ pub struct LegacyClient {
 }
 pub fn LegacyClient::LegacyClient(name~ : String, version~ : String, transport~ : @transport.AnyTransport) -> Self
 pub async fn LegacyClient::close(Self) -> Unit
-pub async fn LegacyClient::connect_http(url~ : String, name~ : String, version~ : String, auth_token? : String) -> Result[Self, @types.MCPError]
+pub async fn LegacyClient::connect_http(url~ : String, name~ : String, version~ : String, auth_token? : String, extra_headers? : Array[(String, String)]) -> Result[Self, @types.MCPError]
 pub async fn LegacyClient::initialize(Self) -> Result[@types.ServerInfo, @types.MCPError]
 pub async fn LegacyClient::ping(Self) -> Result[Unit, @types.MCPError]
 pub async fn LegacyClient::send_raw(Self, String) -> Result[String, @types.MCPError]
@@ -33,8 +33,9 @@ pub struct LegacyHttpSessionTransport {
   mut session_id : String?
   mut closed : Bool
   pending_responses : @aqueue.Queue[String]
+  extra_headers : Array[(String, String)]
 }
-pub fn LegacyHttpSessionTransport::LegacyHttpSessionTransport(url~ : String, auth_token? : String) -> Self
+pub fn LegacyHttpSessionTransport::LegacyHttpSessionTransport(url~ : String, auth_token? : String, extra_headers? : Array[(String, String)]) -> Self
 pub async fn LegacyHttpSessionTransport::close(Self) -> Unit
 pub fn LegacyHttpSessionTransport::receive(Self) -> String?
 pub async fn LegacyHttpSessionTransport::send(Self, String) -> Unit

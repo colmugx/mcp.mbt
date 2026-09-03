@@ -188,9 +188,11 @@ pub struct HttpClientTransport {
 pub fn HttpClientTransport::HttpClientTransport(
   base_url : String,
   auth_token? : String = "",
+  extra_headers? : Array[(String, String)] = [],
 ) -> HttpClientTransport {
   ignore(base_url)
   ignore(auth_token)
+  ignore(extra_headers)
   abort("HttpClientTransport is not available on wasm-gc target")
 }
 

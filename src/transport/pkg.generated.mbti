@@ -85,9 +85,10 @@ pub struct HttpClientTransport {
   auth_token : String?
   mut closed : Bool
   pending_responses : @aqueue.Queue[String]
+  extra_headers : Array[(String, String)]
   tool_header_schemas : Map[String, Array[(Array[String], String)]]
 }
-pub fn HttpClientTransport::HttpClientTransport(String, auth_token? : String) -> Self
+pub fn HttpClientTransport::HttpClientTransport(String, auth_token? : String, extra_headers? : Array[(String, String)]) -> Self
 pub fn HttpClientTransport::close(Self) -> Unit
 pub async fn HttpClientTransport::receive(Self) -> String? noraise
 pub async fn HttpClientTransport::send(Self, String) -> Unit

@@ -213,16 +213,19 @@ pub async fn LegacyClient::ping(
 
 ///|
 /// Create a legacy client connected over the 2025-11-25 Streamable HTTP session
-/// transport and complete the `initialize` handshake.
+/// transport and complete the `initialize` handshake. `extra_headers` are
+/// applied to every request, mirroring the modern `HttpClientTransport`.
 pub async fn LegacyClient::connect_http(
   url~ : String,
   name~ : String,
   version~ : String,
   auth_token? : String = "",
+  extra_headers? : Array[(String, String)] = [],
 ) -> Result[LegacyClient, @types.MCPError] {
   let http_transport = LegacyHttpSessionTransport::LegacyHttpSessionTransport(
     url~,
     auth_token~,
+    extra_headers~,
   )
   let client : LegacyClient = {
     client_name: name,

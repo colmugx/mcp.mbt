@@ -84,7 +84,7 @@ pub async fn MCPClient::cancel_listen(Self, String) -> Result[Unit, @types.MCPEr
 pub async fn MCPClient::cancel_request(Self, String, reason? : String) -> Result[Unit, @types.MCPError]
 pub async fn MCPClient::close(Self) -> Unit
 pub async fn MCPClient::complete(Self, ref_type~ : String, ref_name~ : String, argument_name~ : String, argument_value~ : String) -> Result[CompletionResult, @types.MCPError]
-pub async fn MCPClient::connect_http(url~ : String, name~ : String, version~ : String, auth_token? : String, era? : ProtocolEra) -> Result[Self, @types.MCPError]
+pub async fn MCPClient::connect_http(url~ : String, name~ : String, version~ : String, auth_token? : String, extra_headers? : Array[(String, String)], era? : ProtocolEra) -> Result[Self, @types.MCPError]
 pub async fn MCPClient::connect_stdio(cmd~ : String, args? : Array[String], name~ : String, version~ : String, extra_env? : Map[String, String], group~ : @async.TaskGroup[Unit], era? : ProtocolEra) -> Result[Self, @types.MCPError]
 pub async fn MCPClient::discover(Self) -> Result[@types.ServerCapabilities, @types.MCPError]
 pub async fn MCPClient::get_prompt(Self, String, arguments? : String) -> Result[@types.GetPromptResult, @types.MCPError]

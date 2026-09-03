@@ -17,6 +17,10 @@ pub struct HttpClientTransport {
   auth_token : String?
   mut closed : Bool
   pending_responses : @async.Queue[String]
+  /// Caller-supplied headers appended to every outgoing request (requests and
+  /// notifications) after the built-in set; same-name entries override the
+  /// built-ins (see `apply_extra_headers`).
+  extra_headers : Array[(String, String)]
   /// `x-mcp-header` mirror schemas learned from `tools/list`, keyed by tool
   /// name. Each entry is (property path from the arguments root, header name
   /// suffix): on `tools/call`, the value at that path is mirrored into the
@@ -41,6 +45,7 @@ pub fn HttpClientTransport::set_tool_header_schemas(
 pub fn HttpClientTransport::HttpClientTransport(
   base_url : String,
   auth_token? : String = "",
+  extra_headers? : Array[(String, String)] = [],
 ) -> HttpClientTransport {
   {
     base_url,
@@ -51,7 +56,25 @@ pub fn HttpClientTransport::HttpClientTransport(
     },
     closed: false,
     pending_responses: @async.Queue(kind=Unbounded),
+    extra_headers,
     tool_header_schemas: {},
+  }
+}
+
+///|
+/// Append caller-supplied extra headers after the built-in set. Same-name
+/// entries override the built-ins — including the spec-mandated
+/// `MCP-Protocol-Version` / `Mcp-Method` / `Mcp-Name` and the
+/// `auth_token`-derived `Authorization` (an extra `Authorization` wins).
+/// Extra headers are an explicit caller escape hatch, so last write wins;
+/// overriding reserved headers is the caller's responsibility.
+fn apply_extra_headers(
+  headers : @http.Headers,
+  extra : Array[(String, String)],
+) -> Unit {
+  for entry in extra {
+    let (name, value) = entry
+    headers[name] = value
   }
 }
 
@@ -115,6 +138,7 @@ pub async fn HttpClientTransport::send(
     Some(t) => headers["Authorization"] = "Bearer " + t
     None => ()
   }
+  apply_extra_headers(headers, self.extra_headers)
   let client = @http.post_stream(self.base_url, headers~) catch {
     e =>
       if @async.is_being_cancelled() {
@@ -263,6 +287,7 @@ pub async fn HttpClientTransport::send_notification(
     Some(t) => headers["Authorization"] = "Bearer " + t
     None => ()
   }
+  apply_extra_headers(headers, self.extra_headers)
   let client = @http.post_stream(self.base_url, headers~) catch {
     e =>
       if @async.is_being_cancelled() {

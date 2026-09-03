@@ -14,9 +14,11 @@ pub struct LegacyHttpSessionTransport {
 pub fn LegacyHttpSessionTransport::LegacyHttpSessionTransport(
   url~ : String,
   auth_token? : String = "",
+  extra_headers? : Array[(String, String)] = [],
 ) -> LegacyHttpSessionTransport {
   ignore(url)
   ignore(auth_token)
+  ignore(extra_headers)
   abort("LegacyHttpSessionTransport is not available on wasm-gc target")
 }
 

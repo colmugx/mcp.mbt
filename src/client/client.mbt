@@ -103,18 +103,37 @@ fn modern_forbids_fallback_error(cause : @types.MCPError) -> @types.MCPError {
 /// | Auto   | yes (default)           | allowed         |
 /// | Legacy | skipped                 | direct connect  |
 /// | Modern | yes                     | forbidden (Err) |
+///
+/// `extra_headers` are appended to every request this transport issues, after
+/// the built-in headers. Same-name entries override the built-ins (including
+/// the spec-mandated `MCP-Protocol-Version`/`Mcp-Method`/`Mcp-Name` and the
+/// `auth_token`-derived `Authorization` — extra wins), so pass reserved
+/// headers only deliberately. The same set is applied on the legacy-era
+/// fallback path, so header-gated servers (bearer, routing, session-context)
+/// see identical headers on both protocol eras.
 pub async fn MCPClient::connect_http(
   url~ : String,
   name~ : String,
   version~ : String,
   auth_token? : String = "",
+  extra_headers? : Array[(String, String)] = [],
   era? : ProtocolEra = Auto,
 ) -> Result[MCPClient, @types.MCPError] {
   if era is Legacy {
-    return connect_http_legacy(url~, name~, version~, auth_token~)
+    return connect_http_legacy(
+      url~,
+      name~,
+      version~,
+      auth_token~,
+      extra_headers~,
+    )
   }
   let transport = @transport.AnyTransport::HttpClient(
-    @transport.HttpClientTransport::HttpClientTransport(url, auth_token~),
+    @transport.HttpClientTransport::HttpClientTransport(
+      url,
+      auth_token~,
+      extra_headers~,
+    ),
   )
   let client = MCPClient::MCPClient(name~, version~, transport~)
   let meta = client.request_meta()
@@ -150,7 +169,13 @@ pub async fn MCPClient::connect_http(
                     if era is Modern {
                       Err(modern_forbids_fallback_error(e2))
                     } else {
-                      connect_http_legacy(url~, name~, version~, auth_token~)
+                      connect_http_legacy(
+                        url~,
+                        name~,
+                        version~,
+                        auth_token~,
+                        extra_headers~,
+                      )
                     }
                   }
                 }
@@ -168,7 +193,13 @@ pub async fn MCPClient::connect_http(
           if era is Modern {
             Err(modern_forbids_fallback_error(e))
           } else {
-            connect_http_legacy(url~, name~, version~, auth_token~)
+            connect_http_legacy(
+              url~,
+              name~,
+              version~,
+              auth_token~,
+              extra_headers~,
+            )
           }
         }
       }
@@ -190,8 +221,16 @@ async fn connect_http_legacy(
   name~ : String,
   version~ : String,
   auth_token? : String = "",
+  extra_headers? : Array[(String, String)] = [],
 ) -> Result[MCPClient, @types.MCPError] {
-  match @legacy.LegacyClient::connect_http(url~, name~, version~, auth_token~) {
+  match
+    @legacy.LegacyClient::connect_http(
+      url~,
+      name~,
+      version~,
+      auth_token~,
+      extra_headers~,
+    ) {
     Ok(legacy) => {
       let dummy = @transport.AnyTransport::Stdio(
         @transport.StdioTransport::StdioTransport(),
