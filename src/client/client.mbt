@@ -394,8 +394,12 @@ async fn MCPClient::send_request(
       }
     }
     let response = queue.get() catch {
-      _ => {
+      e => {
         self.response_map.remove(id)
+        if @async.is_being_cancelled() {
+          self.notify_cancelled_best_effort(id.to_string())
+          raise e
+        }
         return Err(@types.InternalError("Response timeout"))
       }
     }
@@ -403,12 +407,19 @@ async fn MCPClient::send_request(
     Ok(response)
   } else {
     // Legacy mode: direct send/receive
+    let id = extract_request_id(request)
     let t = self.transport
     t.send(request) catch {
       e => return Err(@types.InternalError("Send failed: " + e.to_string()))
     }
     let response = t.receive() catch {
-      e => return Err(@types.InternalError("Receive failed: " + e.to_string()))
+      e => {
+        if @async.is_being_cancelled() {
+          self.notify_cancelled_best_effort(id.to_string())
+          raise e
+        }
+        return Err(@types.InternalError("Receive failed: " + e.to_string()))
+      }
     }
     match response {
       Some(msg) => {
@@ -417,6 +428,35 @@ async fn MCPClient::send_request(
       }
       None => Err(@types.InternalError("Connection closed"))
     }
+  }
+}
+
+///|
+/// Best-effort `notifications/cancelled` when task cancellation aborts an
+/// in-flight request: `send_request` calls this right before re-raising the
+/// cancellation. Mirrors `cancel_request` transport gating (stdio client
+/// transports only; HTTP cancels by closing the SSE stream). The write is
+/// shielded with `protect_from_cancel` so the level-triggered cancellation
+/// cannot kill it mid-write, and any send failure is swallowed — the caller
+/// is already unwinding on cancellation.
+async fn MCPClient::notify_cancelled_best_effort(
+  self : MCPClient,
+  request_id : String,
+) -> Unit {
+  match self.transport {
+    @transport.AnyTransport::StdioClient(_) => {
+      let notif = @types.cancelled_notification(
+        request_id,
+        reason="client aborted",
+      )
+      let t = self.transport
+      @async.protect_from_cancel(() => {
+        t.send_notification(notif) catch {
+          _ => ()
+        }
+      })
+    }
+    _ => ()
   }
 }
 

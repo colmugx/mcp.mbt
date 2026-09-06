@@ -22,7 +22,12 @@ import {
 
 // era_connect_wbtest.mbt drives the public connect APIs against a raw-socket
 // fake HTTP server; the socket server side exists on native only.
+// request_cancel_io_wbtest.mbt spawns a real child process, so it needs the
+// process/stdio runtime behind native.
 
 options(
-  targets: { "era_connect_wbtest.mbt": [ "native" ] },
+  targets: {
+    "era_connect_wbtest.mbt": [ "native" ],
+    "request_cancel_io_wbtest.mbt": [ "native" ],
+  },
 )
