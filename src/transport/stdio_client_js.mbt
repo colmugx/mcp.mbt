@@ -66,9 +66,9 @@ priv struct StartedChild {
 /// child 'error' on nextTick — before any promise continuation could.
 /// A permanent no-op 'error' handler is installed on success so late
 /// 'error' events (e.g. kill failures) cannot crash the process.
-extern "js" fn js_start_child(
+extern "js" fn js_start_child_ffi(
   cmd : String,
-  args : Array[String],
+  args : FixedArray[String],
   options : JsAny,
 ) -> @js_async.Promise[StartedChild] =
   #| async (cmd, args, options) => {
@@ -86,6 +86,14 @@ extern "js" fn js_start_child(
   #|   })
   #| }
 
+fn js_start_child(
+  cmd : String,
+  args : Array[String],
+  options : JsAny,
+) -> @js_async.Promise[StartedChild] {
+  js_start_child_ffi(cmd, FixedArray::from_array(args), options)
+}
+
 ///|
 extern "js" fn child_prop(child : JsChildProcess, name : String) -> JsAny =
   #| (c, k) => c[k]
@@ -99,15 +107,22 @@ extern "js" fn js_kill(child : JsChildProcess) -> Unit =
 ///|
 /// Spawn options: stdin/stdout piped, stderr inherited (server-side
 /// logging, per the MCP spec), environment = parent env + `extra_env`.
-extern "js" fn spawn_options(
-  env_keys : Array[String],
-  env_vals : Array[String],
+extern "js" fn spawn_options_ffi(
+  env_keys : FixedArray[String],
+  env_vals : FixedArray[String],
 ) -> JsAny =
   #| (keys, vals) => {
   #|   const env = { ...globalThis.process.env }
   #|   for (let i = 0; i < keys.length; i++) env[keys[i]] = vals[i]
   #|   return { stdio: ['pipe', 'pipe', 'inherit'], env }
   #| }
+
+fn spawn_options(
+  env_keys : Array[String],
+  env_vals : Array[String],
+) -> JsAny {
+  spawn_options_ffi(FixedArray::from_array(env_keys), FixedArray::from_array(env_vals))
+}
 
 ///|
 extern "js" fn readable_to_web(
