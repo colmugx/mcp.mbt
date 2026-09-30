@@ -91,3 +91,16 @@ pub(open) trait ResourceMRTR {
   /// MRTR round-trip.
   async fn read(Self, Json) -> Result[ResourceReadOutcome, @types.MCPError]
 }
+
+///|
+/// Explicit trait method promotion for current MoonBit toolchains.
+pub extend ResourceContent with Eq::{not_equal, equal}
+pub extend ResourceContent with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend ResourceDefinition with Eq::{not_equal, equal}
+pub extend ResourceDefinition with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend ResourceReadResult with Eq::{not_equal, equal}
+pub extend ResourceReadResult with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend ResourceReadOutcome with Eq::{not_equal, equal}
+pub extend ResourceReadOutcome with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend ResourceTemplateDefinition with Eq::{not_equal, equal}
+pub extend ResourceTemplateDefinition with @moonbitlang/core/debug.Debug::{to_repr}
