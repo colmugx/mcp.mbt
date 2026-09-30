@@ -126,3 +126,12 @@ pub fn get_optional_number(
     _ => Err(ToolResult::error("Expected JSON object"))
   }
 }
+
+///|
+/// Explicit trait method promotion for current MoonBit toolchains.
+pub extend ToolResult with Eq::{not_equal, equal}
+pub extend ToolResult with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend ToolCallOutcome with Eq::{not_equal, equal}
+pub extend ToolCallOutcome with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend ParamDef with Eq::{not_equal, equal}
+pub extend ParamDef with @moonbitlang/core/debug.Debug::{to_repr}
