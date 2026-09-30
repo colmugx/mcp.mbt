@@ -136,3 +136,8 @@ pub fn unsupported_protocol_version_error(
     body~,
   )
 }
+
+///|
+/// Explicit trait method promotion for current MoonBit toolchains.
+pub extend JsonRpcKind with Eq::{not_equal, equal}
+pub extend JsonRpcKind with @moonbitlang/core/debug.Debug::{to_repr}
