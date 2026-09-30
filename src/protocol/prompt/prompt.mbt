@@ -62,3 +62,10 @@ pub(open) trait PromptMRTR {
   /// MRTR round-trip.
   async fn get(Self, Json) -> Result[PromptGetOutcome, @types.MCPError]
 }
+
+///|
+/// Explicit trait method promotion for current MoonBit toolchains.
+pub extend PromptDefinition with Eq::{not_equal, equal}
+pub extend PromptDefinition with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend PromptGetOutcome with Eq::{not_equal, equal}
+pub extend PromptGetOutcome with @moonbitlang/core/debug.Debug::{to_repr}
