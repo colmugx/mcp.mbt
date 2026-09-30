@@ -172,3 +172,8 @@ fn join_sse_data(data : Array[StringView]) -> String? {
     Some(data.join("\n"))
   }
 }
+
+///|
+/// Explicit trait method promotion for current MoonBit toolchains.
+pub extend SseEventVerdict with Eq::{not_equal, equal}
+pub extend SseEventVerdict with @moonbitlang/core/debug.Debug::{to_repr}
