@@ -85,3 +85,9 @@ pub fn Notification::to_jsonrpc_string(self : Notification) -> String {
       Json::object({ "jsonrpc": "2.0", "method": self.method_name }).stringify()
   }
 }
+
+///|
+/// Explicit trait method promotion for current MoonBit toolchains.
+pub extend Notification with Eq::{not_equal, equal}
+pub extend Notification with @moonbitlang/core/debug.Debug::{to_repr}
+
