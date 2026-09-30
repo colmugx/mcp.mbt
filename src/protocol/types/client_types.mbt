@@ -104,3 +104,35 @@ pub(all) struct CancelledNotification {
 pub(all) struct ResourceUpdatedNotification {
   uri : String
 } derive(Debug, Eq)
+
+///|
+/// Explicit trait method promotion for current MoonBit toolchains.
+pub extend ClientInfo with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend ClientInfo with Eq::{not_equal, equal}
+pub extend ClientCapabilities with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend ClientCapabilities with Eq::{not_equal, equal}
+pub extend RootCapabilities with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend RootCapabilities with Eq::{not_equal, equal}
+pub extend SamplingCapabilities with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend SamplingCapabilities with Eq::{not_equal, equal}
+pub extend ElicitationCapabilities with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend ElicitationCapabilities with Eq::{not_equal, equal}
+pub extend Root with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend Root with Eq::{not_equal, equal}
+pub extend SamplingMessage with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend SamplingMessage with Eq::{not_equal, equal}
+pub extend CreateMessageRequest with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend CreateMessageRequest with Eq::{not_equal, equal}
+pub extend CreateMessageResult with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend CreateMessageResult with Eq::{not_equal, equal}
+pub extend ElicitationRequest with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend ElicitationRequest with Eq::{not_equal, equal}
+pub extend ElicitationResult with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend ElicitationResult with Eq::{not_equal, equal}
+pub extend ProgressNotification with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend ProgressNotification with Eq::{not_equal, equal}
+pub extend CancelledNotification with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend CancelledNotification with Eq::{not_equal, equal}
+pub extend ResourceUpdatedNotification with @moonbitlang/core/debug.Debug::{to_repr}
+pub extend ResourceUpdatedNotification with Eq::{not_equal, equal}
+
