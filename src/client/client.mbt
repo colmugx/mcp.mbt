@@ -2023,3 +2023,6 @@ fn serialize_create_message_result(result : @types.CreateMessageResult) -> Json 
 fn serialize_content_item(item : @types.ContentBlock) -> Json {
   item.to_json()
 }
+
+///|
+pub extend ProtocolEra with Eq::{not_equal, equal}

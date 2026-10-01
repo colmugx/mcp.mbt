@@ -139,8 +139,15 @@ pub fn MCPError::to_error_data(self : MCPError) -> Json? {
 ///|
 /// Explicit trait method promotion for current MoonBit toolchains.
 pub extend TransportError with @moonbitlang/core/debug.Debug::{to_repr}
-pub extend TransportError with Eq::{not_equal, equal}
-pub extend TransportError with Show::{to_string, output}
-pub extend MCPError with @moonbitlang/core/debug.Debug::{to_repr}
-pub extend MCPError with Eq::{not_equal, equal}
 
+///|
+pub extend TransportError with Eq::{not_equal, equal}
+
+///|
+pub extend TransportError with Show::{to_string, output}
+
+///|
+pub extend MCPError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MCPError with Eq::{not_equal, equal}

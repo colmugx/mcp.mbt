@@ -38,6 +38,7 @@ pub struct JsonSchema {
   default : Json?
 } derive(@debug.Debug)
 pub fn JsonSchema::to_json(Self) -> Json
+pub fn JsonSchema::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ParamKind {
   String
@@ -54,6 +55,10 @@ pub(all) struct ToolWrapper {
   params_impl : () -> Array[@tool.ParamDef]
   execute_impl : (Json) -> @tool.ToolResult
 }
+pub fn ToolWrapper::description(Self) -> String
+pub async fn ToolWrapper::execute(Self, Json) -> @tool.ToolCallOutcome
+pub fn ToolWrapper::name(Self) -> String
+pub fn ToolWrapper::params(Self) -> Array[@tool.ParamDef]
 pub impl @tool.Tool for ToolWrapper
 
 // Type aliases

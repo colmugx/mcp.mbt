@@ -21,6 +21,9 @@ pub(all) struct CallToolResult {
   content : Array[@types.ContentBlock]
   is_error : Bool
 } derive(Eq, @debug.Debug)
+pub fn CallToolResult::equal(Self, Self) -> Bool
+pub fn CallToolResult::not_equal(Self, Self) -> Bool
+pub fn CallToolResult::to_repr(Self) -> @debug.Repr
 
 pub enum ClientBackend {
   Modern
@@ -32,26 +35,41 @@ pub(all) struct CompletionResult {
   total : Int?
   has_more : Bool?
 } derive(Eq, @debug.Debug)
+pub fn CompletionResult::equal(Self, Self) -> Bool
+pub fn CompletionResult::not_equal(Self, Self) -> Bool
+pub fn CompletionResult::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ListPromptsResult {
   prompts : Array[@prompt.PromptDefinition]
   next_cursor : String?
 } derive(Eq, @debug.Debug)
+pub fn ListPromptsResult::equal(Self, Self) -> Bool
+pub fn ListPromptsResult::not_equal(Self, Self) -> Bool
+pub fn ListPromptsResult::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ListResourceTemplatesResult {
   resource_templates : Array[ResourceTemplate]
   next_cursor : String?
 } derive(Eq, @debug.Debug)
+pub fn ListResourceTemplatesResult::equal(Self, Self) -> Bool
+pub fn ListResourceTemplatesResult::not_equal(Self, Self) -> Bool
+pub fn ListResourceTemplatesResult::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ListResourcesResult {
   resources : Array[@resource.ResourceDefinition]
   next_cursor : String?
 } derive(Eq, @debug.Debug)
+pub fn ListResourcesResult::equal(Self, Self) -> Bool
+pub fn ListResourcesResult::not_equal(Self, Self) -> Bool
+pub fn ListResourcesResult::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ListToolsResult {
   tools : Array[@types.ToolDefinition]
   next_cursor : String?
 } derive(Eq, @debug.Debug)
+pub fn ListToolsResult::equal(Self, Self) -> Bool
+pub fn ListToolsResult::not_equal(Self, Self) -> Bool
+pub fn ListToolsResult::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ListenFilter {
   tools_list_changed : Bool
@@ -60,6 +78,9 @@ pub(all) struct ListenFilter {
   resource_subscriptions : Array[String]
 } derive(Eq, @debug.Debug)
 pub fn ListenFilter::default() -> Self
+pub fn ListenFilter::equal(Self, Self) -> Bool
+pub fn ListenFilter::not_equal(Self, Self) -> Bool
+pub fn ListenFilter::to_repr(Self) -> @debug.Repr
 
 pub struct MCPClient {
   client_name : String
@@ -130,10 +151,15 @@ pub(all) enum ProtocolEra {
   Legacy
   Modern
 } derive(Eq)
+pub fn ProtocolEra::equal(Self, Self) -> Bool
+pub fn ProtocolEra::not_equal(Self, Self) -> Bool
 
 pub(all) struct ReadResourceResult {
   contents : Array[@resource.ResourceReadResult]
 } derive(Eq, @debug.Debug)
+pub fn ReadResourceResult::equal(Self, Self) -> Bool
+pub fn ReadResourceResult::not_equal(Self, Self) -> Bool
+pub fn ReadResourceResult::to_repr(Self) -> @debug.Repr
 
 type RequestIdCounter
 
@@ -143,6 +169,9 @@ pub(all) struct ResourceTemplate {
   description : String?
   mime_type : String?
 } derive(Eq, @debug.Debug)
+pub fn ResourceTemplate::equal(Self, Self) -> Bool
+pub fn ResourceTemplate::not_equal(Self, Self) -> Bool
+pub fn ResourceTemplate::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

@@ -33,9 +33,12 @@ pub(all) suberror MCPError {
   MissingRequiredClientCapability(String, required~ : Array[String])
   UnsupportedProtocolVersion(String, supported~ : Array[String], requested~ : String)
 } derive(Eq, @debug.Debug)
+pub fn MCPError::equal(Self, Self) -> Bool
 pub fn MCPError::message(Self) -> String
+pub fn MCPError::not_equal(Self, Self) -> Bool
 pub fn MCPError::to_error_code(Self) -> Int
 pub fn MCPError::to_error_data(Self) -> Json?
+pub fn MCPError::to_repr(Self) -> @debug.Repr
 
 pub(all) suberror TransportError {
   ConnectionClosed
@@ -47,6 +50,11 @@ pub(all) suberror TransportError {
   Forbidden(String)
   HttpError(Int, String)
 } derive(Eq, @debug.Debug)
+pub fn TransportError::equal(Self, Self) -> Bool
+pub fn TransportError::not_equal(Self, Self) -> Bool
+pub fn TransportError::output(Self, &Logger) -> Unit
+pub fn TransportError::to_repr(Self) -> @debug.Repr
+pub fn TransportError::to_string(Self) -> String
 pub impl Show for TransportError
 
 // Types and methods
@@ -67,6 +75,9 @@ pub(all) struct CancelledNotification {
   request_id : RequestId
   reason : String?
 } derive(Eq, @debug.Debug)
+pub fn CancelledNotification::equal(Self, Self) -> Bool
+pub fn CancelledNotification::not_equal(Self, Self) -> Bool
+pub fn CancelledNotification::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ClientCapabilities {
   roots : RootCapabilities?
@@ -74,12 +85,18 @@ pub(all) struct ClientCapabilities {
   elicitation : ElicitationCapabilities?
   extensions : Map[String, Json]?
 } derive(Eq, @debug.Debug)
+pub fn ClientCapabilities::equal(Self, Self) -> Bool
+pub fn ClientCapabilities::not_equal(Self, Self) -> Bool
+pub fn ClientCapabilities::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ClientInfo {
   name : String
   title : String?
   version : String
 } derive(Eq, @debug.Debug)
+pub fn ClientInfo::equal(Self, Self) -> Bool
+pub fn ClientInfo::not_equal(Self, Self) -> Bool
+pub fn ClientInfo::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ContentBlock {
   Text(String, metadata~ : ContentMetadata)
@@ -120,6 +137,9 @@ pub(all) struct CreateMessageRequest {
   stop_sequences : Array[String]?
   metadata : Json?
 } derive(Eq, @debug.Debug)
+pub fn CreateMessageRequest::equal(Self, Self) -> Bool
+pub fn CreateMessageRequest::not_equal(Self, Self) -> Bool
+pub fn CreateMessageRequest::to_repr(Self) -> @debug.Repr
 
 pub(all) struct CreateMessageResult {
   role : String
@@ -127,25 +147,40 @@ pub(all) struct CreateMessageResult {
   content : ContentBlock
   stop_reason : String?
 } derive(Eq, @debug.Debug)
+pub fn CreateMessageResult::equal(Self, Self) -> Bool
+pub fn CreateMessageResult::not_equal(Self, Self) -> Bool
+pub fn CreateMessageResult::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ElicitationCapabilities {
   form : Bool
 } derive(Eq, @debug.Debug)
+pub fn ElicitationCapabilities::equal(Self, Self) -> Bool
+pub fn ElicitationCapabilities::not_equal(Self, Self) -> Bool
+pub fn ElicitationCapabilities::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ElicitationRequest {
   message : String
   requested_schema : Json
 } derive(Eq, @debug.Debug)
+pub fn ElicitationRequest::equal(Self, Self) -> Bool
+pub fn ElicitationRequest::not_equal(Self, Self) -> Bool
+pub fn ElicitationRequest::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ElicitationResult {
   action : String
   content : Json?
 } derive(Eq, @debug.Debug)
+pub fn ElicitationResult::equal(Self, Self) -> Bool
+pub fn ElicitationResult::not_equal(Self, Self) -> Bool
+pub fn ElicitationResult::to_repr(Self) -> @debug.Repr
 
 pub(all) struct GetPromptResult {
   description : String?
   messages : Array[PromptMessage]
 } derive(Eq, @debug.Debug)
+pub fn GetPromptResult::equal(Self, Self) -> Bool
+pub fn GetPromptResult::not_equal(Self, Self) -> Bool
+pub fn GetPromptResult::to_repr(Self) -> @debug.Repr
 
 pub(all) struct Icon {
   src : String
@@ -173,13 +208,19 @@ pub(all) struct InputRequestEntry {
   method_name : InputRequestKind
   params : Json
 } derive(Eq, @debug.Debug)
+pub fn InputRequestEntry::equal(Self, Self) -> Bool
+pub fn InputRequestEntry::not_equal(Self, Self) -> Bool
+pub fn InputRequestEntry::to_repr(Self) -> @debug.Repr
 
 pub(all) enum InputRequestKind {
   ElicitationCreate
   SamplingCreateMessage
   RootsList
 } derive(Eq, @debug.Debug)
+pub fn InputRequestKind::equal(Self, Self) -> Bool
+pub fn InputRequestKind::not_equal(Self, Self) -> Bool
 pub fn InputRequestKind::to_method(Self) -> String
+pub fn InputRequestKind::to_repr(Self) -> @debug.Repr
 
 pub(all) struct JsonRpcRequest {
   jsonrpc : String
@@ -187,13 +228,19 @@ pub(all) struct JsonRpcRequest {
   method_name : String
   params : Json
 } derive(Eq, @debug.Debug)
+pub fn JsonRpcRequest::equal(Self, Self) -> Bool
 pub fn JsonRpcRequest::from_json(Json) -> Result[Self, MCPError]
+pub fn JsonRpcRequest::not_equal(Self, Self) -> Bool
+pub fn JsonRpcRequest::to_repr(Self) -> @debug.Repr
 
 pub(all) struct Notification {
   method_name : String
   params : Json?
 } derive(Eq, @debug.Debug)
+pub fn Notification::equal(Self, Self) -> Bool
+pub fn Notification::not_equal(Self, Self) -> Bool
 pub fn Notification::to_jsonrpc_string(Self) -> String
+pub fn Notification::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ProgressNotification {
   progress_token : String
@@ -201,32 +248,50 @@ pub(all) struct ProgressNotification {
   total : Double?
   message : String?
 } derive(Eq, @debug.Debug)
+pub fn ProgressNotification::equal(Self, Self) -> Bool
+pub fn ProgressNotification::not_equal(Self, Self) -> Bool
+pub fn ProgressNotification::to_repr(Self) -> @debug.Repr
 
 pub(all) struct PromptArgument {
   name : String
   description : String?
   required : Bool?
 } derive(Eq, @debug.Debug)
+pub fn PromptArgument::equal(Self, Self) -> Bool
+pub fn PromptArgument::not_equal(Self, Self) -> Bool
+pub fn PromptArgument::to_repr(Self) -> @debug.Repr
 
 pub(all) struct PromptCapabilities {
   list_changed : Bool
 } derive(Eq, @debug.Debug)
+pub fn PromptCapabilities::equal(Self, Self) -> Bool
+pub fn PromptCapabilities::not_equal(Self, Self) -> Bool
+pub fn PromptCapabilities::to_repr(Self) -> @debug.Repr
 
 pub(all) struct PromptMessage {
   role : String
   content : ContentBlock
 } derive(Eq, @debug.Debug)
+pub fn PromptMessage::equal(Self, Self) -> Bool
+pub fn PromptMessage::not_equal(Self, Self) -> Bool
+pub fn PromptMessage::to_repr(Self) -> @debug.Repr
 
 pub(all) enum RequestId {
   Int(Int)
   Str(String)
 } derive(Eq, @debug.Debug)
+pub fn RequestId::equal(Self, Self) -> Bool
+pub fn RequestId::not_equal(Self, Self) -> Bool
 pub fn RequestId::to_json_string(Self) -> String
+pub fn RequestId::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ResourceCapabilities {
   subscribe : Bool
   list_changed : Bool
 } derive(Eq, @debug.Debug)
+pub fn ResourceCapabilities::equal(Self, Self) -> Bool
+pub fn ResourceCapabilities::not_equal(Self, Self) -> Bool
+pub fn ResourceCapabilities::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ResourceContents {
   uri : String
@@ -268,6 +333,9 @@ pub fn ResourceLinkData::to_repr(Self) -> @debug.Repr
 pub(all) struct ResourceUpdatedNotification {
   uri : String
 } derive(Eq, @debug.Debug)
+pub fn ResourceUpdatedNotification::equal(Self, Self) -> Bool
+pub fn ResourceUpdatedNotification::not_equal(Self, Self) -> Bool
+pub fn ResourceUpdatedNotification::to_repr(Self) -> @debug.Repr
 
 pub(all) enum Role {
   User
@@ -283,18 +351,30 @@ pub(all) struct Root {
   uri : String
   name : String?
 } derive(Eq, @debug.Debug)
+pub fn Root::equal(Self, Self) -> Bool
+pub fn Root::not_equal(Self, Self) -> Bool
+pub fn Root::to_repr(Self) -> @debug.Repr
 
 pub(all) struct RootCapabilities {
   list_changed : Bool
 } derive(Eq, @debug.Debug)
+pub fn RootCapabilities::equal(Self, Self) -> Bool
+pub fn RootCapabilities::not_equal(Self, Self) -> Bool
+pub fn RootCapabilities::to_repr(Self) -> @debug.Repr
 
 pub(all) struct SamplingCapabilities {
 } derive(Eq, @debug.Debug)
+pub fn SamplingCapabilities::equal(Self, Self) -> Bool
+pub fn SamplingCapabilities::not_equal(Self, Self) -> Bool
+pub fn SamplingCapabilities::to_repr(Self) -> @debug.Repr
 
 pub(all) struct SamplingMessage {
   role : String
   content : ContentBlock
 } derive(Eq, @debug.Debug)
+pub fn SamplingMessage::equal(Self, Self) -> Bool
+pub fn SamplingMessage::not_equal(Self, Self) -> Bool
+pub fn SamplingMessage::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ServerCapabilities {
   tools : ToolCapabilities?
@@ -302,6 +382,9 @@ pub(all) struct ServerCapabilities {
   prompts : PromptCapabilities?
   extensions : Map[String, Json]?
 } derive(Eq, @debug.Debug)
+pub fn ServerCapabilities::equal(Self, Self) -> Bool
+pub fn ServerCapabilities::not_equal(Self, Self) -> Bool
+pub fn ServerCapabilities::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ServerInfo {
   name : String
@@ -309,6 +392,9 @@ pub(all) struct ServerInfo {
   version : String
   description : String?
 } derive(Eq, @debug.Debug)
+pub fn ServerInfo::equal(Self, Self) -> Bool
+pub fn ServerInfo::not_equal(Self, Self) -> Bool
+pub fn ServerInfo::to_repr(Self) -> @debug.Repr
 
 pub(all) enum SubscriptionNotificationKind {
   ToolsListChanged
@@ -316,16 +402,25 @@ pub(all) enum SubscriptionNotificationKind {
   ResourcesListChanged
   ResourceUpdated(uri~ : String)
 } derive(Eq, @debug.Debug)
+pub fn SubscriptionNotificationKind::equal(Self, Self) -> Bool
+pub fn SubscriptionNotificationKind::not_equal(Self, Self) -> Bool
+pub fn SubscriptionNotificationKind::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ToolCapabilities {
   list_changed : Bool
 } derive(Eq, @debug.Debug)
+pub fn ToolCapabilities::equal(Self, Self) -> Bool
+pub fn ToolCapabilities::not_equal(Self, Self) -> Bool
+pub fn ToolCapabilities::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ToolDefinition {
   name : String
   description : String
   input_schema : Json
 } derive(Eq, @debug.Debug)
+pub fn ToolDefinition::equal(Self, Self) -> Bool
+pub fn ToolDefinition::not_equal(Self, Self) -> Bool
+pub fn ToolDefinition::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

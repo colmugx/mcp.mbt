@@ -89,5 +89,6 @@ pub fn Notification::to_jsonrpc_string(self : Notification) -> String {
 ///|
 /// Explicit trait method promotion for current MoonBit toolchains.
 pub extend Notification with Eq::{not_equal, equal}
-pub extend Notification with @moonbitlang/core/debug.Debug::{to_repr}
 
+///|
+pub extend Notification with @moonbitlang/core/debug.Debug::{to_repr}

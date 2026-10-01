@@ -70,3 +70,57 @@ pub fn ListenFilter::default() -> ListenFilter {
     resource_subscriptions: [],
   }
 }
+
+///|
+pub extend ListToolsResult with Debug::{to_repr}
+
+///|
+pub extend ListToolsResult with Eq::{not_equal, equal}
+
+///|
+pub extend CallToolResult with Debug::{to_repr}
+
+///|
+pub extend CallToolResult with Eq::{not_equal, equal}
+
+///|
+pub extend ListResourcesResult with Debug::{to_repr}
+
+///|
+pub extend ListResourcesResult with Eq::{not_equal, equal}
+
+///|
+pub extend ReadResourceResult with Debug::{to_repr}
+
+///|
+pub extend ReadResourceResult with Eq::{not_equal, equal}
+
+///|
+pub extend ListPromptsResult with Debug::{to_repr}
+
+///|
+pub extend ListPromptsResult with Eq::{not_equal, equal}
+
+///|
+pub extend ResourceTemplate with Debug::{to_repr}
+
+///|
+pub extend ResourceTemplate with Eq::{not_equal, equal}
+
+///|
+pub extend ListResourceTemplatesResult with Debug::{to_repr}
+
+///|
+pub extend ListResourceTemplatesResult with Eq::{not_equal, equal}
+
+///|
+pub extend CompletionResult with Debug::{to_repr}
+
+///|
+pub extend CompletionResult with Eq::{not_equal, equal}
+
+///|
+pub extend ListenFilter with Debug::{to_repr}
+
+///|
+pub extend ListenFilter with Eq::{not_equal, equal}

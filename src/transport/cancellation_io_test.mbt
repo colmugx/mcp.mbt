@@ -29,7 +29,7 @@ async test "timeout during send surfaces TimeoutError, not ReadError" {
     // to terminate naturally, so a parked stall task must be cancelled by
     // hand or the group never returns (same pattern as sse_flush_io_test).
     let stall_task = group.spawn(async fn() { stall_after_accept(server) })
-    let client = HttpClientTransport::HttpClientTransport(
+    let client = @transport.HttpClientTransport::HttpClientTransport(
       "http://127.0.0.1:47341/",
     )
     // Cancellation lands in the end_request catch (the P6 hit point); before
@@ -90,7 +90,7 @@ async test "direct send cancellation keeps identity at group boundary" {
   let entered : @async.Queue[Unit] = @async.Queue(kind=Unbounded)
   @async.with_task_group(group => {
     let stall_task = group.spawn(async fn() { stall_after_accept(server) })
-    let client = HttpClientTransport::HttpClientTransport(
+    let client = @transport.HttpClientTransport::HttpClientTransport(
       "http://127.0.0.1:47342/",
     )
     let send_task = group.spawn(async fn() {

@@ -116,6 +116,9 @@ pub(all) enum JsonRpcKind {
   FinalResponse
   Other
 } derive(Eq, @debug.Debug)
+pub fn JsonRpcKind::equal(Self, Self) -> Bool
+pub fn JsonRpcKind::not_equal(Self, Self) -> Bool
+pub fn JsonRpcKind::to_repr(Self) -> @debug.Repr
 
 pub struct SseEventReader {
   buf : @lexbuf.AsyncLexbuf
@@ -129,6 +132,9 @@ pub enum SseEventVerdict {
   Skip
   Eof
 } derive(Eq, @debug.Debug)
+pub fn SseEventVerdict::equal(Self, Self) -> Bool
+pub fn SseEventVerdict::not_equal(Self, Self) -> Bool
+pub fn SseEventVerdict::to_repr(Self) -> @debug.Repr
 
 pub struct StdioClientTransport {
   cmd : String

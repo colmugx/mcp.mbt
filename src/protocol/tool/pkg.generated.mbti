@@ -24,19 +24,28 @@ pub(all) struct ParamDef {
   type_ : String
   required : Bool
 } derive(Eq, @debug.Debug)
+pub fn ParamDef::equal(Self, Self) -> Bool
+pub fn ParamDef::not_equal(Self, Self) -> Bool
+pub fn ParamDef::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ToolCallOutcome {
   Complete(ToolResult)
   InputRequired(input_requests~ : Map[String, @types.InputRequestEntry], state~ : Json)
 } derive(Eq, @debug.Debug)
+pub fn ToolCallOutcome::equal(Self, Self) -> Bool
+pub fn ToolCallOutcome::not_equal(Self, Self) -> Bool
+pub fn ToolCallOutcome::to_repr(Self) -> @debug.Repr
 
 pub struct ToolResult {
   content : Array[@types.ContentBlock]
   is_error : Bool
 } derive(Eq, @debug.Debug)
+pub fn ToolResult::equal(Self, Self) -> Bool
 pub fn ToolResult::error(String) -> Self
+pub fn ToolResult::not_equal(Self, Self) -> Bool
 pub fn ToolResult::success(Array[@types.ContentBlock]) -> Self
 pub fn ToolResult::text(String) -> Self
+pub fn ToolResult::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

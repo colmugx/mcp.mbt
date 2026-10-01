@@ -1,7 +1,6 @@
 import {
   "colmugx/mcp",
   "moonbitlang/async",
-  "moonbitlang/core/json",
 }
 
 pkgtype(kind: "executable")

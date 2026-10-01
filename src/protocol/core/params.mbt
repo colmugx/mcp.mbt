@@ -250,3 +250,6 @@ pub impl[T : Params] Params for T? with fn to_json(self : T?) -> Json {
     None => Json::null()
   }
 }
+
+///|
+pub extend JsonSchema with Debug::{to_repr}

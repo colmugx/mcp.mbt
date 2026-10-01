@@ -37,8 +37,11 @@ async fn wait_for_listen(addr : @socket.Addr, timeout_ms? : Int = 5000) -> Unit 
 /// loopback-local (milliseconds), so the generous timeout only trips on a
 /// real regression.
 async test "HttpTransport SSE stream delivers events before end_response" {
-  let transport = HttpTransport::HttpTransport(port=47331, endpoint_path="/mcp")
-  let client = HttpClientTransport::HttpClientTransport(
+  let transport = @transport.HttpTransport::HttpTransport(
+    port=47331,
+    endpoint_path="/mcp",
+  )
+  let client = @transport.HttpClientTransport::HttpClientTransport(
     "http://127.0.0.1:47331/mcp",
   )
   let ack_seen = @async.Queue(kind=Blocking(1))
