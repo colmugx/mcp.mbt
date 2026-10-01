@@ -128,3 +128,11 @@ pub fn simple_tool(
     execute_impl: handler,
   }
 }
+
+///|
+pub extend ToolWrapper with @colmugx/mcp/protocol/tool.Tool::{
+  name,
+  execute,
+  params,
+  description,
+}

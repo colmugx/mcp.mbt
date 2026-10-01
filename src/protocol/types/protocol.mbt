@@ -170,35 +170,86 @@ pub(all) enum SubscriptionNotificationKind {
 ///|
 /// Explicit trait method promotion for current MoonBit toolchains.
 pub extend ServerInfo with @moonbitlang/core/debug.Debug::{to_repr}
-pub extend ServerInfo with Eq::{not_equal, equal}
-pub extend ServerCapabilities with @moonbitlang/core/debug.Debug::{to_repr}
-pub extend ServerCapabilities with Eq::{not_equal, equal}
-pub extend ToolCapabilities with @moonbitlang/core/debug.Debug::{to_repr}
-pub extend ToolCapabilities with Eq::{not_equal, equal}
-pub extend ResourceCapabilities with @moonbitlang/core/debug.Debug::{to_repr}
-pub extend ResourceCapabilities with Eq::{not_equal, equal}
-pub extend PromptCapabilities with @moonbitlang/core/debug.Debug::{to_repr}
-pub extend PromptCapabilities with Eq::{not_equal, equal}
-pub extend ToolDefinition with @moonbitlang/core/debug.Debug::{to_repr}
-pub extend ToolDefinition with Eq::{not_equal, equal}
-pub extend RequestId with Eq::{not_equal, equal}
-pub extend RequestId with @moonbitlang/core/debug.Debug::{to_repr}
-pub extend JsonRpcRequest with @moonbitlang/core/debug.Debug::{to_repr}
-pub extend JsonRpcRequest with Eq::{not_equal, equal}
-pub extend PromptArgument with @moonbitlang/core/debug.Debug::{to_repr}
-pub extend PromptArgument with Eq::{not_equal, equal}
-pub extend ContentItem with Eq::{not_equal, equal}
-pub extend ContentItem with @moonbitlang/core/debug.Debug::{to_repr}
-pub extend EmbeddedResourceContent with Eq::{not_equal, equal}
-pub extend EmbeddedResourceContent with @moonbitlang/core/debug.Debug::{to_repr}
-pub extend PromptMessage with @moonbitlang/core/debug.Debug::{to_repr}
-pub extend PromptMessage with Eq::{not_equal, equal}
-pub extend GetPromptResult with @moonbitlang/core/debug.Debug::{to_repr}
-pub extend GetPromptResult with Eq::{not_equal, equal}
-pub extend InputRequestKind with Eq::{not_equal, equal}
-pub extend InputRequestKind with @moonbitlang/core/debug.Debug::{to_repr}
-pub extend InputRequestEntry with Eq::{not_equal, equal}
-pub extend InputRequestEntry with @moonbitlang/core/debug.Debug::{to_repr}
-pub extend SubscriptionNotificationKind with Eq::{not_equal, equal}
-pub extend SubscriptionNotificationKind with @moonbitlang/core/debug.Debug::{to_repr}
 
+///|
+pub extend ServerInfo with Eq::{not_equal, equal}
+
+///|
+pub extend ServerCapabilities with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ServerCapabilities with Eq::{not_equal, equal}
+
+///|
+pub extend ToolCapabilities with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ToolCapabilities with Eq::{not_equal, equal}
+
+///|
+pub extend ResourceCapabilities with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ResourceCapabilities with Eq::{not_equal, equal}
+
+///|
+pub extend PromptCapabilities with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend PromptCapabilities with Eq::{not_equal, equal}
+
+///|
+pub extend ToolDefinition with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ToolDefinition with Eq::{not_equal, equal}
+
+///|
+pub extend RequestId with Eq::{not_equal, equal}
+
+///|
+pub extend RequestId with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend JsonRpcRequest with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend JsonRpcRequest with Eq::{not_equal, equal}
+
+///|
+pub extend PromptArgument with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend PromptArgument with Eq::{not_equal, equal}
+
+///|
+pub extend PromptMessage with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend PromptMessage with Eq::{not_equal, equal}
+
+///|
+pub extend GetPromptResult with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GetPromptResult with Eq::{not_equal, equal}
+
+///|
+pub extend InputRequestKind with Eq::{not_equal, equal}
+
+///|
+pub extend InputRequestKind with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend InputRequestEntry with Eq::{not_equal, equal}
+
+///|
+pub extend InputRequestEntry with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SubscriptionNotificationKind with Eq::{not_equal, equal}
+
+///|
+pub extend SubscriptionNotificationKind with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}

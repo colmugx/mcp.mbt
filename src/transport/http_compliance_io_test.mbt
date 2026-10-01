@@ -9,19 +9,19 @@
 ///|
 /// =====================================================
 test "compliance: HttpTransport default port is 4240" {
-  let transport = HttpTransport::HttpTransport()
+  let transport = @transport.HttpTransport::HttpTransport()
   @debug.assert_eq(transport.port, 4240)
 }
 
 ///|
 test "compliance: HttpTransport default endpoint is /mcp" {
-  let transport = HttpTransport::HttpTransport()
+  let transport = @transport.HttpTransport::HttpTransport()
   @debug.assert_eq(transport.endpoint_path, "/mcp")
 }
 
 ///|
 test "compliance: HttpTransport supports custom port and path" {
-  let transport = HttpTransport::HttpTransport(
+  let transport = @transport.HttpTransport::HttpTransport(
     port=8080,
     endpoint_path="/api/mcp",
   )
@@ -70,8 +70,11 @@ async fn await_http_listen(
 /// request to the application. A compliant POST still flows through.
 #cfg(target="native")
 async test "compliance: POST without required _meta gets 400 + -32602 with id" {
-  let transport = HttpTransport::HttpTransport(port=47351, endpoint_path="/mcp")
-  let client = HttpClientTransport::HttpClientTransport(
+  let transport = @transport.HttpTransport::HttpTransport(
+    port=47351,
+    endpoint_path="/mcp",
+  )
+  let client = @transport.HttpClientTransport::HttpClientTransport(
     "http://127.0.0.1:47351/mcp",
   )
   // The client derives every required header from the body; only `_meta` is
@@ -182,8 +185,11 @@ async fn origin_probe_post(
 /// processed normally.
 #cfg(target="native")
 async test "compliance: unauthenticated server rejects cross-origin POST with 403" {
-  let transport = HttpTransport::HttpTransport(port=47352, endpoint_path="/mcp")
-  let client = HttpClientTransport::HttpClientTransport(
+  let transport = @transport.HttpTransport::HttpTransport(
+    port=47352,
+    endpoint_path="/mcp",
+  )
+  let client = @transport.HttpClientTransport::HttpClientTransport(
     "http://127.0.0.1:47352/mcp",
   )
   let with_meta = "{\"jsonrpc\":\"2.0\",\"id\":51,\"method\":\"ping\",\"params\":{\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":\"2026-07-28\",\"io.modelcontextprotocol/clientCapabilities\":{}}}}"

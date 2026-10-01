@@ -9,13 +9,13 @@
 ///|
 /// =====================================================
 test "StdioTransport::StdioTransport creates unclosed transport" {
-  let transport = StdioTransport::StdioTransport()
+  let transport = @transport.StdioTransport::StdioTransport()
   @debug.assert_eq(transport.closed, false)
 }
 
 ///|
 test "StdioTransport::close marks transport as closed" {
-  let transport = StdioTransport::StdioTransport()
+  let transport = @transport.StdioTransport::StdioTransport()
   @debug.assert_eq(transport.closed, false)
   transport.close()
   @debug.assert_eq(transport.closed, true)
@@ -23,7 +23,7 @@ test "StdioTransport::close marks transport as closed" {
 
 ///|
 test "StdioTransport::close is idempotent" {
-  let transport = StdioTransport::StdioTransport()
+  let transport = @transport.StdioTransport::StdioTransport()
   transport.close()
   transport.close()
   @debug.assert_eq(transport.closed, true)
@@ -31,7 +31,7 @@ test "StdioTransport::close is idempotent" {
 
 ///|
 test "StdioTransport::send raises error on closed transport" {
-  let transport = StdioTransport::StdioTransport()
+  let transport = @transport.StdioTransport::StdioTransport()
   transport.close()
 
   // Note: This test demonstrates the error case
@@ -46,35 +46,40 @@ test "StdioTransport::send raises error on closed transport" {
 ///|
 /// =====================================================
 test "HttpTransport::HttpTransport with defaults" {
-  let transport = HttpTransport::HttpTransport()
+  let transport = @transport.HttpTransport::HttpTransport()
   @debug.assert_eq(transport.port, 4240)
   @debug.assert_eq(transport.endpoint_path, "/mcp")
 }
 
 ///|
 test "HttpTransport::HttpTransport with custom port" {
-  let transport = HttpTransport::HttpTransport(port=3000)
+  let transport = @transport.HttpTransport::HttpTransport(port=3000)
   @debug.assert_eq(transport.port, 3000)
   @debug.assert_eq(transport.endpoint_path, "/mcp")
 }
 
 ///|
 test "HttpTransport::HttpTransport with custom endpoint" {
-  let transport = HttpTransport::HttpTransport(endpoint_path="/custom")
+  let transport = @transport.HttpTransport::HttpTransport(
+    endpoint_path="/custom",
+  )
   @debug.assert_eq(transport.port, 4240)
   @debug.assert_eq(transport.endpoint_path, "/custom")
 }
 
 ///|
 test "HttpTransport::HttpTransport with custom port and endpoint" {
-  let transport = HttpTransport::HttpTransport(port=8080, endpoint_path="/api")
+  let transport = @transport.HttpTransport::HttpTransport(
+    port=8080,
+    endpoint_path="/api",
+  )
   @debug.assert_eq(transport.port, 8080)
   @debug.assert_eq(transport.endpoint_path, "/api")
 }
 
 ///|
 test "HttpTransport::close is no_op" {
-  let transport = HttpTransport::HttpTransport()
+  let transport = @transport.HttpTransport::HttpTransport()
   // Should not panic or raise error
   transport.close()
   ()
@@ -82,7 +87,7 @@ test "HttpTransport::close is no_op" {
 
 ///|
 async test "HttpTransport routes out-of-order responses by JSON-RPC id" {
-  let transport = HttpTransport::HttpTransport()
+  let transport = @transport.HttpTransport::HttpTransport()
   let request_a = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"slow\"}"
   let request_b = "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"fast\"}"
   let reply_a : @async.Queue[String] = @async.Queue(kind=Blocking(1))
@@ -110,8 +115,8 @@ async test "HttpTransport routes out-of-order responses by JSON-RPC id" {
 ///|
 /// =====================================================
 test "AnyTransport::Stdio variant creation" {
-  let transport = StdioTransport::StdioTransport()
-  let any_transport = AnyTransport::Stdio(transport)
+  let transport = @transport.StdioTransport::StdioTransport()
+  let any_transport = @transport.AnyTransport::Stdio(transport)
   match any_transport {
     Stdio(_) => ()
     _ => panic()
@@ -120,8 +125,8 @@ test "AnyTransport::Stdio variant creation" {
 
 ///|
 test "AnyTransport::Http variant creation" {
-  let transport = HttpTransport::HttpTransport()
-  let any_transport = AnyTransport::Http(transport)
+  let transport = @transport.HttpTransport::HttpTransport()
+  let any_transport = @transport.AnyTransport::Http(transport)
   match any_transport {
     Http(_) => ()
     _ => panic()
@@ -130,8 +135,8 @@ test "AnyTransport::Http variant creation" {
 
 ///|
 test "AnyTransport::close dispatches correctly" {
-  let stdio = StdioTransport::StdioTransport()
-  let any_transport = AnyTransport::Stdio(stdio)
+  let stdio = @transport.StdioTransport::StdioTransport()
+  let any_transport = @transport.AnyTransport::Stdio(stdio)
 
   // Should not panic
   any_transport.close()
@@ -145,7 +150,7 @@ test "AnyTransport::close dispatches correctly" {
 ///|
 /// =====================================================
 test "AuthConfig::AuthConfig stores verify_token" {
-  let config = AuthConfig::AuthConfig(
+  let config = @transport.AuthConfig::AuthConfig(
     verify_token=fn(token) { token == "valid" },
     resource_metadata_url="http://localhost:4240/mcp",
   )
@@ -155,7 +160,7 @@ test "AuthConfig::AuthConfig stores verify_token" {
 
 ///|
 test "AuthConfig::AuthConfig defaults optional fields to None" {
-  let config = AuthConfig::AuthConfig(
+  let config = @transport.AuthConfig::AuthConfig(
     verify_token=fn(_) { true },
     resource_metadata_url="http://localhost:4240/mcp",
   )
@@ -166,7 +171,7 @@ test "AuthConfig::AuthConfig defaults optional fields to None" {
 
 ///|
 test "AuthConfig::AuthConfig with all fields" {
-  let config = AuthConfig::AuthConfig(
+  let config = @transport.AuthConfig::AuthConfig(
     verify_token=fn(_) { true },
     resource_metadata_url="http://localhost:4240/mcp",
     authorization_servers=["https://auth.example.com"],
@@ -184,7 +189,7 @@ test "AuthConfig::AuthConfig with all fields" {
 
 ///|
 test "AuthConfig::AuthConfig empty string scopes → None" {
-  let config = AuthConfig::AuthConfig(
+  let config = @transport.AuthConfig::AuthConfig(
     verify_token=fn(_) { true },
     resource_metadata_url="http://localhost:4240/mcp",
     required_scopes="",
@@ -194,13 +199,13 @@ test "AuthConfig::AuthConfig empty string scopes → None" {
 
 ///|
 test "HttpTransport::with_auth sets auth config" {
-  let transport = HttpTransport::HttpTransport(port=4240)
+  let transport = @transport.HttpTransport::HttpTransport(port=4240)
   match transport.auth {
     None => ()
     Some(_) => panic()
   }
   let authed = transport.with_auth(
-    AuthConfig::AuthConfig(
+    @transport.AuthConfig::AuthConfig(
       verify_token=fn(_) { true },
       resource_metadata_url="http://localhost:4240/mcp",
     ),
@@ -217,9 +222,12 @@ test "HttpTransport::with_auth sets auth config" {
 
 ///|
 test "HttpTransport::with_auth preserves other fields" {
-  let transport = HttpTransport::HttpTransport(port=8080, endpoint_path="/api")
+  let transport = @transport.HttpTransport::HttpTransport(
+    port=8080,
+    endpoint_path="/api",
+  )
   let authed = transport.with_auth(
-    AuthConfig::AuthConfig(
+    @transport.AuthConfig::AuthConfig(
       verify_token=fn(_) { true },
       resource_metadata_url="http://localhost:8080/api",
     ),
