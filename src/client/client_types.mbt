@@ -6,7 +6,7 @@ pub(all) struct ListToolsResult {
 
 ///|
 pub(all) struct CallToolResult {
-  content : Array[@types.ContentItem]
+  content : Array[@types.ContentBlock]
   is_error : Bool
 } derive(Debug, Eq)
 

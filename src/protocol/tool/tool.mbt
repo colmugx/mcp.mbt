@@ -1,7 +1,7 @@
 ///|
 /// Tool execution result following MCP protocol format
 pub struct ToolResult {
-  content : Array[@types.ContentItem]
+  content : Array[@types.ContentBlock]
   is_error : Bool
 } derive(Eq, Debug)
 
@@ -27,19 +27,19 @@ pub(all) enum ToolCallOutcome {
 ///|
 /// Create a successful result with text content
 pub fn ToolResult::text(text : String) -> ToolResult {
-  { content: [@types.ContentItem::Text(text)], is_error: false, }
+  { content: [@types.ContentBlock::text(text)], is_error: false, }
 }
 
 ///|
 /// Create a successful result with multiple content items
-pub fn ToolResult::success(content : Array[@types.ContentItem]) -> ToolResult {
+pub fn ToolResult::success(content : Array[@types.ContentBlock]) -> ToolResult {
   { content, is_error: false, }
 }
 
 ///|
 /// Create an error result with error message
 pub fn ToolResult::error(message : String) -> ToolResult {
-  { content: [@types.ContentItem::Text(message)], is_error: true, }
+  { content: [@types.ContentBlock::text(message)], is_error: true, }
 }
 
 ///|

@@ -9,7 +9,7 @@ test "ToolResult::text creates single text content" {
   @debug.assert_eq(result.is_error, false)
   @debug.assert_eq(result.content.length(), 1)
   match result.content[0] {
-    Text(msg) => @debug.assert_eq(msg, "Success")
+    Text(msg, ..) => @debug.assert_eq(msg, "Success")
     _ => panic()
   }
 }
@@ -20,7 +20,7 @@ test "ToolResult::error creates error result" {
   @debug.assert_eq(result.is_error, true)
   @debug.assert_eq(result.content.length(), 1)
   match result.content[0] {
-    Text(msg) => @debug.assert_eq(msg, "Failed")
+    Text(msg, ..) => @debug.assert_eq(msg, "Failed")
     _ => panic()
   }
 }
@@ -28,9 +28,9 @@ test "ToolResult::error creates error result" {
 ///|
 test "ToolResult::success with multiple content items" {
   let items = [
-    ContentItem::Text("Line 1"),
-    ContentItem::Text("Line 2"),
-    ContentItem::Image("base64data", mime_type="image/png"),
+    ContentBlock::text("Line 1"),
+    ContentBlock::text("Line 2"),
+    ContentBlock::image("base64data", mime_type="image/png"),
   ]
   let result = ToolResult::success(items)
   @debug.assert_eq(result.is_error, false)
@@ -39,58 +39,66 @@ test "ToolResult::success with multiple content items" {
 
 ///|
 test "ToolResult::success with empty array" {
-  let items : Array[ContentItem] = []
+  let items : Array[ContentBlock] = []
   let result = ToolResult::success(items)
   @debug.assert_eq(result.is_error, false)
   @debug.assert_eq(result.content.length(), 0)
 }
 
 ///|
-/// ContentItem Tests
-test "ContentItem::Text with multiline content" {
+/// ContentBlock Tests
+test "ContentBlock::Text with multiline content" {
   let text = "Line 1\nLine 2\nLine 3"
-  let item = ContentItem::Text(text)
+  let item = ContentBlock::text(text)
   match item {
-    Text(content) => @debug.assert_eq(content, text)
+    Text(content, ..) => @debug.assert_eq(content, text)
     _ => panic()
   }
 }
 
 ///|
-test "ContentItem::Image with different MIME types" {
-  let png = ContentItem::Image("data", mime_type="image/png")
-  let jpeg = ContentItem::Image("data", mime_type="image/jpeg")
+test "ContentBlock::Image with different MIME types" {
+  let png = ContentBlock::image("data", mime_type="image/png")
+  let jpeg = ContentBlock::image("data", mime_type="image/jpeg")
   match png {
-    Image(data, mime_type~) => {
+    Image(data, mime_type~, ..) => {
       @debug.assert_eq(data, "data")
       @debug.assert_eq(mime_type, "image/png")
     }
     _ => panic()
   }
   match jpeg {
-    Image(_, mime_type~) => @debug.assert_eq(mime_type, "image/jpeg")
+    Image(_, mime_type~, ..) => @debug.assert_eq(mime_type, "image/jpeg")
     _ => panic()
   }
 }
 
 ///|
-test "ContentItem::ResourceLink with URI" {
+test "ContentBlock::ResourceLink with URI" {
   let uri = "file:///path/to/resource.txt"
-  let item = ContentItem::ResourceLink(uri)
+  let item = ContentBlock::resource_link(uri, name="resource.txt")
   match item {
-    ResourceLink(u) => @debug.assert_eq(u, uri)
+    ResourceLink(link, ..) => @debug.assert_eq(link.uri, uri)
     _ => panic()
   }
 }
 
 ///|
-test "ContentItem derive Eq and Show" {
-  let text1 = ContentItem::Text("Hello")
-  let text2 = ContentItem::Text("Hello")
-  let text3 = ContentItem::Text("World")
+test "ContentBlock derive Eq and Debug" {
+  let text1 = ContentBlock::text("Hello")
+  let text2 = ContentBlock::text("Hello")
+  let text3 = ContentBlock::text("World")
   @debug.assert_eq(text1, text2)
   assert_true(text1 != text3)
-  @debug.assert_eq(@debug.to_string(text1), "Text(\"Hello\")")
+  debug_inspect(
+    text1,
+    content=(
+      #|Text(
+      #|  "Hello",
+      #|  metadata={ annotations: None, meta: None, extensions: {} },
+      #|)
+    ),
+  )
 }
 
 ///|
@@ -119,7 +127,7 @@ test "get_string returns error for wrong type" {
     Err(result) => {
       @debug.assert_eq(result.is_error, true)
       match result.content[0] {
-        Text(msg) => assert_true(msg.contains("not a string"))
+        Text(msg, ..) => assert_true(msg.contains("not a string"))
         _ => panic()
       }
     }
@@ -134,7 +142,7 @@ test "get_string returns error for non-object" {
     Err(result) => {
       @debug.assert_eq(result.is_error, true)
       match result.content[0] {
-        Text(msg) => assert_true(msg.contains("Expected JSON object"))
+        Text(msg, ..) => assert_true(msg.contains("Expected JSON object"))
         _ => panic()
       }
     }
@@ -258,7 +266,7 @@ async test "example: complete tool implementation with EchoTool" {
     Complete(tool_result) => {
       @debug.assert_eq(tool_result.is_error, false)
       match tool_result.content[0] {
-        Text(msg) => @debug.assert_eq(msg, "Echo: Hello, MCP!")
+        Text(msg, ..) => @debug.assert_eq(msg, "Echo: Hello, MCP!")
         _ => panic()
       }
     }
@@ -278,7 +286,7 @@ async test "example: tool with error handling" {
     Complete(tool_result) => {
       @debug.assert_eq(tool_result.is_error, true)
       match tool_result.content[0] {
-        Text(msg) => assert_true(msg.contains("Missing required field"))
+        Text(msg, ..) => assert_true(msg.contains("Missing required field"))
         _ => panic()
       }
     }

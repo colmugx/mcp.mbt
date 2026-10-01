@@ -50,6 +50,19 @@ pub(all) suberror TransportError {
 pub impl Show for TransportError
 
 // Types and methods
+pub(all) struct Annotations {
+  audience : Array[Role]?
+  priority : Double?
+  last_modified : String?
+  extensions : Map[String, Json]
+} derive(Eq, @debug.Debug)
+pub fn Annotations::equal(Self, Self) -> Bool
+pub fn Annotations::from_json(Json) -> Self raise MCPError
+pub fn Annotations::not_equal(Self, Self) -> Bool
+pub fn Annotations::to_json(Self) -> Json
+pub fn Annotations::to_repr(Self) -> @debug.Repr
+pub impl ToJson for Annotations
+
 pub(all) struct CancelledNotification {
   request_id : RequestId
   reason : String?
@@ -68,12 +81,35 @@ pub(all) struct ClientInfo {
   version : String
 } derive(Eq, @debug.Debug)
 
-pub(all) enum ContentItem {
-  Text(String)
-  Image(String, mime_type~ : String)
-  ResourceLink(String)
-  EmbeddedResource(EmbeddedResourceContent)
+pub(all) enum ContentBlock {
+  Text(String, metadata~ : ContentMetadata)
+  Image(String, mime_type~ : String, metadata~ : ContentMetadata)
+  Audio(String, mime_type~ : String, metadata~ : ContentMetadata)
+  ResourceLink(ResourceLinkData, metadata~ : ContentMetadata)
+  EmbeddedResource(ResourceContents, metadata~ : ContentMetadata)
+  Unknown(Json)
 } derive(Eq, @debug.Debug)
+pub fn ContentBlock::audio(String, mime_type~ : String, metadata? : ContentMetadata) -> Self
+pub fn ContentBlock::equal(Self, Self) -> Bool
+pub fn ContentBlock::from_json(Json) -> Self raise MCPError
+pub fn ContentBlock::image(String, mime_type~ : String, metadata? : ContentMetadata) -> Self
+pub fn ContentBlock::not_equal(Self, Self) -> Bool
+pub fn ContentBlock::resource(ResourceContents, metadata? : ContentMetadata) -> Self
+pub fn ContentBlock::resource_link(String, name~ : String, title? : String, description? : String, mime_type? : String, size? : Double, icons? : Array[Icon], metadata? : ContentMetadata) -> Self
+pub fn ContentBlock::text(String, metadata? : ContentMetadata) -> Self
+pub fn ContentBlock::to_json(Self) -> Json
+pub fn ContentBlock::to_repr(Self) -> @debug.Repr
+pub impl ToJson for ContentBlock
+
+pub(all) struct ContentMetadata {
+  annotations : Annotations?
+  meta : Map[String, Json]?
+  extensions : Map[String, Json]
+} derive(Eq, @debug.Debug)
+pub fn ContentMetadata::empty() -> Self
+pub fn ContentMetadata::equal(Self, Self) -> Bool
+pub fn ContentMetadata::not_equal(Self, Self) -> Bool
+pub fn ContentMetadata::to_repr(Self) -> @debug.Repr
 
 pub(all) struct CreateMessageRequest {
   messages : Array[SamplingMessage]
@@ -88,7 +124,7 @@ pub(all) struct CreateMessageRequest {
 pub(all) struct CreateMessageResult {
   role : String
   model : String
-  content : ContentItem
+  content : ContentBlock
   stop_reason : String?
 } derive(Eq, @debug.Debug)
 
@@ -106,15 +142,32 @@ pub(all) struct ElicitationResult {
   content : Json?
 } derive(Eq, @debug.Debug)
 
-pub(all) enum EmbeddedResourceContent {
-  Text(String, uri~ : String, mime_type~ : String?)
-  Blob(String, uri~ : String, mime_type~ : String)
-} derive(Eq, @debug.Debug)
-
 pub(all) struct GetPromptResult {
   description : String?
   messages : Array[PromptMessage]
 } derive(Eq, @debug.Debug)
+
+pub(all) struct Icon {
+  src : String
+  mime_type : String?
+  sizes : Array[String]?
+  theme : IconTheme?
+  extensions : Map[String, Json]
+} derive(Eq, @debug.Debug)
+pub fn Icon::equal(Self, Self) -> Bool
+pub fn Icon::from_json(Json) -> Self raise MCPError
+pub fn Icon::not_equal(Self, Self) -> Bool
+pub fn Icon::to_json(Self) -> Json
+pub fn Icon::to_repr(Self) -> @debug.Repr
+pub impl ToJson for Icon
+
+pub(all) enum IconTheme {
+  Light
+  Dark
+} derive(Eq, @debug.Debug)
+pub fn IconTheme::equal(Self, Self) -> Bool
+pub fn IconTheme::not_equal(Self, Self) -> Bool
+pub fn IconTheme::to_repr(Self) -> @debug.Repr
 
 pub(all) struct InputRequestEntry {
   method_name : InputRequestKind
@@ -161,7 +214,7 @@ pub(all) struct PromptCapabilities {
 
 pub(all) struct PromptMessage {
   role : String
-  content : ContentItem
+  content : ContentBlock
 } derive(Eq, @debug.Debug)
 
 pub(all) enum RequestId {
@@ -175,9 +228,56 @@ pub(all) struct ResourceCapabilities {
   list_changed : Bool
 } derive(Eq, @debug.Debug)
 
+pub(all) struct ResourceContents {
+  uri : String
+  mime_type : String?
+  data : ResourceData
+  meta : Map[String, Json]?
+  extensions : Map[String, Json]
+} derive(Eq, @debug.Debug)
+pub fn ResourceContents::blob(String, uri~ : String, mime_type? : String) -> Self
+pub fn ResourceContents::equal(Self, Self) -> Bool
+pub fn ResourceContents::from_json(Json) -> Self raise MCPError
+pub fn ResourceContents::not_equal(Self, Self) -> Bool
+pub fn ResourceContents::text(String, uri~ : String, mime_type? : String) -> Self
+pub fn ResourceContents::to_json(Self) -> Json
+pub fn ResourceContents::to_repr(Self) -> @debug.Repr
+pub impl ToJson for ResourceContents
+
+pub(all) enum ResourceData {
+  Text(String)
+  Blob(String)
+} derive(Eq, @debug.Debug)
+pub fn ResourceData::equal(Self, Self) -> Bool
+pub fn ResourceData::not_equal(Self, Self) -> Bool
+pub fn ResourceData::to_repr(Self) -> @debug.Repr
+
+pub(all) struct ResourceLinkData {
+  uri : String
+  name : String
+  title : String?
+  description : String?
+  mime_type : String?
+  size : Double?
+  icons : Array[Icon]?
+} derive(Eq, @debug.Debug)
+pub fn ResourceLinkData::equal(Self, Self) -> Bool
+pub fn ResourceLinkData::not_equal(Self, Self) -> Bool
+pub fn ResourceLinkData::to_repr(Self) -> @debug.Repr
+
 pub(all) struct ResourceUpdatedNotification {
   uri : String
 } derive(Eq, @debug.Debug)
+
+pub(all) enum Role {
+  User
+  Assistant
+} derive(Eq, @debug.Debug)
+pub fn Role::equal(Self, Self) -> Bool
+pub fn Role::not_equal(Self, Self) -> Bool
+pub fn Role::to_json(Self) -> Json
+pub fn Role::to_repr(Self) -> @debug.Repr
+pub impl ToJson for Role
 
 pub(all) struct Root {
   uri : String
@@ -193,7 +293,7 @@ pub(all) struct SamplingCapabilities {
 
 pub(all) struct SamplingMessage {
   role : String
-  content : ContentItem
+  content : ContentBlock
 } derive(Eq, @debug.Debug)
 
 pub(all) struct ServerCapabilities {

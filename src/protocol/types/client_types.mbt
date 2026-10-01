@@ -45,7 +45,7 @@ pub(all) struct Root {
 /// SamplingMessage — a message within a sampling/createMessage request
 pub(all) struct SamplingMessage {
   role : String
-  content : ContentItem
+  content : ContentBlock
 } derive(Debug, Eq)
 
 ///|
@@ -65,7 +65,7 @@ pub(all) struct CreateMessageRequest {
 pub(all) struct CreateMessageResult {
   role : String
   model : String
-  content : ContentItem
+  content : ContentBlock
   stop_reason : String?
 } derive(Debug, Eq)
 

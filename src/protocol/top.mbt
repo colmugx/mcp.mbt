@@ -6,7 +6,15 @@ pub using @types {
   type ServerInfo,
   type ServerCapabilities,
   type ToolDefinition,
-  type ContentItem,
+  type ContentBlock,
+  type ContentMetadata,
+  type Annotations,
+  type Role,
+  type Icon,
+  type IconTheme,
+  type ResourceContents,
+  type ResourceData,
+  type ResourceLinkData,
 }
 
 ///|

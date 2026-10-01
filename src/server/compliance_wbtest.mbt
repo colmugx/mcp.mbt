@@ -323,7 +323,7 @@ test "compliance: prompts/list returns array with name" {
   server.register_prompt("greet", "Greeting prompt", [], fn(_args) {
     Ok({
       description: Some("A greeting"),
-      messages: [{ role: "user", content: @types.Text("Hello"), }],
+      messages: [{ role: "user", content: @types.ContentBlock::text("Hello"), }],
     })
   })
   let result = parse_result(
@@ -351,7 +351,7 @@ test "compliance: prompts/list includes arguments" {
   server.register_prompt("greet", "Greeting", [arg], fn(_args) {
     Ok({
       description: Some("Greeting"),
-      messages: [{ role: "user", content: @types.Text("Hello"), }],
+      messages: [{ role: "user", content: @types.ContentBlock::text("Hello"), }],
     })
   })
   let result = parse_result(
@@ -380,7 +380,7 @@ test "compliance: prompts/list includes description" {
   server.register_prompt("greet", "A greeting prompt", [], fn(_args) {
     Ok({
       description: Some("Greeting"),
-      messages: [{ role: "user", content: @types.Text("Hello"), }],
+      messages: [{ role: "user", content: @types.ContentBlock::text("Hello"), }],
     })
   })
   let result = parse_result(
@@ -1079,14 +1079,24 @@ async test "mrtr: prompts/get input_required → retry → complete" {
               Ok(
                 @prompt.PromptGetOutcome::Complete({
                   description: None,
-                  messages: [{ role: "user", content: @types.Text("ready"), }],
+                  messages: [
+                    {
+                      role: "user",
+                      content: @types.ContentBlock::text("ready"),
+                    },
+                  ],
                 }),
               )
             } else {
               Ok(
                 @prompt.PromptGetOutcome::Complete({
                   description: None,
-                  messages: [{ role: "user", content: @types.Text("missing"), }],
+                  messages: [
+                    {
+                      role: "user",
+                      content: @types.ContentBlock::text("missing"),
+                    },
+                  ],
                 }),
               )
             }
@@ -1108,7 +1118,9 @@ async test "mrtr: prompts/get input_required → retry → complete" {
         Ok(
           @prompt.PromptGetOutcome::Complete({
             description: None,
-            messages: [{ role: "user", content: @types.Text("bad"), }],
+            messages: [
+              { role: "user", content: @types.ContentBlock::text("bad"), },
+            ],
           }),
         )
       }
@@ -1359,15 +1371,15 @@ async test "compliance: tools/call embedded resource nests contents under resour
       Ok(
         @tool.ToolCallOutcome::Complete(
           @tool.ToolResult::success([
-            @types.ContentItem::EmbeddedResource(
-              @types.EmbeddedResourceContent::Text(
+            @types.ContentBlock::resource(
+              @types.ResourceContents::text(
                 "memo body",
                 uri="memo://1",
-                mime_type=Some("text/plain"),
+                mime_type="text/plain",
               ),
             ),
-            @types.ContentItem::EmbeddedResource(
-              @types.EmbeddedResourceContent::Blob(
+            @types.ContentBlock::resource(
+              @types.ResourceContents::blob(
                 "aGk=",
                 uri="memo://2",
                 mime_type="application/octet-stream",
@@ -1421,17 +1433,16 @@ async test "compliance: prompts/get serializes non-text content without data los
       messages: [
         {
           role: "user",
-          content: @types.ContentItem::Image("aGk=", mime_type="image/png"),
+          content: @types.ContentBlock::image("aGk=", mime_type="image/png"),
         },
-        { role: "user", content: @types.ContentItem::ResourceLink("memo://1"), },
+        {
+          role: "user",
+          content: @types.ContentBlock::resource_link("memo://1", name="memo"),
+        },
         {
           role: "assistant",
-          content: @types.ContentItem::EmbeddedResource(
-            @types.EmbeddedResourceContent::Text(
-              "memo body",
-              uri="memo://9",
-              mime_type=None,
-            ),
+          content: @types.ContentBlock::resource(
+            @types.ResourceContents::text("memo body", uri="memo://9"),
           ),
         },
       ],
