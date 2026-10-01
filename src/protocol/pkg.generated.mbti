@@ -25,7 +25,15 @@ pub fn[Args : @core.Params, Ret : @core.ToToolResult] tool_fn((Args) -> Ret, nam
 // Types and methods
 
 // Type aliases
-pub using @types {type ContentItem}
+pub using @types {type Annotations}
+
+pub using @types {type ContentBlock}
+
+pub using @types {type ContentMetadata}
+
+pub using @types {type Icon}
+
+pub using @types {type IconTheme}
 
 pub using @types {type JsonRpcRequest}
 
@@ -34,6 +42,14 @@ pub using @core {type JsonSchema}
 pub using @types {type MCPError}
 
 pub using @tool {type ParamDef}
+
+pub using @types {type ResourceContents}
+
+pub using @types {type ResourceData}
+
+pub using @types {type ResourceLinkData}
+
+pub using @types {type Role}
 
 pub using @types {type ServerCapabilities}
 

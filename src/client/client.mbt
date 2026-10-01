@@ -732,7 +732,6 @@ fn sampling_result_to_json(r : @types.CreateMessageResult) -> Json {
   let map : Map[String, Json] = Default::default()
   map.set("role", Json::string(r.role))
   map.set("model", Json::string(r.model))
-  // content is a ContentItem; serialize via its to_json if available, else stringify
   map.set("content", serialize_content_item(r.content))
   match r.stop_reason {
     Some(s) => map.set("stopReason", Json::string(s))
@@ -1453,8 +1452,6 @@ fn MCPClient::handle_server_request(
 /// === JSON parsing helpers ===
 
 ///|
-
-///|
 /// Extract a subscription id from notification `params._meta`. Accepts both
 /// Number and String values and normalizes to a String so it matches the keys
 /// used in `subscription_handlers`.
@@ -1670,83 +1667,28 @@ fn parse_call_tool(
 ) -> Result[CallToolResult, @types.MCPError] {
   match result_json {
     Object(obj) => {
-      let content_items = match obj.get("content") {
-        Some(Array(items)) => items.filter_map(parse_content_item)
-        _ => []
+      let content = match obj.get("content") {
+        Some(Array(items)) =>
+          items.map(@types.ContentBlock::from_json) catch {
+            error => return Err(error)
+          }
+        _ =>
+          return Err(
+            @types.InvalidParams("Missing or invalid tool content array"),
+          )
       }
       let is_error = match obj.get("isError") {
         Some(True) => true
-        _ => false
+        None | Some(False) => false
+        _ => return Err(@types.InvalidParams("Invalid isError boolean"))
       }
-      Ok({ content: content_items, is_error, })
+      Ok({ content, is_error, })
     }
     _ => Err(@types.ParseError("Result must be a JSON object"))
   }
 }
 
 ///|
-fn parse_content_item(json : Json) -> @types.ContentItem? {
-  match json {
-    Object(obj) => {
-      let type_ = match obj.get("type") {
-        Some(String(t)) => t
-        _ => return None
-      }
-      match type_ {
-        "text" =>
-          match obj.get("text") {
-            Some(String(t)) => Some(@types.ContentItem::Text(t))
-            _ => None
-          }
-        "image" =>
-          match obj.get("data") {
-            Some(String(d)) => {
-              let mime_type = match obj.get("mimeType") {
-                Some(String(m)) => m
-                _ => "image/png"
-              }
-              Some(@types.ContentItem::Image(d, mime_type~))
-            }
-            _ => None
-          }
-        "resource_link" =>
-          match obj.get("uri") {
-            Some(String(u)) => Some(@types.ContentItem::ResourceLink(u))
-            _ => None
-          }
-        "resource" =>
-          match obj.get("resource") {
-            Some(Object(res_obj)) =>
-              match res_obj.get("uri") {
-                Some(String(u)) =>
-                  match res_obj.get("text") {
-                    Some(String(t)) => {
-                      let mime_type = match res_obj.get("mimeType") {
-                        Some(String(m)) => Some(m)
-                        _ => None
-                      }
-                      Some(
-                        @types.ContentItem::EmbeddedResource(
-                          @types.EmbeddedResourceContent::Text(
-                            t,
-                            uri=u,
-                            mime_type~,
-                          ),
-                        ),
-                      )
-                    }
-                    _ => None
-                  }
-                _ => None
-              }
-            _ => None
-          }
-        _ => None
-      }
-    }
-    _ => None
-  }
-}
 
 ///|
 fn parse_resource_def(json : Json) -> @resource.ResourceDefinition? {
@@ -1911,23 +1853,21 @@ fn parse_list_prompts(
 }
 
 ///|
-fn parse_prompt_message(json : Json) -> @types.PromptMessage? {
-  match json {
-    Object(obj) =>
-      match obj.get("role") {
-        Some(String(role)) =>
-          match obj.get("content") {
-            Some(content_json) =>
-              match parse_content_item(content_json) {
-                Some(item) => Some({ role, content: item, })
-                None => None
-              }
-            None => None
-          }
-        _ => None
-      }
-    _ => None
+fn parse_prompt_message(
+  json : Json,
+) -> @types.PromptMessage raise @types.MCPError {
+  guard json is Object(obj) else {
+    raise @types.InvalidParams("Prompt message must be an object")
   }
+  let role = match obj.get("role") {
+    Some(String("user" as role)) | Some(String("assistant" as role)) => role
+    _ => raise @types.InvalidParams("Invalid prompt message role")
+  }
+  let content = match obj.get("content") {
+    Some(content) => @types.ContentBlock::from_json(content)
+    None => raise @types.InvalidParams("Missing prompt message content")
+  }
+  { role, content, }
 }
 
 ///|
@@ -1944,7 +1884,9 @@ fn parse_get_prompt(
         Some(Array(msgs_json)) =>
           Ok({
             description,
-            messages: msgs_json.filter_map(parse_prompt_message),
+            messages: msgs_json.map(parse_prompt_message) catch {
+              error => return Err(error)
+            },
           })
         _ => Err(@types.InvalidRequest("Missing 'messages' array in result"))
       }
@@ -2078,29 +2020,6 @@ fn serialize_create_message_result(result : @types.CreateMessageResult) -> Json 
 }
 
 ///|
-fn serialize_content_item(item : @types.ContentItem) -> Json {
-  match item {
-    Text(t) => Json::object({ "type": "text", "text": t })
-    Image(data, mime_type~) =>
-      Json::object({ "type": "image", "data": data, "mimeType": mime_type })
-    ResourceLink(uri) => Json::object({ "type": "resource_link", "uri": uri })
-    EmbeddedResource(content) =>
-      match content {
-        Text(t, uri~, mime_type~) => {
-          let res_map : Map[String, Json] = Default::default()
-          res_map.set("uri", Json::string(uri))
-          res_map.set("text", Json::string(t))
-          match mime_type {
-            Some(m) => res_map.set("mimeType", Json::string(m))
-            None => ()
-          }
-          Json::object({ "type": "resource", "resource": Json::object(res_map) })
-        }
-        Blob(b, uri~, mime_type~) =>
-          Json::object({
-            "type": "resource",
-            "resource": { "uri": uri, "blob": b, "mimeType": mime_type },
-          })
-      }
-  }
+fn serialize_content_item(item : @types.ContentBlock) -> Json {
+  item.to_json()
 }

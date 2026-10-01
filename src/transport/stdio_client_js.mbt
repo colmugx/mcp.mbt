@@ -86,6 +86,7 @@ extern "js" fn js_start_child_ffi(
   #|   })
   #| }
 
+///|
 fn js_start_child(
   cmd : String,
   args : Array[String],
@@ -117,11 +118,12 @@ extern "js" fn spawn_options_ffi(
   #|   return { stdio: ['pipe', 'pipe', 'inherit'], env }
   #| }
 
-fn spawn_options(
-  env_keys : Array[String],
-  env_vals : Array[String],
-) -> JsAny {
-  spawn_options_ffi(FixedArray::from_array(env_keys), FixedArray::from_array(env_vals))
+///|
+fn spawn_options(env_keys : Array[String], env_vals : Array[String]) -> JsAny {
+  spawn_options_ffi(
+    FixedArray::from_array(env_keys),
+    FixedArray::from_array(env_vals),
+  )
 }
 
 ///|

@@ -460,52 +460,8 @@ fn handle_tools_list(server : MCPServer, id : @types.RequestId) -> String {
 }
 
 ///|
-/// Serialize one `@types.ContentItem` to its wire shape. Embedded resources
-/// use the nested form the spec requires — `{type:"resource", resource:{uri,
-/// text|blob, mimeType?}}` — matching the client's `serialize_content_item`
-/// (the flat `{type:"resource", uri, ...}` layout is not spec-conformant).
-/// Shared by `tools/call` and `prompts/get` results.
-fn content_item_to_json(item : @types.ContentItem) -> Json {
-  match item {
-    @types.Text(text) =>
-      Json::object({ "type": Json::string("text"), "text": Json::string(text) })
-    @types.Image(data, mime_type~) =>
-      Json::object({
-        "type": Json::string("image"),
-        "data": Json::string(data),
-        "mimeType": Json::string(mime_type),
-      })
-    @types.ResourceLink(uri) =>
-      Json::object({
-        "type": Json::string("resource_link"),
-        "uri": Json::string(uri),
-      })
-    @types.EmbeddedResource(content) =>
-      match content {
-        @types.Text(text, uri~, mime_type~) => {
-          let res : Map[String, Json] = Default::default()
-          res.set("uri", Json::string(uri))
-          res.set("text", Json::string(text))
-          match mime_type {
-            Some(mt) => res.set("mimeType", Json::string(mt))
-            None => ()
-          }
-          Json::object({
-            "type": Json::string("resource"),
-            "resource": Json::object(res),
-          })
-        }
-        @types.Blob(data, uri~, mime_type~) =>
-          Json::object({
-            "type": Json::string("resource"),
-            "resource": Json::object({
-              "uri": Json::string(uri),
-              "blob": Json::string(data),
-              "mimeType": Json::string(mime_type),
-            }),
-          })
-      }
-  }
+fn content_item_to_json(item : @types.ContentBlock) -> Json {
+  item.to_json()
 }
 
 ///|

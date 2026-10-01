@@ -83,27 +83,9 @@ pub(all) struct PromptArgument {
 } derive(Debug, Eq)
 
 ///|
-/// Content item for MCP tool results
-pub(all) enum ContentItem {
-  Text(String)
-  /// Image with base64 data and mime type
-  Image(String, mime_type~ : String)
-  /// Resource link (type: "resource_link") — references a resource by URI
-  ResourceLink(String)
-  /// Embedded resource (type: "resource") — contains inline text or blob content
-  EmbeddedResource(EmbeddedResourceContent)
-} derive(Eq, Debug)
-
-///|
-pub(all) enum EmbeddedResourceContent {
-  Text(String, uri~ : String, mime_type~ : String?)
-  Blob(String, uri~ : String, mime_type~ : String)
-} derive(Eq, Debug)
-
-///|
 pub(all) struct PromptMessage {
   role : String
-  content : ContentItem
+  content : ContentBlock
 } derive(Debug, Eq)
 
 ///|
