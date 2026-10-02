@@ -1,55 +1,119 @@
-# Server Guide
+# 3. Server Guide
 
-## High-Level API
+Build servers with `MCPServer(name, version)` and chain the builder methods. Every `with_*`/registration method returns the server, so a complete setup reads top-to-bottom.
 
-Create servers with `MCPServer(name, version)` and register capabilities with builder methods.
+All snippets assume:
+
+```moonbit
+import {
+  "colmugx/mcp",
+  "moonbitlang/async",
+}
+```
+
+## Register capabilities
+
+Tool registration only needs the facade. Prompt and resource handlers construct result types from the protocol packages, so import them when you register those:
+
+```moonbit
+import {
+  "colmugx/mcp/protocol/types",
+  "colmugx/mcp/protocol/resource",
+}
+```
 
 ```moonbit
 let server = @mcp.MCPServer("app", "1.0.0")
-  .tool("echo", "Echo input", Json::object({}), fn(args) {
-    Ok(@tool.ToolResult::text(args.stringify()))
+  .with_title("App Server")
+  .with_description("Demo of the builder API.")
+  .with_instructions("How the model should use this server.")
+  // tools/call: positional (name, description, input schema, handler)
+  .tool("echo", "Echo its input", Json::object({}), fn(args) {
+    Ok(@mcp.ToolResult::text(args.stringify()))
   })
+  // resources/read: (uri, name, description, mime type, handler)
+  .resource(
+    "memo://greeting",
+    "greeting",
+    "A static greeting",
+    "text/plain",
+    fn() {
+      Ok({
+        uri: "memo://greeting",
+        content: @resource.ResourceContent::Text("hello"),
+      })
+    },
+  )
+  // prompts/get: (name, description, argument defs, handler)
+  .prompt("greet", "Build a greeting", [], fn(_args) {
+    Ok({
+      description: None,
+      messages: [
+        {
+          role: "user",
+          content: @types.ContentBlock::text("Hi!"),
+        },
+      ],
+    })
+  })
+  // resources/templates/list
+  .resource_template(
+    uri_template="memo://{id}",
+    name="memo",
+    description="A memo by id",
+    mime_type="text/plain",
+  )
 ```
 
-Trait-based tool/resource/prompt wrappers remain available through `with_tool`, `with_resource`, and `with_prompt`.
+Note the two spellings above: `@types.ContentBlock` works through the facade as `@mcp.ContentBlock`, but `GetPromptResult` / `PromptMessage` / `ResourceReadResult` / `ResourceContent` are not re-exported by the facade, so prompt and resource handlers need the `@types` / `@resource` imports shown above.
 
-## Run Modes
+Handlers are async and return `Result`; a failed tool computation should be reported inside the tool result (`ToolResult::error`, with `is_error` on the wire), while protocol problems (unknown tool, invalid arguments) become JSON-RPC errors automatically.
+
+## Trait-based registration
+
+For tools and resources with real logic, implement the `Tool`, `Resource`, or `Prompt` trait and hand the value to `with_tool`, `with_resource`, or `with_prompt`. A `Tool`'s `execute` returns `ToolCallOutcome`, so the same trait covers both plain tools and tools that suspend for client input:
 
 ```moonbit
-server.run_stdio()
-server.run_http(port=4240, path="/mcp")
+///|
+impl @mcp.Tool for MyTool with fn execute(self, args) -> @mcp.ToolCallOutcome {
+  // Complete(result) finishes normally; InputRequired(..) asks the client
+  // for input, then the request is retried with the answers attached.
+  ...
+}
 ```
 
-The old `run(AnyTransport, group)` path is no longer the ordinary user API. The server runtime owns transport dispatch, task-group lifecycle, and response routing.
+`MCPServer::prompt_mrtr` and `MCPServer::resource_mrtr` (plus the `with_prompt_mrtr` / `with_resource_mrtr` trait variants) are the MRTR-aware equivalents for prompts and resources.
 
-## Runtime Behavior
+## Run modes
 
-The server parses each JSON-RPC request once, then dispatches by parsed `method`.
+```moonbit
+server.run_stdio()                        // newline-delimited JSON-RPC on stdin/stdout
+server.run_http(port=4240, path="/mcp")   // Streamable HTTP + SSE
+```
 
-Fast path methods are handled inline:
-
-- `initialize`
-- `ping`
-- `tools/list`
-- `resources/list`
-- `prompts/list`
-
-Potentially suspending methods are spawned on the task group:
-
-- `tools/call`
-- `resources/read`
-- `prompts/get`
-
-STDIO responses are serialized through one output queue. HTTP requests carry their own reply queue, so responses are returned to the matching request even when handlers complete out of order.
+Both are async and raise `TransportError`. The runtime owns transport dispatch, task-group lifecycle, and response routing — you never construct a transport yourself.
 
 ## Authentication
 
-HTTP auth remains configured on the server:
-
 ```moonbit
 server
-  .with_auth(auth)
+  .with_auth(auth) // @transport.AuthConfig
   .run_http(port=4240, path="/mcp")
 ```
 
-See the transport reference for advanced HTTP details.
+`AuthConfig` carries `verify_token`, optional `allowed_origins`, `required_scopes`, `authorization_servers`, and a protected-resource metadata URL. See the [transport reference](04-transport-reference.md) for origin-checking rules.
+
+## Runtime behavior
+
+Each JSON-RPC request is parsed once, then dispatched by method.
+
+Handled inline (no spawn):
+
+- `initialize`, `ping`
+- `tools/list`, `resources/list`, `prompts/list`
+
+Spawned on the task group (the handler may suspend):
+
+- `tools/call`, `resources/read`, `prompts/get`
+
+Stdio responses are serialized through one output queue. HTTP requests each carry their own reply queue, so responses return to the matching request even when handlers complete out of order.

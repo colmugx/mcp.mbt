@@ -1,80 +1,86 @@
-# 2. 协议类型参考
+# 2. Protocol Types Reference
 
-所有协议类型定义在 `colmugx/mcp/protocol/types` 包中。
+All protocol types live in the `colmugx/mcp/protocol/types` package and are re-exported by the root facade `colmugx/mcp`, so application code can use `@mcp.ContentBlock` without a extra import. Import `colmugx/mcp/protocol/types` (alias `@types`) only when you want the explicit path.
 
-```moonbit
-// moon.pkg
-import { "colmugx/mcp/protocol/types" }
-```
+Types derive `Debug` and `Eq`; serialization is provided by `ToJson` impls and `from_json` codecs. Decoding is strict and lossless: unknown `type` values are preserved as `Unknown(Json)`, known types with missing required fields raise `MCPError::InvalidParams`, and non-standard fields survive round-trips through `extensions` maps instead of being dropped.
 
-## 2.1 JSON-RPC 消息
+## 2.1 JSON-RPC envelope
 
 ### RequestId
 
 ```moonbit
 pub(all) enum RequestId {
-  Int(Int)     // 数字 ID
-  Str(String)  // 字符串 ID
-} derive(Eq, Show)
+  Int(Int)     // numeric id
+  Str(String)  // string id
+} derive(Eq, Debug)
 ```
 
-`RequestId` 支持 JSON-RPC 2.0 规范中的数字和字符串两种 ID 格式。
+`RequestId::to_json_string` renders either form as JSON text (string ids are quoted and escaped by the JSON serializer).
 
 ### JsonRpcRequest
 
 ```moonbit
 pub(all) struct JsonRpcRequest {
-  jsonrpc : String      // 始终为 "2.0"
-  id : RequestId        // 请求 ID（Int 或 String）
-  method_name : String  // 方法名，如 "tools/list"
-  params : Json         // 参数对象
-} derive(Eq, Show)
+  jsonrpc : String      // always "2.0"
+  id : RequestId        // request id (Int or Str)
+  method_name : String  // e.g. "tools/list"
+  params : Json         // params object
+} derive(Eq, Debug)
 ```
 
-从 JSON 解析：
+Parse from JSON:
 
 ```moonbit
 let json = @json.parse(raw_string)
 match JsonRpcRequest::from_json(json) {
-  Ok(req) => // 使用 req.method_name, req.params 等
-  Err(e) => // 处理解析错误
+  Ok(req) => println(req.method_name)
+  Err(e) => println(e.message())
 }
 ```
 
-## 2.2 MCP 错误类型
+## 2.2 Errors
 
-### MCPError（协议层错误）
+### MCPError — protocol-level errors
 
 ```moonbit
 pub(all) suberror MCPError {
-  ParseError(String)         // -32700
-  InvalidRequest(String)     // -32600
-  MethodNotFound(String)     // -32601
-  InvalidParams(String)      // -32602
-  InternalError(String)      // -32603
-  TransportError(TransportError)
-  ToolError(String)          // -32000
-} derive(Eq, Show)
+  ParseError(String)                        // -32700
+  InvalidRequest(String)                    // -32600
+  MethodNotFound(String)                    // -32601
+  InvalidParams(String)                     // -32602; also resource-not-found
+  InternalError(String)                     // -32603
+  TransportError(TransportError)            // wrapped transport failure
+  ToolError(String)                         // -32000 (implementation-defined)
+  HeaderMismatch(String)                    // -32020 (MCP-defined)
+  MissingRequiredClientCapability(          // -32021 (MCP-defined)
+    String, required~ : Array[String],
+  )
+  UnsupportedProtocolVersion(               // -32022 (MCP-defined)
+    String, supported~ : Array[String], requested~ : String,
+  )
+} derive(Eq, Debug)
 ```
 
-方法：
+Methods: `message() -> String`, `to_error_code() -> Int`, and `to_error_data() -> Json?` (populates the recovery `data` field for the `-3202x` MCP-defined errors, e.g. the server's supported versions).
 
-- `MCPError::message(self) -> String` — 获取错误消息
-- `MCPError::to_error_code(self) -> Int` — 获取 JSON-RPC 错误码
-
-### TransportError（传输层错误）
+### TransportError — transport-level errors
 
 ```moonbit
 pub(all) suberror TransportError {
-  ConnectionClosed       // 连接已关闭
-  ReadError(String)      // 读取失败
-  WriteError(String)     // 写入失败
-  Timeout                // 操作超时
-  InvalidState(String)   // 状态无效（如在关闭后发送）
-} derive(Eq, Show)
+  ConnectionClosed         // clean shutdown
+  ReadError(String)        // read failure
+  WriteError(String)       // write failure
+  Timeout                  // operation timed out
+  InvalidState(String)     // e.g. send after close
+  Unauthorized(String)     // HTTP 401, carries WWW-Authenticate info
+  Forbidden(String)        // HTTP 403, insufficient scope
+  HttpError(Int, String)   // other HTTP status + response body
+} derive(Eq, Debug)
 ```
 
-### ToolError（参数解析错误）
+`HttpError` exists so callers (such as the era probe) can inspect the body for a recognized JSON-RPC error before deciding how to proceed.
+
+### ToolError — tool argument decoding
 
 ```moonbit
 pub suberror ToolError {
@@ -82,160 +88,185 @@ pub suberror ToolError {
 }
 ```
 
-用于 `Params::from_json` 中的参数验证错误。
+Raised by generated `Params::from_json` implementations when tool arguments do not match the declared schema.
 
-## 2.3 ContentItem（内容项）
+## 2.3 ContentBlock
 
-```moonbit
-pub(all) enum ContentItem {
-  Text(String)                            // 文本内容
-  Image(String, mime_type~ : String)      // Base64 图片
-  ResourceLink(String)                    // 资源 URI 引用（type: "resource_link"）
-  EmbeddedResource(EmbeddedResourceContent) // 内嵌资源内容（type: "resource"）
-} derive(Eq, Show)
-```
-
-`ContentItem` 是 Tool、Resource、Prompt 之间共享的内容类型，定义在 `protocol/types` 中。
-
-### EmbeddedResourceContent
+Content is the one model shared by tools, prompts, and sampling:
 
 ```moonbit
-pub(all) enum EmbeddedResourceContent {
-  Text(String, uri~ : String, mime_type~ : String?)   // 内嵌文本资源
-  Blob(String, uri~ : String, mime_type~ : String)    // 内嵌二进制资源
-} derive(Eq, Show)
+pub(all) enum ContentBlock {
+  Text(String, metadata~ : ContentMetadata)
+  Image(String, mime_type~ : String, metadata~ : ContentMetadata)
+  Audio(String, mime_type~ : String, metadata~ : ContentMetadata)
+  ResourceLink(ResourceLinkData, metadata~ : ContentMetadata)
+  EmbeddedResource(ResourceContents, metadata~ : ContentMetadata)
+  /// A future content type, retained without interpreting its fields.
+  Unknown(Json)
+} derive(Eq, Debug)
 ```
 
-`EmbeddedResourceContent` 表示内嵌在消息中的资源内容，包含 URI 和可选的 MIME 类型。
+`ContentBlock` replaces the older `ContentItem` type. Builders set metadata to empty by default; pass `metadata~` when you need annotations or `_meta`:
 
-## 2.4 通知类型
+```moonbit
+let text = @mcp.ContentBlock::text("hello")
+let audio = @mcp.ContentBlock::audio("aGk=", mime_type="audio/wav")
+let link = @mcp.ContentBlock::resource_link("memo://1", name="memo")
+let embedded = @mcp.ContentBlock::resource(
+  @mcp.ResourceContents::blob("aGk=", uri="memo://2"),
+)
+```
 
-### Notification
+### ContentMetadata
+
+```moonbit
+pub(all) struct ContentMetadata {
+  annotations : Annotations?
+  meta : Map[String, Json]?      // the wire `_meta` object
+  extensions : Map[String, Json] // non-standard fields, preserved verbatim
+} derive(Eq, Debug)
+```
+
+An empty `annotations`/`_meta` object and an absent one are different states and stay distinct through a round-trip.
+
+### Annotations
+
+```moonbit
+pub(all) struct Annotations {
+  audience : Array[Role]?      // Role::User / Role::Assistant
+  priority : Double?           // 0.0 ..= 1.0, validated on decode
+  last_modified : String?
+  extensions : Map[String, Json]
+} derive(Eq, Debug)
+```
+
+### ResourceLinkData and Icon
+
+`ResourceLinkData` carries `uri`, required `name`, optional `title`, `description`, `mime_type`, `size` (integral), and `icons`. `Icon` carries `src`, optional `mime_type`, `sizes`, `theme` (`IconTheme::Light` / `IconTheme::Dark`), and extensions. The SDK stores icon descriptions only; it never fetches or renders icons.
+
+### ResourceContents
+
+```moonbit
+pub(all) enum ResourceData {
+  Text(String)
+  Blob(String)
+} derive(Eq, Debug)
+
+pub(all) struct ResourceContents {
+  uri : String
+  mime_type : String?
+  data : ResourceData
+  meta : Map[String, Json]?
+  extensions : Map[String, Json]
+} derive(Eq, Debug)
+```
+
+`ResourceContents` replaces the older `EmbeddedResourceContent`. MIME type is optional for both text and blob; the embedded wire shape stays `{ "type": "resource", "resource": { "uri", "text" | "blob", "mimeType?", "_meta?" } }`, with inner and outer metadata kept separate. When a payload carries both `text` and `blob` (the wire union permits it), the decoder prefers `text` and keeps the other field in `extensions`.
+
+When pattern matching, `Text(text, ..)` ignores metadata; use `Text(text, metadata~)` when you need it.
+
+## 2.4 Notifications
 
 ```moonbit
 pub(all) struct Notification {
-  method_name : String  // 如 "notifications/tools/list_changed"
-  params : Json?        // 可选参数
-} derive(Eq, Show)
+  method_name : String  // e.g. "notifications/tools/list_changed"
+  params : Json?
+} derive(Eq, Debug)
 ```
 
-### 工厂方法
+Factory helpers:
 
 ```moonbit
-tools_list_changed_notification()                -> Notification
-resources_list_changed_notification()            -> Notification
-prompts_list_changed_notification()              -> Notification
-resources_updated_notification(uri : String)     -> Notification
-progress_notification(token : String, progress : Double, total? : Double) -> Notification
-cancelled_notification(request_id : String, reason? : String) -> Notification
+tools_list_changed_notification()                 -> Notification
+resources_list_changed_notification()             -> Notification
+prompts_list_changed_notification()               -> Notification
+resources_updated_notification(uri : String)      -> Notification
+progress_notification(token, progress, total?)    -> Notification
+cancelled_notification(request_id, reason?)       -> Notification
 ```
 
-## 2.5 Server 类型
-
-### ServerInfo
+## 2.5 Server types
 
 ```moonbit
 pub(all) struct ServerInfo {
   name : String
-  title : String?        // 可选标题
+  title : String?
   version : String
-  description : String?  // 可选描述
-} derive(Eq, Show)
-```
+  description : String?
+} derive(Eq, Debug)
 
-### ServerCapabilities
-
-```moonbit
 pub(all) struct ServerCapabilities {
-  tools : ToolCapabilities?       // 工具能力
-  resources : ResourceCapabilities? // 资源能力
-  prompts : PromptCapabilities?   // 提示能力
-} derive(Eq, Show)
-```
+  tools : ToolCapabilities?
+  resources : ResourceCapabilities?
+  prompts : PromptCapabilities?
+  extensions : Map[String, Json]?
+} derive(Eq, Debug)
 
-### ToolDefinition
+pub(all) struct ToolCapabilities {
+  list_changed : Bool
+} derive(Eq, Debug)
 
-```moonbit
+pub(all) struct ResourceCapabilities {
+  subscribe : Bool
+  list_changed : Bool
+} derive(Eq, Debug)
+
+pub(all) struct PromptCapabilities {
+  list_changed : Bool
+} derive(Eq, Debug)
+
 pub(all) struct ToolDefinition {
   name : String
   description : String
   input_schema : Json
-} derive(Eq, Show)
+} derive(Eq, Debug)
 ```
 
-## 2.6 Client 类型
-
-### ClientInfo
+## 2.6 Client types
 
 ```moonbit
 pub(all) struct ClientInfo {
   name : String
-  title : String?     // 可选标题
+  title : String?
   version : String
-} derive(Eq, Show)
-```
+} derive(Eq, Debug)
 
-### ClientCapabilities
-
-```moonbit
 pub(all) struct ClientCapabilities {
-  roots : RootCapabilities?         // 文件系统根目录能力
-  sampling : SamplingCapabilities?  // 支持 sampling（空结构体标记）
-  elicitation : ElicitationCapabilities?  // 支持 elicitation
-} derive(Eq, Show)
-```
+  roots : RootCapabilities?
+  sampling : SamplingCapabilities?
+  elicitation : ElicitationCapabilities?
+  extensions : Map[String, Json]?
+} derive(Eq, Debug)
 
-默认值通过 `default_capabilities()` 设置，启用全部三种能力。
-
-### RootCapabilities
-
-```moonbit
 pub(all) struct RootCapabilities {
   list_changed : Bool
-} derive(Eq, Show)
-```
+} derive(Eq, Debug)
 
-### SamplingCapabilities
+/// Marker: the client can answer sampling/createMessage.
+pub(all) struct SamplingCapabilities {} derive(Eq, Debug)
 
-```moonbit
-pub(all) struct SamplingCapabilities {
-  // 空结构体，标记客户端支持 sampling/createMessage
-} derive(Eq, Show)
-```
-
-### ElicitationCapabilities
-
-```moonbit
 pub(all) struct ElicitationCapabilities {
-  form : Bool  // 是否支持表单输入
-} derive(Eq, Show)
+  form : Bool
+} derive(Eq, Debug)
 ```
 
-## 2.7 Client 扩展类型（双向通信）
+`default_capabilities()` enables roots, sampling, and elicitation. Pass your own `ClientCapabilities` to the connect helpers to advertise less.
 
-以下类型用于 server→client 请求（sampling、roots、elicitation）和通知：
+## 2.7 Bidirectional types
 
-### Root
+These cover server-to-client requests (sampling, roots, elicitation) and their notifications:
 
 ```moonbit
 pub(all) struct Root {
-  uri : String    // 根目录 URI
-  name : String?  // 可选名称
-} derive(Eq, Show)
-```
+  uri : String
+  name : String?
+} derive(Eq, Debug)
 
-### SamplingMessage
-
-```moonbit
 pub(all) struct SamplingMessage {
-  role : String       // "user" 或 "assistant"
-  content : ContentItem
-} derive(Eq, Show)
-```
+  role : String          // "user" or "assistant"
+  content : ContentBlock
+} derive(Eq, Debug)
 
-### CreateMessageRequest
-
-```moonbit
 pub(all) struct CreateMessageRequest {
   messages : Array[SamplingMessage]
   max_tokens : Int
@@ -244,82 +275,58 @@ pub(all) struct CreateMessageRequest {
   temperature : Double?
   stop_sequences : Array[String]?
   metadata : Json?
-} derive(Eq, Show)
-```
+} derive(Eq, Debug)
 
-### CreateMessageResult
-
-```moonbit
 pub(all) struct CreateMessageResult {
   role : String
   model : String
-  content : ContentItem
+  content : ContentBlock
   stop_reason : String?
-} derive(Eq, Show)
-```
+} derive(Eq, Debug)
 
-### ElicitationRequest
-
-```moonbit
 pub(all) struct ElicitationRequest {
   message : String
   requested_schema : Json
-} derive(Eq, Show)
-```
+} derive(Eq, Debug)
 
-### ElicitationResult
-
-```moonbit
 pub(all) struct ElicitationResult {
-  action : String    // "accept", "decline", "cancel"
-  content : Json?    // 用户输入内容
-} derive(Eq, Show)
-```
+  action : String    // "accept", "decline", or "cancel"
+  content : Json?
+} derive(Eq, Debug)
 
-### ProgressNotification
-
-```moonbit
 pub(all) struct ProgressNotification {
   progress_token : String
   progress : Double
   total : Double?
   message : String?
-} derive(Eq, Show)
-```
+} derive(Eq, Debug)
 
-### CancelledNotification
-
-```moonbit
 pub(all) struct CancelledNotification {
-  request_id : RequestId  // Int 或 Str
+  request_id : RequestId
   reason : String?
-} derive(Eq, Show)
-```
+} derive(Eq, Debug)
 
-### ResourceUpdatedNotification
-
-```moonbit
 pub(all) struct ResourceUpdatedNotification {
-  uri : String  // 变更的资源 URI
-} derive(Eq, Show)
+  uri : String
+} derive(Eq, Debug)
 ```
 
-## 2.8 Prompt 类型
+## 2.8 Prompt types
 
 ```moonbit
 pub(all) struct PromptArgument {
   name : String
   description : String?
   required : Bool?
-} derive(Eq, Show)
+} derive(Eq, Debug)
 
 pub(all) struct PromptMessage {
-  role : String        // "user" 或 "assistant"
-  content : ContentItem
-} derive(Eq, Show)
+  role : String         // "user" or "assistant"
+  content : ContentBlock
+} derive(Eq, Debug)
 
 pub(all) struct GetPromptResult {
   description : String?
   messages : Array[PromptMessage]
-} derive(Eq, Show)
+} derive(Eq, Debug)
 ```
