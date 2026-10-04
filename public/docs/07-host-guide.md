@@ -7,6 +7,7 @@ All snippets assume:
 ```moonbit
 import {
   "colmugx/mcp",
+  "colmugx/mcp/client",
   "moonbitlang/async",
   "moonbitlang/core/debug",
 }
@@ -42,7 +43,9 @@ match host.connect_http(name="remote", url="http://localhost:4240/mcp") {
 })
 ```
 
-Connection names must be unique within a host. They become the prefix for routed tool names.
+Use unique connection names without `.`: they become the prefix for routed tool names, and the first dot separates the connection from the tool. Keep the task group used by `connect_stdio` alive for the entire period in which you make calls; leaving that group ends its child-process tasks.
+
+Both connect methods accept `era?`: `ProtocolEra::Auto` probes modern discovery and permits legacy fallback, `Modern` rejects fallback, and `Legacy` skips the modern probe. Select `Modern` when your application relies on MRTR and MCP 2026-07-28 semantics.
 
 ## List tools
 
@@ -50,13 +53,15 @@ Connection names must be unique within a host. They become the prefix for routed
 match host.list_tools() {
   Ok(result) =>
     for tool in result.tools {
-      println("\{tool.name}: \{tool.description}")
+      println("\{tool.name}: \{tool.description.unwrap_or(\"\")}")
     }
   Err(e) => println(e.message())
 }
 ```
 
 If `local` and `remote` both expose `echo`, the host returns `local.echo` and `remote.echo`.
+
+The aggregate is not a response from a single server: it has no shared TTL or cache scope. Per-connection result metadata and pagination cursors are retained under `result.metadata.extensions["dev.moonbit.mcp/hostSources"]`. Each connection entry contains `metadata` and, when present, `nextCursor`. Inspect source cursors when checking whether you have retrieved a complete inventory; the host currently requests one page per connection rather than inventing an aggregate cursor.
 
 ## Call tools
 

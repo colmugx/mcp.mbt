@@ -1,0 +1,3 @@
+[submodule "json-schema.mbt"]
+	path = json-schema.mbt
+	url = git@github.com:colmugx/json-schema.mbt.git

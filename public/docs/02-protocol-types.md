@@ -2,7 +2,7 @@
 
 All protocol types live in the `colmugx/mcp/protocol/types` package and are re-exported by the root facade `colmugx/mcp`, so application code can use `@mcp.ContentBlock` without a extra import. Import `colmugx/mcp/protocol/types` (alias `@types`) only when you want the explicit path.
 
-Types derive `Debug` and `Eq`; serialization is provided by `ToJson` impls and `from_json` codecs. Decoding is strict and lossless: unknown `type` values are preserved as `Unknown(Json)`, known types with missing required fields raise `MCPError::InvalidParams`, and non-standard fields survive round-trips through `extensions` maps instead of being dropped.
+Types derive `Debug` and `Eq`. Content blocks, tool definitions/results, resource definitions/templates/read results, and prompt definitions/arguments/messages/results provide shared `ToJson` / `from_json` codecs. Those codecs are strict and lossless: unknown content `type` values are preserved as `Unknown(Json)`, malformed known fields raise `MCPError::InvalidParams`, and non-standard fields survive round-trips through `extensions` maps instead of being dropped. Other types below are undergoing the remaining conformance migration; do not assume that every type already has a lossless codec.
 
 ## 2.1 JSON-RPC envelope
 
@@ -51,9 +51,11 @@ pub(all) suberror MCPError {
   InternalError(String)                     // -32603
   TransportError(TransportError)            // wrapped transport failure
   ToolError(String)                         // -32000 (implementation-defined)
+  Cancelled(String)                         // local cancellation, not a peer response
+  RemoteError(String, code~ : Int, data~ : Json?, extensions~ : Map[String, Json])
   HeaderMismatch(String)                    // -32020 (MCP-defined)
   MissingRequiredClientCapability(          // -32021 (MCP-defined)
-    String, required~ : Array[String],
+    String, required~ : ClientCapabilities,
   )
   UnsupportedProtocolVersion(               // -32022 (MCP-defined)
     String, supported~ : Array[String], requested~ : String,
@@ -61,7 +63,7 @@ pub(all) suberror MCPError {
 } derive(Eq, Debug)
 ```
 
-Methods: `message() -> String`, `to_error_code() -> Int`, and `to_error_data() -> Json?` (populates the recovery `data` field for the `-3202x` MCP-defined errors, e.g. the server's supported versions).
+Methods: `message() -> String`, `to_error_code() -> Int`, and `to_error_data() -> Json?`. Ordinary client error responses become `RemoteError`, retaining the peer's code, data presence (including explicit null), and open fields rather than becoming indistinguishable `InternalError`s. `from_jsonrpc_error` / `to_jsonrpc_error` round-trip those error objects. The current error-code API accepts signed 32-bit integers and rejects out-of-range codes instead of truncating them; full numeric envelope support remains acceptance work.
 
 ### TransportError — transport-level errors
 
@@ -181,7 +183,7 @@ tools_list_changed_notification()                 -> Notification
 resources_list_changed_notification()             -> Notification
 prompts_list_changed_notification()               -> Notification
 resources_updated_notification(uri : String)      -> Notification
-progress_notification(token, progress, total?)    -> Notification
+progress_notification(ProgressToken, progress, total?, message?) -> Notification
 cancelled_notification(request_id, reason?)       -> Notification
 ```
 
@@ -196,31 +198,71 @@ pub(all) struct ServerInfo {
 } derive(Eq, Debug)
 
 pub(all) struct ServerCapabilities {
+  experimental : Map[String, Json]?
+  logging : Map[String, Json]?
+  completions : Map[String, Json]?
   tools : ToolCapabilities?
   resources : ResourceCapabilities?
   prompts : PromptCapabilities?
   extensions : Map[String, Json]?
+  extra_fields : Map[String, Json]
 } derive(Eq, Debug)
 
 pub(all) struct ToolCapabilities {
-  list_changed : Bool
+  list_changed : Bool?
+  extra_fields : Map[String, Json]
 } derive(Eq, Debug)
 
 pub(all) struct ResourceCapabilities {
-  subscribe : Bool
-  list_changed : Bool
+  subscribe : Bool?
+  list_changed : Bool?
+  extra_fields : Map[String, Json]
 } derive(Eq, Debug)
 
 pub(all) struct PromptCapabilities {
-  list_changed : Bool
+  list_changed : Bool?
+  extra_fields : Map[String, Json]
 } derive(Eq, Debug)
 
 pub(all) struct ToolDefinition {
   name : String
-  description : String
+  title : String?
+  description : String?
   input_schema : Json
+  output_schema : Json?
+  annotations : ToolAnnotations?
+  icons : Array[Icon]?
+  meta : Map[String, Json]?
+  extensions : Map[String, Json]
 } derive(Eq, Debug)
 ```
+
+Use `ToolDefinition::new(name, input_schema, description~, ...)` to avoid filling every optional field. Its codec retains the complete JSON Schema, including `$defs`, references, composition, and `x-mcp-header` annotations. Decoding requires `inputSchema.type` to be `"object"`; preserving a schema is not the same as validating tool execution against it.
+
+`ToolAnnotations` provides optional `title`, `read_only_hint`, `destructive_hint`, `idempotent_hint`, and `open_world_hint`, plus extensions. Omitted hints remain omitted; explicit `false` remains `false`. These are advisory hints, not a basis for authorization or trusting an untrusted server.
+
+### Tool results and shared metadata
+
+```moonbit
+pub(all) struct ToolResult {
+  content : Array[ContentBlock]
+  structured_content : Json?
+  is_error : Bool?
+  metadata : ResultMetadata
+} derive(Eq, Debug)
+
+pub(all) struct ResultMetadata {
+  result_type : String?
+  ttl_ms : Double?             // nonnegative integral milliseconds
+  cache_scope : CacheScope?   // Public / Private
+  meta : Map[String, Json]?
+  extensions : Map[String, Json]
+} derive(Eq, Debug)
+```
+
+`ToolResult` is owned by `protocol/types` and re-exported through `protocol/tool` and the root facade, so existing `@mcp.ToolResult::text`, `success`, and `error` calls still work. Use `ToolResult::structured(value, content~)` for structured output: objects, arrays, scalars, and explicit JSON null are all supported. `Some(Json::null())` is different from `None`.
+
+The client's `CallToolResult` exposes the same result fields. Check `result.is_error.unwrap_or(false)` for the effective error flag; the optional field preserves the difference between missing and explicit `false`. `result.metadata.server_info()` reads the raw `io.modelcontextprotocol/serverInfo` value without discarding its extensions. `_meta` is kept separate from top-level result extensions, and cache hints retain their wire position. The SDK stores hints here; it does not automatically cache results.
 
 ## 2.6 Client types
 
@@ -232,29 +274,39 @@ pub(all) struct ClientInfo {
 } derive(Eq, Debug)
 
 pub(all) struct ClientCapabilities {
+  experimental : Map[String, Json]?
   roots : RootCapabilities?
   sampling : SamplingCapabilities?
   elicitation : ElicitationCapabilities?
   extensions : Map[String, Json]?
+  extra_fields : Map[String, Json]
 } derive(Eq, Debug)
 
 pub(all) struct RootCapabilities {
-  list_changed : Bool
+  list_changed : Bool?
+  extra_fields : Map[String, Json]
 } derive(Eq, Debug)
 
-/// Marker: the client can answer sampling/createMessage.
-pub(all) struct SamplingCapabilities {} derive(Eq, Debug)
+pub(all) struct SamplingCapabilities {
+  context : Map[String, Json]?
+  tools : Map[String, Json]?
+  extra_fields : Map[String, Json]
+} derive(Eq, Debug)
 
 pub(all) struct ElicitationCapabilities {
-  form : Bool
+  form : Map[String, Json]?
+  url : Map[String, Json]?
+  extra_fields : Map[String, Json]
 } derive(Eq, Debug)
 ```
 
-`default_capabilities()` enables roots, sampling, and elicitation. Pass your own `ClientCapabilities` to the connect helpers to advertise less.
+All capability types provide `new`, `from_json`, and `to_json`. An absent field differs from an empty object; false notification flags differ from absent flags. `experimental` and `extensions` values must be objects. Unknown fields are retained in `extra_fields`.
 
-## 2.7 Bidirectional types
+Clients start with no input capabilities. Registering `on_roots`, `on_sampling`, or `on_elicitation` enables the corresponding capability; elicitation defaults to form support. MRTR checks the requested elicitation mode and sampling tools sub-capability rather than trusting only the top-level key. Use handler registration's `capabilities?` parameter or `client.with_capabilities` to configure explicit support; declared input capabilities require registered handlers. Servers advertise only registered or explicitly enabled tools/resources/prompts plus an enabled completion registry; use `server.capabilities()` to inspect the discovery view.
 
-These cover server-to-client requests (sampling, roots, elicitation) and their notifications:
+## 2.7 Client input types
+
+Modern MCP uses these inputs inside MRTR `inputRequests`, not direct server-to-client JSON-RPC calls. Direct callbacks are used only by the legacy client mode. Sampling codecs preserve model preferences, tools, tool choice, metadata, unknown fields, and the distinction between a single content block and an array:
 
 ```moonbit
 pub(all) struct Root {
@@ -262,43 +314,84 @@ pub(all) struct Root {
   name : String?
 } derive(Eq, Debug)
 
+pub(all) enum SamplingContent {
+  Single(SamplingContentBlock)
+  Multiple(Array[SamplingContentBlock])
+} derive(Eq, Debug)
+
+pub(all) enum SamplingContentBlock {
+  Content(ContentBlock)         // text, image, audio
+  ToolUse(ToolUseContent)
+  ToolResult(ToolResultContent)
+  Unknown(Json)
+} derive(Eq, Debug)
+
 pub(all) struct SamplingMessage {
-  role : String          // "user" or "assistant"
-  content : ContentBlock
+  role : Role
+  content : SamplingContent
+  meta : Map[String, Json]?
+  extensions : Map[String, Json]
 } derive(Eq, Debug)
 
 pub(all) struct CreateMessageRequest {
   messages : Array[SamplingMessage]
-  max_tokens : Int
+  max_tokens : Double          // schema number, not coerced to Int
+  model_preferences : ModelPreferences?
   system_prompt : String?
-  include_context : String?
+  include_context : SamplingContext?
   temperature : Double?
   stop_sequences : Array[String]?
-  metadata : Json?
+  metadata : Map[String, Json]?
+  tools : Array[ToolDefinition]?
+  tool_choice : ToolChoice?
+  extensions : Map[String, Json]
 } derive(Eq, Debug)
 
 pub(all) struct CreateMessageResult {
-  role : String
+  role : Role
   model : String
-  content : ContentBlock
+  content : SamplingContent
   stop_reason : String?
+  meta : Map[String, Json]?
+  extensions : Map[String, Json]
 } derive(Eq, Debug)
 
-pub(all) struct ElicitationRequest {
-  message : String
-  requested_schema : Json
+pub(all) enum ElicitationRequest {
+  Form(String, requested_schema~ : Json, explicit_mode~ : Bool,
+       meta~ : Map[String, Json]?, extensions~ : Map[String, Json])
+  Url(String, url~ : String, elicitation_id~ : String,
+      meta~ : Map[String, Json]?, extensions~ : Map[String, Json])
+} derive(Eq, Debug)
+
+pub(all) enum ElicitationAction {
+  Accept
+  Decline
+  Cancel
+} derive(Eq, Debug)
+pub(all) enum ElicitationValue {
+  String(String)
+  Number(Double)
+  Boolean(Bool)
+  Strings(Array[String])
 } derive(Eq, Debug)
 
 pub(all) struct ElicitationResult {
-  action : String    // "accept", "decline", or "cancel"
-  content : Json?
+  action : ElicitationAction
+  content : Map[String, ElicitationValue]?
+  extensions : Map[String, Json]
+} derive(Eq, Debug)
+
+pub(all) enum ProgressToken {
+  String(String)
+  Number(Double)
 } derive(Eq, Debug)
 
 pub(all) struct ProgressNotification {
-  progress_token : String
+  progress_token : ProgressToken
   progress : Double
   total : Double?
   message : String?
+  extra_fields : Map[String, Json]
 } derive(Eq, Debug)
 
 pub(all) struct CancelledNotification {
@@ -311,22 +404,55 @@ pub(all) struct ResourceUpdatedNotification {
 } derive(Eq, Debug)
 ```
 
+For a text response, use `CreateMessageResult::text(model, text, stop_reason?)`; use `new` with `SamplingContent::Multiple` for tool interaction or multimodal output. `ToolUseContent` retains the call ID, name, input object, and metadata. `ToolResultContent` retains the matching `tool_use_id`, complete tool-result content, optional structured JSON (including explicit null), error flag, and metadata. Resource blocks are allowed inside tool-result content, not as top-level sampling blocks.
+
+`ModelPreferences` carries optional hints and cost/speed/intelligence priorities in `[0, 1]`. `SamplingContext` maps `NoContext` / `ThisServer` / `AllServers` to the wire strings. `ToolChoiceMode` maps `Auto` / `Required` / `Disabled` to `auto` / `required` / `none`; an omitted choice mode stays omitted. Register sampling tool support explicitly with `on_sampling(handler, capabilities=SamplingCapabilities::new(tools=Map([])))` before accepting requests containing `tools` or `toolChoice`. The SDK does not execute sampled tool calls or grant model access automatically; your handler owns those policies.
+
+## Resource definitions and read results
+
+`ResourceDefinition` carries `uri`, `name`, optional `title`, `description`, `mime_type`, integral `size`, `icons`, and `metadata: ContentMetadata`. `ResourceTemplateDefinition` has `uri_template` instead of `uri` and no `size`. Their metadata holds annotations, `_meta`, and extensions. Both have `new`, strict `from_json`, and `to_json` codecs.
+
+```moonbit
+pub(all) struct ResourceReadResult {
+  contents : Array[ResourceContents]
+  metadata : ResultMetadata
+} derive(Eq, Debug)
+```
+
+Use `ResourceReadResult::new(contents, metadata~)`, `text(text, uri~, mime_type?)`, or `blob(base64, uri~, mime_type?)`. This replaces the older single `uri` / `ResourceContent` pair. The client exposes the same contents and result metadata in `ReadResourceResult`; list results also retain result metadata. Resource definitions, templates, contents, and read results are available through the root facade.
+
 ## 2.8 Prompt types
 
 ```moonbit
+pub(all) struct PromptDefinition {
+  name : String
+  title : String?
+  description : String?
+  arguments : Array[PromptArgument]?
+  icons : Array[Icon]?
+  meta : Map[String, Json]?
+  extensions : Map[String, Json]
+} derive(Eq, Debug)
+
 pub(all) struct PromptArgument {
   name : String
+  title : String?
   description : String?
   required : Bool?
+  extensions : Map[String, Json]
 } derive(Eq, Debug)
 
 pub(all) struct PromptMessage {
-  role : String         // "user" or "assistant"
+  role : String         // codec accepts "user" or "assistant"
   content : ContentBlock
+  extensions : Map[String, Json]
 } derive(Eq, Debug)
 
 pub(all) struct GetPromptResult {
   description : String?
   messages : Array[PromptMessage]
+  metadata : ResultMetadata
 } derive(Eq, Debug)
 ```
+
+All four types have shared `from_json` / `to_json` codecs and are re-exported by the facade. Use `PromptDefinition::new`, `PromptArgument::new`, `PromptMessage::new(Role::User, content)`, and `GetPromptResult::new(messages)` to start from empty optional metadata. `required=false`, empty arguments, absent arguments, and unknown message/result fields remain distinct. Standard prompt definitions have no `annotations` field; vendor annotations can be preserved explicitly in `extensions`.
