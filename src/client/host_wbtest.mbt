@@ -33,3 +33,38 @@ async test "MCPHost reports missing named connection" {
     Ok(_) => panic()
   }
 }
+
+///|
+test "host aggregation retains source cache metadata and cursors without inventing aggregate freshness" {
+  let metadata = @types.ResultMetadata::from_json(
+    {
+      "ttlMs": 500,
+      "cacheScope": "private",
+      "_meta": {
+        "io.modelcontextprotocol/serverInfo": {
+          "name": "source",
+          "version": "1",
+        },
+      },
+    },
+    body_fields=[],
+  )
+  let tool = @types.ToolDefinition::new("echo", { "type": "object" })
+  let result = aggregate_tool_lists(
+    Map::from_array([
+      ("local", { tools: [tool], next_cursor: Some("page2"), metadata, }),
+    ]),
+  )
+  assert_eq(result.tools[0].name, "local.echo")
+  assert_eq(tool.name, "echo")
+  assert_eq(result.metadata.ttl_ms, None)
+  assert_eq(result.metadata.cache_scope, None)
+  assert_eq(
+    result.metadata.extensions.get("dev.moonbit.mcp/hostSources"),
+    Some(
+      Json::object({
+        "local": { "metadata": metadata.to_json(), "nextCursor": "page2" },
+      }),
+    ),
+  )
+}

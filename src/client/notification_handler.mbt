@@ -86,22 +86,7 @@ fn handle_server_notification(
 fn parse_progress_notification(
   obj : Map[String, Json],
 ) -> @types.ProgressNotification? {
-  match obj.get("progressToken") {
-    Some(String(token)) => {
-      let progress = match obj.get("progress") {
-        Some(Number(n, ..)) => n
-        _ => return None
-      }
-      let total = match obj.get("total") {
-        Some(Number(n, ..)) => Some(n)
-        _ => None
-      }
-      let message = match obj.get("message") {
-        Some(String(m)) => Some(m)
-        _ => None
-      }
-      Some({ progress_token: token, progress, total, message, })
-    }
+  Some(@types.ProgressNotification::from_json(Json::object(obj))) catch {
     _ => None
   }
 }

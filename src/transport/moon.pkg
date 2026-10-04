@@ -1,5 +1,6 @@
 import {
   "colmugx/mcp/protocol/types",
+  "colmugx/mcp/runtime",
   "gmlewis/base64",
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
@@ -44,8 +45,11 @@ options(
     "stdio_client.mbt": [ "native", "wasm" ],
     "stdio_client_js.mbt": [ "js" ],
     "stdio_client_js_wbtest.mbt": [ "js" ],
+    "stdio_frame_io_test.mbt": [ "native", "js" ],
     "http_server.mbt": [ "native", "wasm" ],
     "http_client.mbt": [ "native", "js", "wasm" ],
+    "cancellation.mbt": [ "native", "js", "wasm" ],
+    "http_client_lifecycle_wbtest.mbt": [ "native", "js", "wasm" ],
     "sse.mbt": [ "native", "js", "wasm" ],
     "sse_wbtest.mbt": [ "native", "js", "wasm" ],
     "http_compliance_test.mbt": [ "native", "js", "wasm" ],

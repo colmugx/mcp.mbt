@@ -16,11 +16,14 @@ test "parse_jsonrpc_error parses -32022 with supported/requested" {
 
 ///|
 test "parse_jsonrpc_error parses -32021 requiredCapabilities" {
-  let body = "{\"error\":{\"code\":-32021,\"message\":\"need caps\",\"data\":{\"requiredCapabilities\":[\"elicitation\"]}}}"
+  let body = "{\"error\":{\"code\":-32021,\"message\":\"need caps\",\"data\":{\"requiredCapabilities\":{\"elicitation\":{\"form\":{}}}}}}"
   match parse_jsonrpc_error(body) {
     Some(@types.MissingRequiredClientCapability(msg, required~)) => {
       @debug.assert_eq(msg, "need caps")
-      @debug.assert_eq(required, ["elicitation"])
+      assert_eq(
+        required.to_json(),
+        Json::object({ "elicitation": { "form": {} } }),
+      )
     }
     _ => fail("expected MissingRequiredClientCapability")
   }
@@ -53,11 +56,11 @@ test "classify_probe_error: direct modern error surfaces" {
 
 ///|
 test "classify_probe_error: HTTP 400 carrying modern error surfaces" {
-  let body = "{\"error\":{\"code\":-32021,\"message\":\"need caps\",\"data\":{\"requiredCapabilities\":[\"roots\"]}}}"
+  let body = "{\"error\":{\"code\":-32021,\"message\":\"need caps\",\"data\":{\"requiredCapabilities\":{\"roots\":{}}}}}"
   match
     classify_probe_error(@types.TransportError(@types.HttpError(400, body))) {
     ModernError(@types.MissingRequiredClientCapability(_, required~)) =>
-      @debug.assert_eq(required, ["roots"])
+      assert_eq(required.to_json(), Json::object({ "roots": {} }))
     _ => fail("expected ModernError")
   }
 }
@@ -101,7 +104,7 @@ test "classify_probe_error: HTTP 4xx probe rejections fall back to legacy" {
     _ => fail("expected FallbackLegacy for 404 probe rejection")
   }
   // A 4xx body that carries a modern JSON-RPC error still surfaces it.
-  let body = "{\"error\":{\"code\":-32021,\"message\":\"need caps\",\"data\":{\"requiredCapabilities\":[\"roots\"]}}}"
+  let body = "{\"error\":{\"code\":-32021,\"message\":\"need caps\",\"data\":{\"requiredCapabilities\":{\"roots\":{}}}}}"
   match
     classify_probe_error(@types.TransportError(@types.HttpError(422, body))) {
     ModernError(@types.MissingRequiredClientCapability(_, ..)) => ()
@@ -127,7 +130,7 @@ test "classify_probe_error: transport failures are fatal" {
 test "build_legacy_meta omits modern keys" {
   @debug.assert_eq(build_legacy_meta(), Json::object({}))
   @debug.assert_eq(
-    build_legacy_meta(progress_token="tok"),
+    build_legacy_meta(progress_token=@types.ProgressToken::String("tok")),
     Json::object({ "progressToken": "tok" }),
   )
 }
@@ -150,7 +153,9 @@ test "apply_legacy_meta_to_request strips empty _meta" {
 ///|
 test "apply_legacy_meta_to_request replaces _meta when non-empty" {
   let req = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"t\",\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":\"2026-07-28\"}}}"
-  let meta = build_legacy_meta(progress_token="p1")
+  let meta = build_legacy_meta(
+    progress_token=@types.ProgressToken::String("p1"),
+  )
   let rewritten = apply_legacy_meta_to_request(req, meta)
   let json = @json.parse(rewritten) catch { _ => Json::null() }
   match json {

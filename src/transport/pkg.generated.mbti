@@ -3,6 +3,7 @@ package "colmugx/mcp/transport"
 
 import {
   "colmugx/mcp/protocol/types",
+  "colmugx/mcp/runtime",
   "moonbitlang/async",
   "moonbitlang/async/aqueue",
   "moonbitlang/async/http",
@@ -45,7 +46,7 @@ pub fn looks_like_sentinel(String) -> Bool
 
 pub fn origin_allowed(String, Array[String]?) -> Bool
 
-pub async fn read_sse_event(@http.Client) -> (String?, String?) raise @types.TransportError
+pub async fn read_sse_event(@http.Client) -> (String?, String?)
 
 pub fn request_id_from_body(String) -> Json?
 
@@ -57,6 +58,10 @@ pub fn unsupported_protocol_version_error(String, body~ : String) -> String
 
 pub fn validate_jsonrpc_message(String) -> Result[Unit, @types.MCPError]
 
+pub fn validate_tool_header_schema(Json) -> HeaderSchemaValidation
+
+pub fn validate_tool_parameter_headers(Json, Json, Array[(String, String)]) -> Result[Unit, String]
+
 // Errors
 
 // Types and methods
@@ -67,18 +72,30 @@ pub(all) enum AnyTransport {
   HttpClient(HttpClientTransport)
 }
 pub fn AnyTransport::close(Self) -> Unit
-pub async fn AnyTransport::receive(Self) -> String? raise @types.TransportError
+pub async fn AnyTransport::receive(Self) -> String?
 pub async fn AnyTransport::send(Self, String) -> Unit
 pub async fn AnyTransport::send_notification(Self, @types.Notification) -> Unit
 
 pub struct AuthConfig {
-  verify_token : (String) -> Bool
+  authenticate : (String) -> @runtime.Principal?
   resource_metadata_url : String
   authorization_servers : Array[String]
   required_scopes : String?
   allowed_origins : Array[String]?
 }
-pub fn AuthConfig::AuthConfig(verify_token~ : (String) -> Bool, resource_metadata_url~ : String, authorization_servers? : Array[String], required_scopes? : String, allowed_origins? : Array[String]) -> Self
+pub fn AuthConfig::AuthConfig(authenticate~ : (String) -> @runtime.Principal?, resource_metadata_url~ : String, authorization_servers? : Array[String], required_scopes? : String, allowed_origins? : Array[String]) -> Self
+
+pub(all) struct AuthenticatedRequest {
+  message : String
+  reply : @aqueue.Queue[String]
+  principal : @runtime.Principal?
+  cancellation_token : @runtime.CancellationToken
+}
+
+pub(all) enum HeaderSchemaValidation {
+  Valid(Array[(Array[String], String)])
+  Invalid(String)
+}
 
 pub struct HttpClientTransport {
   base_url : String
@@ -90,7 +107,7 @@ pub struct HttpClientTransport {
 }
 pub fn HttpClientTransport::HttpClientTransport(String, auth_token? : String, extra_headers? : Array[(String, String)]) -> Self
 pub fn HttpClientTransport::close(Self) -> Unit
-pub async fn HttpClientTransport::receive(Self) -> String? noraise
+pub async fn HttpClientTransport::receive(Self) -> String?
 pub async fn HttpClientTransport::send(Self, String) -> Unit
 pub async fn HttpClientTransport::send_notification(Self, @types.Notification) -> Unit
 pub fn HttpClientTransport::set_tool_header_schemas(Self, Map[String, Array[(Array[String], String)]]) -> Unit
@@ -99,15 +116,19 @@ pub struct HttpTransport {
   port : Int
   endpoint_path : String
   auth : AuthConfig?
-  pending_requests : @aqueue.Queue[(String, @aqueue.Queue[String])]
+  keepalive_interval_ms : Int
+  tool_schema_resolver : @ref.Ref[(String) -> Json?]
+  pending_requests : @aqueue.Queue[AuthenticatedRequest]
   pending_reply_queues : Map[String, @aqueue.Queue[String]]
 }
-pub fn HttpTransport::HttpTransport(port? : Int, endpoint_path? : String) -> Self
+pub fn HttpTransport::HttpTransport(port? : Int, endpoint_path? : String, keepalive_interval_ms? : Int) -> Self
 pub fn HttpTransport::close(Self) -> Unit
 pub async fn HttpTransport::receive(Self) -> String? raise @types.TransportError
+pub async fn HttpTransport::receive_authenticated_request(Self) -> AuthenticatedRequest? raise @types.TransportError
 pub async fn HttpTransport::receive_request(Self) -> (String, @aqueue.Queue[String])? raise @types.TransportError
 pub async fn HttpTransport::send(Self, String) -> Unit raise @types.TransportError
 pub fn HttpTransport::send_notification(Self, @types.Notification) -> Unit
+pub fn HttpTransport::set_tool_schema_resolver(Self, (String) -> Json?) -> Unit
 pub async fn HttpTransport::start(Self) -> Unit raise @types.TransportError
 pub fn HttpTransport::with_auth(Self, AuthConfig) -> Self
 
@@ -125,7 +146,7 @@ pub struct SseEventReader {
   decode_failed : @ref.Ref[Bool]
 }
 pub fn SseEventReader::new(@http.Client) -> Self
-pub async fn SseEventReader::next(Self) -> (String?, String?) raise @types.TransportError
+pub async fn SseEventReader::next(Self) -> (String?, String?)
 
 pub enum SseEventVerdict {
   Message(String)
@@ -144,12 +165,13 @@ pub struct StdioClientTransport {
   mut reader : @process.ReadFromProcess?
   mut raw_writer : @process.WriteToProcess?
   mut writer : @io.BufferedWriter[@process.WriteToProcess]?
+  send_mutex : @async.Mutex
 }
 pub fn StdioClientTransport::StdioClientTransport(cmd~ : String, args? : Array[String], extra_env? : Map[String, String]) -> Self
 pub fn StdioClientTransport::close(Self) -> Unit
-pub async fn StdioClientTransport::receive(Self) -> String? raise @types.TransportError
-pub async fn StdioClientTransport::send(Self, String) -> Unit raise @types.TransportError
-pub async fn StdioClientTransport::send_notification(Self, @types.Notification) -> Unit raise @types.TransportError
+pub async fn StdioClientTransport::receive(Self) -> String?
+pub async fn StdioClientTransport::send(Self, String) -> Unit
+pub async fn StdioClientTransport::send_notification(Self, @types.Notification) -> Unit
 pub async fn StdioClientTransport::start(Self, @async.TaskGroup[Unit]) -> Unit raise @types.TransportError
 
 pub struct StdioTransport {

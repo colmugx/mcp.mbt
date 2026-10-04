@@ -62,12 +62,21 @@ pub(all) suberror MCPError {
   TransportError(TransportError)
   /// Tool execution error (implementation-defined, -32000)
   ToolError(String)
+  /// Local request cancellation. No cancellation response is sent to the peer.
+  Cancelled(String)
+  /// Peer error retaining its original code, data presence and open fields.
+  RemoteError(
+    String,
+    code~ : Int,
+    data~ : Json?,
+    extensions~ : Map[String, Json]
+  )
   /// Streamable HTTP header/body mismatch (-32020, MCP-spec-defined).
   /// `data` carries detail; server returns HTTP 400.
   HeaderMismatch(String)
   /// Request needs a client capability the client did not declare
   /// (-32021, MCP-spec-defined). `required` lists the missing capabilities.
-  MissingRequiredClientCapability(String, required~ : Array[String])
+  MissingRequiredClientCapability(String, required~ : ClientCapabilities)
   /// Client requested an unsupported protocol version
   /// (-32022, MCP-spec-defined). `supported` lists the versions the server
   /// can speak; `requested` echoes what the client asked for.
@@ -88,7 +97,8 @@ pub fn MCPError::to_error_code(self : MCPError) -> Int {
     InvalidParams(_) => -32602
     InternalError(_) => -32603
     TransportError(_) => -32603
-    ToolError(_) => -32000
+    ToolError(_) | Cancelled(_) => -32000
+    RemoteError(_, code~, ..) => code
     HeaderMismatch(_) => -32020
     MissingRequiredClientCapability(_, ..) => -32021
     UnsupportedProtocolVersion(_, ..) => -32022
@@ -105,7 +115,7 @@ pub fn MCPError::message(self : MCPError) -> String {
     InvalidParams(msg) => msg
     InternalError(msg) => msg
     TransportError(te) => "Transport error: " + Show::to_string(te)
-    ToolError(msg) => msg
+    ToolError(msg) | Cancelled(msg) | RemoteError(msg, ..) => msg
     HeaderMismatch(msg) => msg
     MissingRequiredClientCapability(msg, ..) => msg
     UnsupportedProtocolVersion(msg, ..) => msg
@@ -119,6 +129,7 @@ pub fn MCPError::message(self : MCPError) -> String {
 /// use for recovery (e.g. supported versions to retry with).
 pub fn MCPError::to_error_data(self : MCPError) -> Json? {
   match self {
+    RemoteError(_, data~, ..) => data
     UnsupportedProtocolVersion(_, supported~, requested~) => {
       let versions = supported.map(fn(v) { Json::string(v) })
       Some(
@@ -128,10 +139,8 @@ pub fn MCPError::to_error_data(self : MCPError) -> Json? {
         }),
       )
     }
-    MissingRequiredClientCapability(_, required~) => {
-      let caps = required.map(fn(c) { Json::string(c) })
-      Some(Json::object({ "requiredCapabilities": Json::array(caps) }))
-    }
+    MissingRequiredClientCapability(_, required~) =>
+      Some(Json::object({ "requiredCapabilities": required.to_json() }))
     _ => None
   }
 }

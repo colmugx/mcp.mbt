@@ -26,15 +26,16 @@ fn expand_params_to_json(params : Array[@tool.ParamDef]) -> Json {
 fn[T : @tool.Tool] ToolRegistry::register_trait_tool(
   self : ToolRegistry,
   tool : T,
-) -> Unit {
+) -> Unit raise @types.MCPError {
   let name = tool.name()
   let description = tool.description()
   let params = tool.params()
   let input_schema = expand_params_to_json(params)
   let handler = async fn(
+    context : @runtime.RequestContext,
     args : Json,
   ) -> Result[@tool.ToolCallOutcome, @types.MCPError] {
-    Ok(tool.execute(args))
+    Ok(tool.execute(context, args))
   }
   self.register(name, description, input_schema, handler)
 }

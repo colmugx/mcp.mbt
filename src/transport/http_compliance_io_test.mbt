@@ -237,3 +237,97 @@ async test "compliance: unauthenticated server rejects cross-origin POST with 40
     server_task.cancel()
   })
 }
+
+///|
+#cfg(target="native")
+async test "compliance: registry-aware mirrored headers reject before dispatch with HTTP 400 HeaderMismatch" {
+  let transport = @transport.HttpTransport::HttpTransport(port=47355)
+  transport.set_tool_schema_resolver(fn(name) {
+    if name == "mirror" {
+      Some(
+        Json::object({
+          "type": "object",
+          "properties": {
+            "tenant": { "type": "string", "x-mcp-header": "Tenant" },
+          },
+        }),
+      )
+    } else {
+      None
+    }
+  })
+  let request = Json::object({
+    "jsonrpc": "2.0",
+    "id": 73,
+    "method": "tools/call",
+    "params": {
+      "name": "mirror",
+      "arguments": { "tenant": "世界" },
+      "_meta": {
+        "io.modelcontextprotocol/protocolVersion": @types.ProtocolVersion,
+        "io.modelcontextprotocol/clientCapabilities": {},
+      },
+    },
+  }).stringify()
+  let final_response = Json::object({
+    "jsonrpc": "2.0",
+    "id": 73,
+    "result": { "resultType": "complete", "content": [] },
+  }).stringify()
+  let dispatched = Ref(0)
+  @async.with_task_group(group => {
+    let server = group.spawn(() => transport.start() catch { _ => () })
+    group.spawn_bg(() => {
+      match transport.receive_request() {
+        Some((message, reply)) => {
+          assert_eq(message, request)
+          dispatched.val += 1
+          reply.put(final_response)
+        }
+        None => fail("valid mirrored call was not dispatched")
+      }
+    })
+    await_http_listen(@socket.Addr::parse("127.0.0.1:47355"))
+    for
+      extra_headers in [
+        [],
+        [("Mcp-Param-Tenant", "other")],
+        [("Mcp-Param-Tenant", "=?base64?invalid?=")],
+      ] {
+      let client = @transport.HttpClientTransport::HttpClientTransport(
+        "http://127.0.0.1:47355/mcp",
+        extra_headers~,
+      )
+      try @async.with_timeout(3000, () => client.send(request)) catch {
+        @types.TransportError::HttpError(400, body) => {
+          let error = @json.parse(body)
+          assert_true(
+            error
+            is {
+              "id": Number(73, ..),
+              "error": { "code": Number(-32020, ..), .. },
+              ..
+            },
+          )
+        }
+        error => fail("expected HTTP 400 HeaderMismatch, got \{Repr(error)}")
+      } noraise {
+        _ => fail("invalid mirrored headers must not reach the handler")
+      }
+      client.close()
+      assert_eq(dispatched.val, 0)
+    }
+    let client = @transport.HttpClientTransport::HttpClientTransport(
+      "http://127.0.0.1:47355/mcp",
+      extra_headers=[
+        ("MCP-PARAM-TENANT", @transport.encode_base64_sentinel("世界")),
+        ("Mcp-Param-Unrecognized", "=?base64?invalid?="),
+      ],
+    )
+    @async.with_timeout(3000, () => client.send(request))
+    assert_eq(client.receive(), Some(final_response))
+    assert_eq(dispatched.val, 1)
+    client.close()
+    server.cancel()
+  })
+}

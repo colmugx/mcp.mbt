@@ -254,11 +254,18 @@ pub async fn HttpClientTransport::send(
 /// when the transport is closed or the underlying queue is closed/empty.
 pub async fn HttpClientTransport::receive(
   self : HttpClientTransport,
-) -> String? noraise {
+) -> String? {
   if self.closed {
     return None
   }
-  let result : String? = Some(self.pending_responses.get()) catch { _ => None }
+  let result : String? = Some(self.pending_responses.get()) catch {
+    error => {
+      if @async.is_being_cancelled() {
+        raise error
+      }
+      None
+    }
+  }
   result
 }
 
@@ -310,6 +317,7 @@ pub async fn HttpClientTransport::send_notification(
 ///|
 pub fn HttpClientTransport::close(self : HttpClientTransport) -> Unit {
   self.closed = true
+  self.pending_responses.close(clear=true)
 }
 
 ///|

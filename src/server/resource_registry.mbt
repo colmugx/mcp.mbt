@@ -2,28 +2,17 @@
 
 ///|
 priv struct ResourceEntry {
-  name : String
-  description : String
-  uri : String
-  mime_type : String
-  handler : async (Json) -> Result[
+  definition : @types.ResourceDefinition
+  handler : async (@runtime.RequestContext, Json) -> Result[
     @resource.ResourceReadOutcome,
     @types.MCPError,
   ]
 }
 
 ///|
-priv struct ResourceTemplateEntry {
-  uri_template : String
-  name : String
-  description : String?
-  mime_type : String?
-}
-
-///|
 struct ResourceRegistry {
   resources : Map[String, ResourceEntry]
-  templates : Map[String, ResourceTemplateEntry]
+  templates : Map[String, @types.ResourceTemplateDefinition]
 }
 
 ///|
@@ -38,12 +27,27 @@ fn ResourceRegistry::register(
   name : String,
   description : String,
   mime_type : String,
-  handler : async (Json) -> Result[
+  handler : async (@runtime.RequestContext, Json) -> Result[
     @resource.ResourceReadOutcome,
     @types.MCPError,
   ],
 ) -> Unit {
-  self.resources.set(uri, { name, description, uri, mime_type, handler, })
+  self.register_definition(
+    @types.ResourceDefinition::new(uri, name, description~, mime_type~),
+    handler,
+  )
+}
+
+///|
+fn ResourceRegistry::register_definition(
+  self : ResourceRegistry,
+  definition : @types.ResourceDefinition,
+  handler : async (@runtime.RequestContext, Json) -> Result[
+    @resource.ResourceReadOutcome,
+    @types.MCPError,
+  ],
+) -> Unit {
+  self.resources.set(definition.uri, { definition, handler, })
 }
 
 ///|
@@ -53,12 +57,16 @@ fn ResourceRegistry::register_simple(
   name : String,
   description : String,
   mime_type : String,
-  handler : async () -> Result[@resource.ResourceReadResult, @types.MCPError],
+  handler : async (@runtime.RequestContext) -> Result[
+    @resource.ResourceReadResult,
+    @types.MCPError,
+  ],
 ) -> Unit {
   let wrapped = async fn(
+    context : @runtime.RequestContext,
     _params : Json,
   ) -> Result[@resource.ResourceReadOutcome, @types.MCPError] {
-    match handler() {
+    match handler(context) {
       Ok(result) => Ok(@resource.ResourceReadOutcome::Complete(result))
       Err(e) => Err(e)
     }
@@ -76,9 +84,10 @@ fn[T : @resource.Resource] ResourceRegistry::register_trait_resource(
   let uri = resource.uri()
   let mime_type = resource.mime_type()
   let handler = async fn(
+    context : @runtime.RequestContext,
     _params : Json,
   ) -> Result[@resource.ResourceReadOutcome, @types.MCPError] {
-    match resource.read() {
+    match resource.read(context) {
       Ok(result) => Ok(@resource.ResourceReadOutcome::Complete(result))
       Err(e) => Err(e)
     }
@@ -96,9 +105,10 @@ fn[T : @resource.ResourceMRTR] ResourceRegistry::register_trait_resource_mrtr(
   let uri = resource.uri()
   let mime_type = resource.mime_type()
   let handler = async fn(
+    context : @runtime.RequestContext,
     params : Json,
   ) -> Result[@resource.ResourceReadOutcome, @types.MCPError] {
-    resource.read(params)
+    resource.read(context, params)
   }
   self.register(uri, name, description, mime_type, handler)
 }
@@ -111,12 +121,22 @@ fn ResourceRegistry::register_template(
   description : String?,
   mime_type : String?,
 ) -> Unit {
-  self.templates.set(uri_template, {
-    uri_template,
-    name,
-    description,
-    mime_type,
-  })
+  self.register_template_definition(
+    @types.ResourceTemplateDefinition::new(
+      uri_template,
+      name,
+      description?,
+      mime_type?,
+    ),
+  )
+}
+
+///|
+fn ResourceRegistry::register_template_definition(
+  self : ResourceRegistry,
+  definition : @types.ResourceTemplateDefinition,
+) -> Unit {
+  self.templates.set(definition.uri_template, definition)
 }
 
 ///|
@@ -124,45 +144,30 @@ fn ResourceRegistry::list_resources(
   self : ResourceRegistry,
 ) -> Array[@resource.ResourceDefinition] {
   let entries : Array[ResourceEntry] = Array::from_iter(self.resources.values())
-  entries.sort_by(fn(a, b) { a.uri.compare(b.uri) })
-  entries.map(fn(entry) {
-    {
-      uri: entry.uri,
-      name: entry.name,
-      description: Some(entry.description),
-      mime_type: Some(entry.mime_type),
-    }
-  })
+  entries.sort_by(fn(a, b) { a.definition.uri.compare(b.definition.uri) })
+  entries.map(fn(entry) { entry.definition })
 }
 
 ///|
 fn ResourceRegistry::list_templates(
   self : ResourceRegistry,
 ) -> Array[@resource.ResourceTemplateDefinition] {
-  let entries : Array[ResourceTemplateEntry] = Array::from_iter(
-    self.templates.values(),
-  )
+  let entries = Array::from_iter(self.templates.values())
   entries.sort_by(fn(a, b) { a.uri_template.compare(b.uri_template) })
-  entries.map(fn(entry) {
-    {
-      uri_template: entry.uri_template,
-      name: entry.name,
-      description: entry.description,
-      mime_type: entry.mime_type,
-    }
-  })
+  entries
 }
 
 ///|
 async fn ResourceRegistry::read_resource(
   self : ResourceRegistry,
   uri : String,
+  context : @runtime.RequestContext,
   params : Json,
 ) -> Result[@resource.ResourceReadOutcome, @types.MCPError] {
   match self.resources.get(uri) {
     Some(entry) => {
       let handler = entry.handler
-      handler(params)
+      handler(context, params)
     }
     // Per 2026-07-28 spec, resource-not-found is InvalidParams (-32602),
     // not the old -32002 or MethodNotFound.

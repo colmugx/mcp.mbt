@@ -6,7 +6,7 @@
 /// ToolResult Constructor Tests
 test "ToolResult::text creates single text content" {
   let result = @server.ToolResult::text("Success")
-  @debug.assert_eq(result.is_error, false)
+  @debug.assert_eq(result.is_error, Some(false))
   @debug.assert_eq(result.content.length(), 1)
   match result.content[0] {
     Text(msg, ..) => @debug.assert_eq(msg, "Success")
@@ -17,7 +17,7 @@ test "ToolResult::text creates single text content" {
 ///|
 test "ToolResult::error creates error result" {
   let result = @server.ToolResult::error("Failed")
-  @debug.assert_eq(result.is_error, true)
+  @debug.assert_eq(result.is_error, Some(true))
   @debug.assert_eq(result.content.length(), 1)
   match result.content[0] {
     Text(msg, ..) => @debug.assert_eq(msg, "Failed")
@@ -33,7 +33,7 @@ test "ToolResult::success with multiple content items" {
     @server.ContentBlock::image("base64data", mime_type="image/png"),
   ]
   let result = @server.ToolResult::success(items)
-  @debug.assert_eq(result.is_error, false)
+  @debug.assert_eq(result.is_error, Some(false))
   @debug.assert_eq(result.content.length(), 3)
 }
 
@@ -41,7 +41,7 @@ test "ToolResult::success with multiple content items" {
 test "ToolResult::success with empty array" {
   let items : Array[@server.ContentBlock] = []
   let result = @server.ToolResult::success(items)
-  @debug.assert_eq(result.is_error, false)
+  @debug.assert_eq(result.is_error, Some(false))
   @debug.assert_eq(result.content.length(), 0)
 }
 
@@ -115,7 +115,7 @@ test "get_string extracts valid string field" {
 test "get_string returns error for missing field" {
   let json = Json::object({ "other": "value" })
   match @server.get_string(json, "name") {
-    Err(result) => @debug.assert_eq(result.is_error, true)
+    Err(result) => @debug.assert_eq(result.is_error, Some(true))
     Ok(_) => panic()
   }
 }
@@ -125,7 +125,7 @@ test "get_string returns error for wrong type" {
   let json = Json::object({ "name": 42.0 })
   match @server.get_string(json, "name") {
     Err(result) => {
-      @debug.assert_eq(result.is_error, true)
+      @debug.assert_eq(result.is_error, Some(true))
       match result.content[0] {
         Text(msg, ..) => assert_true(msg.contains("not a string"))
         _ => panic()
@@ -140,7 +140,7 @@ test "get_string returns error for non-object" {
   let json = Json::string("not an object")
   match @server.get_string(json, "name") {
     Err(result) => {
-      @debug.assert_eq(result.is_error, true)
+      @debug.assert_eq(result.is_error, Some(true))
       match result.content[0] {
         Text(msg, ..) => assert_true(msg.contains("Expected JSON object"))
         _ => panic()
@@ -163,7 +163,7 @@ test "get_number extracts valid number field" {
 test "get_number returns error for missing field" {
   let json = Json::object({ "other": 1.0 })
   match @server.get_number(json, "count") {
-    Err(result) => @debug.assert_eq(result.is_error, true)
+    Err(result) => @debug.assert_eq(result.is_error, Some(true))
     Ok(_) => panic()
   }
 }
@@ -172,7 +172,7 @@ test "get_number returns error for missing field" {
 test "get_number returns error for wrong type" {
   let json = Json::object({ "count": "42" })
   match @server.get_number(json, "count") {
-    Err(result) => @debug.assert_eq(result.is_error, true)
+    Err(result) => @debug.assert_eq(result.is_error, Some(true))
     Ok(_) => panic()
   }
 }
@@ -208,7 +208,7 @@ test "get_optional_string returns None for missing field" {
 test "get_optional_string returns error for wrong type" {
   let json = Json::object({ "value": 42.0 })
   match @server.get_optional_string(json, "value") {
-    Err(result) => @debug.assert_eq(result.is_error, true)
+    Err(result) => @debug.assert_eq(result.is_error, Some(true))
     Ok(_) => panic()
   }
 }
@@ -246,7 +246,7 @@ impl Tool for EchoTool with fn params(_self : EchoTool) -> Array[
 }
 
 ///|
-impl Tool for EchoTool with fn execute(_self : EchoTool, args : Json) -> @server.ToolCallOutcome {
+impl Tool for EchoTool with fn execute(_self : EchoTool, _context, args : Json) -> @server.ToolCallOutcome {
   let text = match @server.get_string(args, "text") {
     Ok(t) => t
     Err(err) => return Complete(err)
@@ -263,10 +263,14 @@ async test "example: complete tool implementation with EchoTool" {
 
   // Test execution
   let args = Json::object({ "text": "Hello, MCP!" })
-  let result = @tool.Tool::execute(tool, args)
+  let result = @tool.Tool::execute(
+    tool,
+    @runtime.RequestContext::new(@types.RequestId::Int(1)),
+    args,
+  )
   match result {
     Complete(tool_result) => {
-      @debug.assert_eq(tool_result.is_error, false)
+      @debug.assert_eq(tool_result.is_error, Some(false))
       match tool_result.content[0] {
         Text(msg, ..) => @debug.assert_eq(msg, "Echo: Hello, MCP!")
         _ => panic()
@@ -283,10 +287,14 @@ async test "example: tool with error handling" {
 
   // Missing argument
   let args = Json::object({})
-  let result = @tool.Tool::execute(tool, args)
+  let result = @tool.Tool::execute(
+    tool,
+    @runtime.RequestContext::new(@types.RequestId::Int(1)),
+    args,
+  )
   match result {
     Complete(tool_result) => {
-      @debug.assert_eq(tool_result.is_error, true)
+      @debug.assert_eq(tool_result.is_error, Some(true))
       match tool_result.content[0] {
         Text(msg, ..) => assert_true(msg.contains("Missing required field"))
         _ => panic()

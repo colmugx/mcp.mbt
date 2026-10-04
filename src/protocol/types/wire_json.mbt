@@ -30,6 +30,31 @@ fn wire_optional_string(
 }
 
 ///|
+fn wire_optional_bool(
+  fields : Map[String, Json],
+  key : String,
+) -> Bool? raise MCPError {
+  match fields.get(key) {
+    None => None
+    Some(True) => Some(true)
+    Some(False) => Some(false)
+    _ => raise InvalidParams("Invalid '\{key}' boolean field")
+  }
+}
+
+///|
+fn wire_put_bool(
+  fields : Map[String, Json],
+  key : String,
+  value : Bool?,
+) -> Unit {
+  match value {
+    Some(value) => fields.set(key, Json::boolean(value))
+    None => ()
+  }
+}
+
+///|
 fn wire_optional_object(
   fields : Map[String, Json],
   key : String,
@@ -89,6 +114,41 @@ fn wire_put_string(
 fn wire_put_meta(fields : Map[String, Json], meta : Map[String, Json]?) -> Unit {
   match meta {
     Some(meta) => fields.set("_meta", Json::object(meta.copy()))
+    None => ()
+  }
+}
+
+///|
+fn wire_number(
+  fields : Map[String, Json],
+  key : String,
+) -> Double raise MCPError {
+  match fields.get(key) {
+    Some(Number(value, ..)) if !value.is_nan() && !value.is_inf() => value
+    _ => raise InvalidParams("Missing or invalid '\{key}' finite number")
+  }
+}
+
+///|
+fn wire_optional_number(
+  fields : Map[String, Json],
+  key : String,
+) -> Double? raise MCPError {
+  if fields.contains(key) {
+    Some(wire_number(fields, key))
+  } else {
+    None
+  }
+}
+
+///|
+fn wire_put_number(
+  fields : Map[String, Json],
+  key : String,
+  value : Double?,
+) -> Unit {
+  match value {
+    Some(value) => fields.set(key, Json::number(value))
     None => ()
   }
 }

@@ -117,9 +117,9 @@ test "compliance: discover returns supportedVersions and capabilities" {
     panic()
   }
   let caps = json_get(result, "capabilities")
-  assert_true(json_has(caps, "tools"))
-  assert_true(json_has(caps, "resources"))
-  assert_true(json_has(caps, "prompts"))
+  assert_false(json_has(caps, "tools"))
+  assert_false(json_has(caps, "resources"))
+  assert_false(json_has(caps, "prompts"))
 }
 
 ///|
@@ -203,7 +203,7 @@ test "compliance: tools/list returns array with name/description/inputSchema" {
     "echo",
     "Echo tool",
     Json::object({ "type": "object" }),
-    fn(_args) {
+    fn(_context, _args) {
       Ok(@tool.ToolCallOutcome::Complete(@tool.ToolResult::text("ok")))
     },
   )
@@ -227,7 +227,7 @@ test "compliance: tools/list preserves tool name" {
     "my_tool",
     "My tool",
     Json::object({ "type": "object" }),
-    fn(_args) {
+    fn(_context, _args) {
       Ok(@tool.ToolCallOutcome::Complete(@tool.ToolResult::text("ok")))
     },
   )
@@ -253,7 +253,9 @@ test "compliance: resources/list returns array with uri and name" {
     "Test File",
     "A test file",
     "text/plain",
-    fn() { Ok({ uri: "file:///test.txt", content: @resource.Text("hello"), }) },
+    fn(_context) {
+      Ok(@resource.ResourceReadResult::text("hello", uri="file:///test.txt"))
+    },
   )
   let result = parse_result(
     handle_resources_list(server, @types.RequestId::Int(1)),
@@ -277,7 +279,9 @@ test "compliance: resources/list includes mimeType" {
     "Data",
     "JSON data",
     "application/json",
-    fn() { Ok({ uri: "file:///data.json", content: @resource.Text("{}"), }) },
+    fn(_context) {
+      Ok(@resource.ResourceReadResult::text("{}", uri="file:///data.json"))
+    },
   )
   let result = parse_result(
     handle_resources_list(server, @types.RequestId::Int(1)),
@@ -299,7 +303,9 @@ test "compliance: resources/list includes description when present" {
     "Test",
     "A test resource",
     "text/plain",
-    fn() { Ok({ uri: "file:///test.txt", content: @resource.Text("hello"), }) },
+    fn(_context) {
+      Ok(@resource.ResourceReadResult::text("hello", uri="file:///test.txt"))
+    },
   )
   let result = parse_result(
     handle_resources_list(server, @types.RequestId::Int(1)),
@@ -320,10 +326,16 @@ test "compliance: resources/list includes description when present" {
 /// =====================================================
 test "compliance: prompts/list returns array with name" {
   let server = MCPServer::MCPServer("test", "1.0.0")
-  server.register_prompt("greet", "Greeting prompt", [], fn(_args) {
+  server.register_prompt("greet", "Greeting prompt", [], fn(_context, _args) {
     Ok({
       description: Some("A greeting"),
-      messages: [{ role: "user", content: @types.ContentBlock::text("Hello"), }],
+      messages: [
+        @types.PromptMessage::new(
+          @types.Role::User,
+          @types.ContentBlock::text("Hello"),
+        ),
+      ],
+      metadata: @types.ResultMetadata::empty(),
     })
   })
   let result = parse_result(
@@ -343,15 +355,21 @@ test "compliance: prompts/list returns array with name" {
 ///|
 test "compliance: prompts/list includes arguments" {
   let server = MCPServer::MCPServer("test", "1.0.0")
-  let arg : @types.PromptArgument = {
-    name: "name",
-    description: Some("Name to greet"),
-    required: Some(true),
-  }
-  server.register_prompt("greet", "Greeting", [arg], fn(_args) {
+  let arg = @types.PromptArgument::new(
+    "name",
+    description="Name to greet",
+    required=true,
+  )
+  server.register_prompt("greet", "Greeting", [arg], fn(_context, _args) {
     Ok({
       description: Some("Greeting"),
-      messages: [{ role: "user", content: @types.ContentBlock::text("Hello"), }],
+      messages: [
+        @types.PromptMessage::new(
+          @types.Role::User,
+          @types.ContentBlock::text("Hello"),
+        ),
+      ],
+      metadata: @types.ResultMetadata::empty(),
     })
   })
   let result = parse_result(
@@ -377,10 +395,16 @@ test "compliance: prompts/list includes arguments" {
 ///|
 test "compliance: prompts/list includes description" {
   let server = MCPServer::MCPServer("test", "1.0.0")
-  server.register_prompt("greet", "A greeting prompt", [], fn(_args) {
+  server.register_prompt("greet", "A greeting prompt", [], fn(_context, _args) {
     Ok({
       description: Some("Greeting"),
-      messages: [{ role: "user", content: @types.ContentBlock::text("Hello"), }],
+      messages: [
+        @types.PromptMessage::new(
+          @types.Role::User,
+          @types.ContentBlock::text("Hello"),
+        ),
+      ],
+      metadata: @types.ResultMetadata::empty(),
     })
   })
   let result = parse_result(
@@ -552,7 +576,12 @@ test "compliance: tool error uses custom code -32000" {
 test "compliance: spec-defined error codes in -3202x range" {
   assert_eq(@types.HeaderMismatch("x").to_error_code(), -32020)
   assert_eq(
-    @types.MissingRequiredClientCapability("x", required=["elicitation"]).to_error_code(),
+    @types.MissingRequiredClientCapability(
+      "x",
+      required=@types.ClientCapabilities::new(
+        elicitation=@types.ElicitationCapabilities::new(form={}),
+      ),
+    ).to_error_code(),
     -32021,
   )
   assert_eq(
@@ -593,18 +622,21 @@ test "compliance: UnsupportedProtocolVersion serializes supported/requested in d
 
 ///|
 test "compliance: MissingRequiredClientCapability serializes requiredCapabilities in data" {
-  let err = @types.MissingRequiredClientCapability("needs elicitation", required=[
-    "elicitation", "roots",
-  ])
+  let err = @types.MissingRequiredClientCapability(
+    "needs elicitation",
+    required=@types.ClientCapabilities::new(
+      elicitation=@types.ElicitationCapabilities::new(form={}),
+      roots=@types.RootCapabilities::new(),
+    ),
+  )
   let response = jsonrpc_error_from(@types.RequestId::Int(1), err)
   let json = @json.parse(response) catch { _ => panic() }
   let data = json_get(json_get(json, "error"), "data")
   let required = json_get(data, "requiredCapabilities")
-  if required is Array(arr) {
-    assert_eq(arr.length(), 2)
-  } else {
-    panic()
-  }
+  assert_eq(
+    required,
+    Json::object({ "elicitation": { "form": {} }, "roots": {} }),
+  )
 }
 
 ///|
@@ -621,14 +653,20 @@ async test "mrtr retry: valid requestState passes verification and reaches the t
       AesGcmStateCodec::with_key(Bytes::make(32, b'\x42')),
     )
     .with_clock(fn() { 1_700_000_000 })
-  // Tool echoes back the _mrtr_responses it received, if any.
+  // Retry inputs travel in the context, never in business arguments.
   server.register_tool(
     "resume_tool",
     "Resume tool",
     Json::object({ "type": "object" }),
-    fn(args) {
+    (context, args) => {
       if args is Object(obj) {
-        match obj.get("_mrtr_responses") {
+        assert_false(obj.contains("_mrtr_responses"))
+        match
+          (if context.input_responses.is_empty() {
+            None
+          } else {
+            Some(Json::object(context.input_responses))
+          }) {
           Some(Object(responses)) =>
             if responses.get("login") is Some(_) {
               Ok(
@@ -661,7 +699,9 @@ async test "mrtr retry: valid requestState passes verification and reaches the t
       principal: None,
       expires_at: 1_700_000_000 + 300,
       request_method: "tools/call",
-      params_digest: params_digest(arguments),
+      params_digest: params_digest(
+        Json::object({ "name": "resume_tool", "arguments": arguments }),
+      ),
       state: Json::object({}),
     },
     now=1_700_000_000,
@@ -677,7 +717,7 @@ async test "mrtr retry: valid requestState passes verification and reaches the t
   })
   let response = handle_tools_call(
     server,
-    @types.RequestId::Int(1),
+    @runtime.RequestContext::new(@types.RequestId::Int(1)),
     retry_params,
   ) catch {
     _ => panic()
@@ -705,7 +745,7 @@ async test "mrtr retry: tampered requestState is rejected" {
   })
   let response = handle_tools_call(
     server,
-    @types.RequestId::Int(1),
+    @runtime.RequestContext::new(@types.RequestId::Int(1)),
     retry_params,
   ) catch {
     _ => panic()
@@ -719,7 +759,10 @@ async test "mrtr retry: tampered requestState is rejected" {
 
 ///|
 test "compliance: notifications/cancelled shape carries requestId and reason" {
-  let n = @types.cancelled_notification("42", reason="user asked")
+  let n = @types.cancelled_notification(
+    @types.RequestId::Str("42"),
+    reason="user asked",
+  )
   let json = @json.parse(n.to_jsonrpc_string()) catch { _ => panic() }
   if json is Object(obj) {
     assert_eq(obj.get("method"), Some(Json::string("notifications/cancelled")))
@@ -869,7 +912,7 @@ async test "compliance: request without _meta at all returns -32602" {
 ///|
 #cfg(not(target="wasm-gc"))
 async test "compliance: request carrying required _meta fields is accepted" {
-  let server = MCPServer::MCPServer("test", "1.0.0")
+  let server = MCPServer::MCPServer("test", "1.0.0").with_tools()
   let request = Json::object({
     "jsonrpc": Json::string("2.0"),
     "id": Json::number(1.0),
@@ -896,7 +939,7 @@ async test "compliance: undeclared elicitation capability returns -32021" {
     "gate",
     "Gated tool",
     Json::object({ "type": "object" }),
-    fn(_args) {
+    fn(_context, _args) {
       Ok(
         @tool.ToolCallOutcome::InputRequired(
           input_requests=reqs,
@@ -909,19 +952,18 @@ async test "compliance: undeclared elicitation capability returns -32021" {
     "name": Json::string("gate"),
     "arguments": Json::object({}),
   })
-  let response = handle_tools_call(server, @types.RequestId::Int(1), params) catch {
+  let response = handle_tools_call(
+    server,
+    @runtime.RequestContext::new(@types.RequestId::Int(1)),
+    params,
+  ) catch {
     _ => panic()
   }
   let resp_json = @json.parse(response) catch { _ => panic() }
   let err = json_get(resp_json, "error")
   assert_eq(json_field_int(err, "code"), -32021)
   let required = json_get(json_get(err, "data"), "requiredCapabilities")
-  if required is Array(arr) {
-    assert_eq(arr.length(), 1)
-    assert_eq(arr[0], Json::string("elicitation"))
-  } else {
-    panic()
-  }
+  assert_eq(required, Json::object({ "elicitation": { "form": {} } }))
 }
 
 ///|
@@ -941,7 +983,7 @@ async test "compliance: declared elicitation capability allows input_required" {
     "gate",
     "Gated tool",
     Json::object({ "type": "object" }),
-    fn(_args) {
+    fn(_context, _args) {
       Ok(
         @tool.ToolCallOutcome::InputRequired(
           input_requests=reqs,
@@ -955,11 +997,15 @@ async test "compliance: declared elicitation capability allows input_required" {
     "arguments": Json::object({}),
     "_meta": Json::object({
       "io.modelcontextprotocol/clientCapabilities": Json::object({
-        "elicitation": Json::boolean(true),
+        "elicitation": Json::object({ "form": {} }),
       }),
     }),
   })
-  let response = handle_tools_call(server, @types.RequestId::Int(1), params) catch {
+  let response = handle_tools_call(
+    server,
+    @runtime.RequestContext::new(@types.RequestId::Int(1)),
+    params,
+  ) catch {
     _ => panic()
   }
   let result = parse_result(response)
@@ -975,25 +1021,30 @@ async test "mrtr: resources/read input_required → retry → complete" {
       AesGcmStateCodec::with_key(Bytes::make(32, b'\x42')),
     )
     .with_clock(fn() { 1_700_000_000 })
-    .resource_mrtr("memo://1", "Memo", "A memo resource", "text/plain", fn(
+    .resource_mrtr("memo://1", "Memo", "A memo resource", "text/plain", (
+      context,
       params,
-    ) {
+    ) => {
       if params is Object(obj) {
-        match obj.get("_mrtr_responses") {
+        assert_false(obj.contains("_mrtr_responses"))
+        match
+          (if context.input_responses.is_empty() {
+            None
+          } else {
+            Some(Json::object(context.input_responses))
+          }) {
           Some(Object(responses)) =>
             if responses.get("login") is Some(_) {
               Ok(
-                @resource.ResourceReadOutcome::Complete({
-                  uri: "memo://1",
-                  content: @resource.Text("unlocked"),
-                }),
+                @resource.ResourceReadOutcome::Complete(
+                  @resource.ResourceReadResult::text("unlocked", uri="memo://1"),
+                ),
               )
             } else {
               Ok(
-                @resource.ResourceReadOutcome::Complete({
-                  uri: "memo://1",
-                  content: @resource.Text("missing"),
-                }),
+                @resource.ResourceReadOutcome::Complete(
+                  @resource.ResourceReadResult::text("missing", uri="memo://1"),
+                ),
               )
             }
           _ => {
@@ -1012,10 +1063,9 @@ async test "mrtr: resources/read input_required → retry → complete" {
         }
       } else {
         Ok(
-          @resource.ResourceReadOutcome::Complete({
-            uri: "memo://1",
-            content: @resource.Text("bad-params"),
-          }),
+          @resource.ResourceReadOutcome::Complete(
+            @resource.ResourceReadResult::text("bad-params", uri="memo://1"),
+          ),
         )
       }
     })
@@ -1023,11 +1073,15 @@ async test "mrtr: resources/read input_required → retry → complete" {
     "uri": Json::string("memo://1"),
     "_meta": Json::object({
       "io.modelcontextprotocol/clientCapabilities": Json::object({
-        "elicitation": Json::boolean(true),
+        "elicitation": Json::object({ "form": {} }),
       }),
     }),
   })
-  let first = handle_resources_read(server, @types.RequestId::Int(1), params) catch {
+  let first = handle_resources_read(
+    server,
+    @runtime.RequestContext::new(@types.RequestId::Int(1)),
+    params,
+  ) catch {
     _ => panic()
   }
   let first_result = parse_result(first)
@@ -1042,13 +1096,13 @@ async test "mrtr: resources/read input_required → retry → complete" {
     "requestState": Json::string(blob),
     "_meta": Json::object({
       "io.modelcontextprotocol/clientCapabilities": Json::object({
-        "elicitation": Json::boolean(true),
+        "elicitation": Json::object({ "form": {} }),
       }),
     }),
   })
   let second = handle_resources_read(
     server,
-    @types.RequestId::Int(2),
+    @runtime.RequestContext::new(@types.RequestId::Int(2)),
     retry_params,
   ) catch {
     _ => panic()
@@ -1071,33 +1125,37 @@ async test "mrtr: prompts/get input_required → retry → complete" {
       AesGcmStateCodec::with_key(Bytes::make(32, b'\x42')),
     )
     .with_clock(fn() { 1_700_000_000 })
-    .prompt_mrtr("review", "Review prompt", [], fn(params) {
+    .prompt_mrtr("review", "Review prompt", [], (context, params) => {
       if params is Object(obj) {
-        match obj.get("_mrtr_responses") {
+        assert_false(obj.contains("_mrtr_responses"))
+        match
+          (if context.input_responses.is_empty() {
+            None
+          } else {
+            Some(Json::object(context.input_responses))
+          }) {
           Some(Object(responses)) =>
             if responses.get("login") is Some(_) {
               Ok(
-                @prompt.PromptGetOutcome::Complete({
-                  description: None,
-                  messages: [
-                    {
-                      role: "user",
-                      content: @types.ContentBlock::text("ready"),
-                    },
-                  ],
-                }),
+                @prompt.PromptGetOutcome::Complete(
+                  @types.GetPromptResult::new([
+                    @types.PromptMessage::new(
+                      @types.Role::User,
+                      @types.ContentBlock::text("ready"),
+                    ),
+                  ]),
+                ),
               )
             } else {
               Ok(
-                @prompt.PromptGetOutcome::Complete({
-                  description: None,
-                  messages: [
-                    {
-                      role: "user",
-                      content: @types.ContentBlock::text("missing"),
-                    },
-                  ],
-                }),
+                @prompt.PromptGetOutcome::Complete(
+                  @types.GetPromptResult::new([
+                    @types.PromptMessage::new(
+                      @types.Role::User,
+                      @types.ContentBlock::text("missing"),
+                    ),
+                  ]),
+                ),
               )
             }
           _ => {
@@ -1116,12 +1174,14 @@ async test "mrtr: prompts/get input_required → retry → complete" {
         }
       } else {
         Ok(
-          @prompt.PromptGetOutcome::Complete({
-            description: None,
-            messages: [
-              { role: "user", content: @types.ContentBlock::text("bad"), },
-            ],
-          }),
+          @prompt.PromptGetOutcome::Complete(
+            @types.GetPromptResult::new([
+              @types.PromptMessage::new(
+                @types.Role::User,
+                @types.ContentBlock::text("bad"),
+              ),
+            ]),
+          ),
         )
       }
     })
@@ -1130,11 +1190,15 @@ async test "mrtr: prompts/get input_required → retry → complete" {
     "arguments": Json::object({}),
     "_meta": Json::object({
       "io.modelcontextprotocol/clientCapabilities": Json::object({
-        "elicitation": Json::boolean(true),
+        "elicitation": Json::object({ "form": {} }),
       }),
     }),
   })
-  let first = handle_prompts_get(server, @types.RequestId::Int(1), params) catch {
+  let first = handle_prompts_get(
+    server,
+    @runtime.RequestContext::new(@types.RequestId::Int(1)),
+    params,
+  ) catch {
     _ => panic()
   }
   let first_result = parse_result(first)
@@ -1149,13 +1213,13 @@ async test "mrtr: prompts/get input_required → retry → complete" {
     "requestState": Json::string(blob),
     "_meta": Json::object({
       "io.modelcontextprotocol/clientCapabilities": Json::object({
-        "elicitation": Json::boolean(true),
+        "elicitation": Json::object({ "form": {} }),
       }),
     }),
   })
   let second = handle_prompts_get(
     server,
-    @types.RequestId::Int(2),
+    @runtime.RequestContext::new(@types.RequestId::Int(2)),
     retry_params,
   ) catch {
     _ => panic()
@@ -1202,10 +1266,10 @@ async test "compliance: close_subscription sends graceful result and removes sub
   let queue : @aqueue.Queue[String] = @aqueue.Queue(
     kind=@aqueue.Kind::Unbounded,
   )
-  server.subscriptions.set("42", {
-    filter: SubscriptionFilter::empty(),
-    reply: queue,
-  })
+  server.subscriptions.set(
+    "42",
+    test_subscription(SubscriptionFilter::empty(), queue, "42"),
+  )
   server.close_subscription("42") catch {
     _ => panic()
   }
@@ -1226,50 +1290,54 @@ async test "compliance: close_subscription sends graceful result and removes sub
 
 ///|
 #cfg(not(target="wasm-gc"))
-async test "compliance: cancelled notification closes matching subscription" {
+test "compliance: cancelled subscription stops without a final response" {
   let server = MCPServer::MCPServer("test", "1.0.0")
   let queue : @aqueue.Queue[String] = @aqueue.Queue(
     kind=@aqueue.Kind::Unbounded,
   )
-  server.subscriptions.set("7", {
-    filter: SubscriptionFilter::empty(),
-    reply: queue,
-  })
+  let sub = test_subscription(SubscriptionFilter::empty(), queue, "7")
+  server.subscriptions.set("7", sub)
   let notif = Json::object({
     "jsonrpc": Json::string("2.0"),
     "method": Json::string("notifications/cancelled"),
     "params": Json::object({ "requestId": Json::number(7.0) }),
   }).stringify()
-  server.handle_inbound_notification(notif) catch {
-    _ => panic()
-  }
-  let response = queue.get() catch { _ => panic() }
-  let json = @json.parse(response) catch { _ => panic() }
-  let result = json_get(json, "result")
-  assert_eq(json_field_str(result, "resultType"), "complete")
+  server.handle_inbound_notification(notif)
+  assert_true(sub.cancellation_token.is_cancelled())
+  assert_true(queue.try_get() is None)
   assert_true(server.subscriptions.get("7") is None)
 }
 
 ///|
 test "compliance: list endpoints return deterministic order" {
   let server = MCPServer::MCPServer("test", "1.0.0")
-  server.register_tool("zebra", "Zebra", Json::object({}), fn(_args) {
+  server.register_tool("zebra", "Zebra", Json::object({ "type": "object" }), fn(
+    _context,
+    _args,
+  ) {
     Ok(@tool.ToolCallOutcome::Complete(@tool.ToolResult::text("z")))
   })
-  server.register_tool("alpha", "Alpha", Json::object({}), fn(_args) {
+  server.register_tool("alpha", "Alpha", Json::object({ "type": "object" }), fn(
+    _context,
+    _args,
+  ) {
     Ok(@tool.ToolCallOutcome::Complete(@tool.ToolResult::text("a")))
   })
-  server.register_resource("file:///z", "Z", "Z resource", "text/plain", fn() {
-    Ok({ uri: "file:///z", content: @resource.Text("z"), })
+  server.register_resource("file:///z", "Z", "Z resource", "text/plain", fn(
+    _context,
+  ) {
+    Ok(@resource.ResourceReadResult::text("z", uri="file:///z"))
   })
-  server.register_resource("file:///a", "A", "A resource", "text/plain", fn() {
-    Ok({ uri: "file:///a", content: @resource.Text("a"), })
+  server.register_resource("file:///a", "A", "A resource", "text/plain", fn(
+    _context,
+  ) {
+    Ok(@resource.ResourceReadResult::text("a", uri="file:///a"))
   })
-  server.register_prompt("zebra_prompt", "Z", [], fn(_args) {
-    Ok({ description: None, messages: [], })
+  server.register_prompt("zebra_prompt", "Z", [], fn(_context, _args) {
+    Ok(@types.GetPromptResult::new([]))
   })
-  server.register_prompt("alpha_prompt", "A", [], fn(_args) {
-    Ok({ description: None, messages: [], })
+  server.register_prompt("alpha_prompt", "A", [], fn(_context, _args) {
+    Ok(@types.GetPromptResult::new([]))
   })
   let server = server
     .resource_template(uri_template="z://{x}", name="Z Template")
@@ -1367,7 +1435,7 @@ async test "compliance: tools/call embedded resource nests contents under resour
     "embed",
     "Embedded resource tool",
     Json::object({ "type": "object" }),
-    fn(_args) {
+    fn(_context, _args) {
       Ok(
         @tool.ToolCallOutcome::Complete(
           @tool.ToolResult::success([
@@ -1394,7 +1462,11 @@ async test "compliance: tools/call embedded resource nests contents under resour
     "name": Json::string("embed"),
     "arguments": Json::object({}),
   })
-  let response = handle_tools_call(server, @types.RequestId::Int(1), params) catch {
+  let response = handle_tools_call(
+    server,
+    @runtime.RequestContext::new(@types.RequestId::Int(1)),
+    params,
+  ) catch {
     _ => panic()
   }
   let result = parse_result(response)
@@ -1427,32 +1499,38 @@ async test "compliance: tools/call embedded resource nests contents under resour
 #cfg(not(target="wasm-gc"))
 async test "compliance: prompts/get serializes non-text content without data loss" {
   let server = MCPServer::MCPServer("test", "1.0.0")
-  server.register_prompt("mixed", "Mixed content prompt", [], fn(_args) {
-    Ok({
-      description: None,
-      messages: [
-        {
-          role: "user",
-          content: @types.ContentBlock::image("aGk=", mime_type="image/png"),
-        },
-        {
-          role: "user",
-          content: @types.ContentBlock::resource_link("memo://1", name="memo"),
-        },
-        {
-          role: "assistant",
-          content: @types.ContentBlock::resource(
+  server.register_prompt("mixed", "Mixed content prompt", [], fn(
+    _context,
+    _args,
+  ) {
+    Ok(
+      @types.GetPromptResult::new([
+        @types.PromptMessage::new(
+          @types.Role::User,
+          @types.ContentBlock::image("aGk=", mime_type="image/png"),
+        ),
+        @types.PromptMessage::new(
+          @types.Role::User,
+          @types.ContentBlock::resource_link("memo://1", name="memo"),
+        ),
+        @types.PromptMessage::new(
+          @types.Role::Assistant,
+          @types.ContentBlock::resource(
             @types.ResourceContents::text("memo body", uri="memo://9"),
           ),
-        },
-      ],
-    })
+        ),
+      ]),
+    )
   })
   let params = Json::object({
     "name": Json::string("mixed"),
     "arguments": Json::object({}),
   })
-  let response = handle_prompts_get(server, @types.RequestId::Int(1), params) catch {
+  let response = handle_prompts_get(
+    server,
+    @runtime.RequestContext::new(@types.RequestId::Int(1)),
+    params,
+  ) catch {
     _ => panic()
   }
   let result = parse_result(response)

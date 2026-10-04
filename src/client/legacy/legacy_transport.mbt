@@ -23,9 +23,7 @@ async fn LegacyTransport::send(
 }
 
 ///|
-async fn LegacyTransport::receive(
-  self : LegacyTransport,
-) -> String? raise @types.TransportError {
+async fn LegacyTransport::receive(self : LegacyTransport) -> String? {
   match self {
     Wrapped(t) => t.receive()
     HttpSession(t) => t.receive()

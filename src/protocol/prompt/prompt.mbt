@@ -3,15 +3,7 @@
 ///| Based on: MCP Protocol 2026-07-28 specification
 
 ///|
-/// Prompt metadata definition (for protocol responses)
-/// Describes a prompt in the prompts/list response
-/// Note: This is separate from the Prompt trait which is for implementation
-/// Note: PromptArgument, PromptMessage, GetPromptResult are defined in @types package
-pub(all) struct PromptDefinition {
-  name : String
-  description : String?
-  arguments : Array[@types.PromptArgument]?
-} derive(Eq, Debug)
+pub using @types {type PromptDefinition}
 
 ///|
 /// The result of a `prompts/get` handler. Per the 2026-07-28 MRTR pattern, a
@@ -44,7 +36,10 @@ pub(open) trait Prompt {
 
   /// Get prompt messages with provided arguments
   /// Returns GetPromptResult with messages
-  async fn get(Self, Json) -> Result[@types.GetPromptResult, @types.MCPError]
+  async fn get(Self, @runtime.RequestContext, Json) -> Result[
+    @types.GetPromptResult,
+    @types.MCPError,
+  ]
 }
 
 ///|
@@ -60,15 +55,11 @@ pub(open) trait PromptMRTR {
   /// Get prompt messages with the full request params.
   /// Returns `Complete` for a normal result, or `InputRequired` to trigger an
   /// MRTR round-trip.
-  async fn get(Self, Json) -> Result[PromptGetOutcome, @types.MCPError]
+  async fn get(Self, @runtime.RequestContext, Json) -> Result[
+    PromptGetOutcome,
+    @types.MCPError,
+  ]
 }
-
-///|
-/// Explicit trait method promotion for current MoonBit toolchains.
-pub extend PromptDefinition with Eq::{not_equal, equal}
-
-///|
-pub extend PromptDefinition with @moonbitlang/core/debug.Debug::{to_repr}
 
 ///|
 pub extend PromptGetOutcome with Eq::{not_equal, equal}

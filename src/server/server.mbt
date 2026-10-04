@@ -17,6 +17,9 @@ pub(all) struct ActiveSubscription {
   filter : SubscriptionFilter
   /// Where to send notifications for this subscription.
   reply : @aqueue.Queue[String]
+  subscription_id : String
+  cancellation_token : @runtime.CancellationToken
+  cancellation_registration : @runtime.CancellationRegistration
 }
 
 ///|
@@ -104,16 +107,20 @@ pub struct MCPServer {
   /// Optional AEAD codec for MRTR `requestState`. When `None`, the server
   /// does not issue `input_required` results (MRTR disabled).
   request_state_codec : AesGcmStateCodec?
-  /// Wall-clock source (unix seconds) for MRTR expiry. Defaults to a stub
-  /// returning 0; production servers inject a real clock so `requestState`
-  /// expiry is enforced. Test servers inject a fixed value.
+  /// Wall-clock source (unix seconds) for MRTR expiry; tests may inject a fixed clock.
   clock : () -> Int
   registry : ToolRegistry
   resource_registry : ResourceRegistry
   prompt_registry : PromptRegistry
+  completion_registry : CompletionRegistry?
+  tools_enabled : Bool?
+  resources_enabled : Bool?
+  prompts_enabled : Bool?
   /// Active `subscriptions/listen` streams, keyed by subscription id (the
   /// listen request's JSON-RPC id, stringified).
   subscriptions : Map[String, ActiveSubscription]
+  active_requests : Map[String, @runtime.CancellationToken]
+  mut next_scope_id : Int
 }
 
 ///|
@@ -126,11 +133,17 @@ pub fn MCPServer::MCPServer(name : String, version : String) -> MCPServer {
     instructions: None,
     auth_config: None,
     request_state_codec: None,
-    clock: fn() { 0 },
+    clock: fn() { (@async.now() / 1000).to_int() },
     registry: ToolRegistry::ToolRegistry(),
     resource_registry: ResourceRegistry::ResourceRegistry(),
     prompt_registry: PromptRegistry::PromptRegistry(),
+    completion_registry: None,
+    tools_enabled: None,
+    resources_enabled: None,
+    prompts_enabled: None,
     subscriptions: {},
+    active_requests: {},
+    next_scope_id: 0,
   }
 }
 
@@ -140,8 +153,11 @@ fn MCPServer::register_tool(
   name : String,
   description : String,
   input_schema : Json,
-  handler : async (Json) -> Result[@tool.ToolCallOutcome, @types.MCPError],
-) -> Unit {
+  handler : async (@runtime.RequestContext, Json) -> Result[
+    @tool.ToolCallOutcome,
+    @types.MCPError,
+  ],
+) -> Unit raise @types.MCPError {
   self.registry.register(name, description, input_schema, handler)
 }
 
@@ -149,7 +165,7 @@ fn MCPServer::register_tool(
 fn[T : @tool.Tool] MCPServer::register_trait_tool(
   self : MCPServer,
   tool : T,
-) -> Unit {
+) -> Unit raise @types.MCPError {
   self.registry.register_trait_tool(tool)
 }
 
@@ -160,7 +176,10 @@ fn MCPServer::register_resource(
   name : String,
   description : String,
   mime_type : String,
-  handler : async () -> Result[@resource.ResourceReadResult, @types.MCPError],
+  handler : async (@runtime.RequestContext) -> Result[
+    @resource.ResourceReadResult,
+    @types.MCPError,
+  ],
 ) -> Unit {
   self.resource_registry.register_simple(
     uri, name, description, mime_type, handler,
@@ -174,7 +193,7 @@ fn MCPServer::register_resource_mrtr(
   name : String,
   description : String,
   mime_type : String,
-  handler : async (Json) -> Result[
+  handler : async (@runtime.RequestContext, Json) -> Result[
     @resource.ResourceReadOutcome,
     @types.MCPError,
   ],
@@ -204,7 +223,10 @@ fn MCPServer::register_prompt(
   name : String,
   description : String,
   arguments : Array[@types.PromptArgument],
-  handler : async (Json) -> Result[@types.GetPromptResult, @types.MCPError],
+  handler : async (@runtime.RequestContext, Json) -> Result[
+    @types.GetPromptResult,
+    @types.MCPError,
+  ],
 ) -> Unit {
   self.prompt_registry.register_simple(name, description, arguments, handler)
 }
@@ -215,7 +237,10 @@ fn MCPServer::register_prompt_mrtr(
   name : String,
   description : String,
   arguments : Array[@types.PromptArgument],
-  handler : async (Json) -> Result[@prompt.PromptGetOutcome, @types.MCPError],
+  handler : async (@runtime.RequestContext, Json) -> Result[
+    @prompt.PromptGetOutcome,
+    @types.MCPError,
+  ],
 ) -> Unit {
   self.prompt_registry.register(name, description, arguments, handler)
 }
@@ -253,9 +278,18 @@ fn MCPServer::register_resource_template(
 pub async fn MCPServer::handle_request(
   self : MCPServer,
   request_json : String,
+  principal? : @runtime.Principal,
+  cancellation_token? : @runtime.CancellationToken = @runtime.CancellationToken::new(),
+  progress_reporter? : @runtime.ProgressReporter,
 ) -> String {
   match parse_request_message(request_json) {
-    Ok(request) => self.handle_parsed_request(request)
+    Ok(request) =>
+      self.handle_parsed_request(
+        request,
+        principal?,
+        cancellation_token~,
+        progress_reporter?,
+      )
     Err(response) => response
   }
 }
@@ -305,22 +339,49 @@ fn is_notification_message(message : String) -> Bool {
 async fn MCPServer::handle_parsed_request(
   self : MCPServer,
   request : @types.JsonRpcRequest,
+  principal? : @runtime.Principal,
+  cancellation_token? : @runtime.CancellationToken = @runtime.CancellationToken::new(),
+  progress_reporter? : @runtime.ProgressReporter,
 ) -> String {
+  cancellation_token.throw_if_cancelled()
+  let meta = match request.params {
+    Object(params) =>
+      match params.get("_meta") {
+        Some(Object(meta)) => meta
+        _ => {}
+      }
+    _ => {}
+  }
+  let context = @runtime.RequestContext::new(
+    request.id,
+    meta~,
+    principal?,
+    cancellation_token~,
+    progress_reporter?,
+  )
   // Reject unsupported protocol versions early on every request path.
   match check_protocol_version(request.id, request.params) {
     Some(error_response) => return error_response
     None => ()
   }
+  if !self.supports_method(request.method_name) {
+    return jsonrpc_error_str(
+      request.id,
+      -32601,
+      "Capability is not enabled for " + request.method_name,
+    )
+  }
   match request.method_name {
     "server/discover" => handle_discover(self, request.id)
     "tools/list" => handle_tools_list(self, request.id)
-    "tools/call" => handle_tools_call(self, request.id, request.params)
+    "tools/call" => handle_tools_call(self, context, request.params)
     "resources/list" => handle_resources_list(self, request.id)
     "resources/templates/list" =>
       handle_resources_templates_list(self, request.id)
-    "resources/read" => handle_resources_read(self, request.id, request.params)
+    "resources/read" => handle_resources_read(self, context, request.params)
     "prompts/list" => handle_prompts_list(self, request.id)
-    "prompts/get" => handle_prompts_get(self, request.id, request.params)
+    "prompts/get" => handle_prompts_get(self, context, request.params)
+    "completion/complete" => handle_completion(self, context, request.params)
     // 2026-07-28 server: `initialize` was removed. Name the supported version
     // in the error so legacy clients get a clear signal.
     "initialize" =>
@@ -428,15 +489,33 @@ async fn MCPServer::handle_subscriptions_listen(
   self : MCPServer,
   request : @types.JsonRpcRequest,
   reply : @aqueue.Queue[String],
+  scope? : String = "",
+  cancellation_token? : @runtime.CancellationToken = @runtime.CancellationToken::new(),
 ) -> Unit {
-  let filter = parse_subscription_filter(request.params)
+  cancellation_token.throw_if_cancelled()
+  let filter = self.supported_subscription_filter(
+    parse_subscription_filter(request.params),
+  )
   let sub_id = request.id.to_json_string()
+  let key = scoped_request_key(scope, sub_id)
+  let cancellation_registration = cancellation_token.on_cancel(fn() {
+    self.subscriptions.remove(key)
+  })
   // Register before acknowledging so notifications aren't lost.
-  self.subscriptions.set(sub_id, { filter, reply, })
+  self.subscriptions.set(key, {
+    filter,
+    reply,
+    subscription_id: sub_id,
+    cancellation_token,
+    cancellation_registration,
+  })
   // Send the acknowledgment as the first stream message.
   let ack = subscriptions_acknowledged_str(request.id, filter)
   reply.put(ack) catch {
-    _ => self.subscriptions.remove(sub_id)
+    _ => {
+      cancellation_registration.dispose()
+      self.subscriptions.remove(key)
+    }
   }
 }
 
@@ -457,9 +536,15 @@ async fn MCPServer::notify_subscriptions(
     match self.subscriptions.get(id) {
       Some(sub) =>
         if SubscriptionFilter::matches(sub.filter, kind) {
-          let tagged = tag_notification_with_subscription(notification_json, id)
+          let tagged = tag_notification_with_subscription(
+            notification_json,
+            sub.subscription_id,
+          )
           sub.reply.put(tagged) catch {
-            _ => self.subscriptions.remove(id)
+            _ => {
+              sub.cancellation_registration.dispose()
+              self.subscriptions.remove(id)
+            }
           }
         }
       None => ()
@@ -520,8 +605,10 @@ pub async fn MCPServer::notify_prompts_list_changed(self : MCPServer) -> Unit {
 pub async fn MCPServer::close_subscription(
   self : MCPServer,
   subscription_id : String,
+  scope? : String = "",
 ) -> Unit {
-  match self.subscriptions.get(subscription_id) {
+  let key = scoped_request_key(scope, subscription_id)
+  match self.subscriptions.get(key) {
     Some(sub) => {
       let result : Map[String, Json] = Default::default()
       result.set("resultType", Json::string("complete"))
@@ -542,7 +629,8 @@ pub async fn MCPServer::close_subscription(
       sub.reply.put(response) catch {
         _ => ()
       }
-      self.subscriptions.remove(subscription_id)
+      sub.cancellation_registration.dispose()
+      self.subscriptions.remove(key)
     }
     None => ()
   }
@@ -553,9 +641,10 @@ pub async fn MCPServer::close_subscription(
 /// `notifications/cancelled` is treated specially when its `requestId` matches
 /// an active subscription: it triggers graceful closure of that subscription.
 /// Other notifications are swallowed as required by JSON-RPC 2.0.
-async fn MCPServer::handle_inbound_notification(
+fn MCPServer::handle_inbound_notification(
   self : MCPServer,
   message : String,
+  scope? : String = "",
 ) -> Unit {
   let json = @json.parse(message) catch { _ => return }
   if json is Object(obj) {
@@ -572,12 +661,21 @@ async fn MCPServer::handle_inbound_notification(
           _ => None
         }
         match request_id_str {
-          Some(id) =>
-            if self.subscriptions.contains(id) {
-              self.close_subscription(id) catch {
-                _ => ()
-              }
+          Some(id) => {
+            let key = scoped_request_key(scope, id)
+            match self.active_requests.get(key) {
+              Some(token) => token.cancel()
+              None => ()
             }
+            match self.subscriptions.get(key) {
+              Some(sub) => {
+                sub.cancellation_registration.dispose()
+                self.subscriptions.remove(key)
+                sub.cancellation_token.cancel()
+              }
+              None => ()
+            }
+          }
           None => ()
         }
       }
@@ -591,22 +689,20 @@ async fn MCPServer::handle_server_request(
   self : MCPServer,
   request : ServerRequest,
   group : @async.TaskGroup[Unit],
+  scope? : String = "",
+  principal? : @runtime.Principal,
+  cancellation_token? : @runtime.CancellationToken = @runtime.CancellationToken::new(),
 ) -> Unit {
-  // A message without an `id` is a notification (e.g. stdio
-  // `notifications/cancelled`): the receiver MUST NOT respond to the
-  // notification itself. Acting on cancellation (stopping in-flight work)
-  // is a follow-up; here we only close matching subscriptions.
   if is_notification_message(request.message) {
-    self.handle_inbound_notification(request.message) catch {
-      _ => ()
-    }
+    self.handle_inbound_notification(request.message, scope~)
+    return
+  }
+  if cancellation_token.is_cancelled() {
     return
   }
   match parse_request_message(request.message) {
     Err(response) => request.reply.put(response) catch { _ => () }
     Ok(parsed_request) => {
-      // Reject unsupported protocol versions before routing. This covers the
-      // stdio/HTTP common path, including subscriptions/listen.
       match check_protocol_version(parsed_request.id, parsed_request.params) {
         Some(error_response) => {
           request.reply.put(error_response) catch {
@@ -616,32 +712,22 @@ async fn MCPServer::handle_server_request(
         }
         None => ()
       }
-      // subscriptions/listen is a long-lived request: it registers a
-      // subscription, sends an acknowledgment, and stays open for future
-      // notifications. Handle it specially (not via handle_parsed_request,
-      // which returns a single response string).
       if parsed_request.method_name == "subscriptions/listen" {
-        group.spawn_bg(() => {
-          self.handle_subscriptions_listen(parsed_request, request.reply) catch {
-            _ => ()
-          }
-        })
-      } else if is_fast_method(parsed_request.method_name) {
-        let response = self.handle_parsed_request(parsed_request) catch {
-          _ => internal_error_response(parsed_request.id)
-        }
-        request.reply.put(response) catch {
-          _ => ()
-        }
+        self.handle_subscriptions_listen(
+          parsed_request,
+          request.reply,
+          scope~,
+          cancellation_token~,
+        )
       } else {
-        group.spawn_bg(() => {
-          let response = self.handle_parsed_request(parsed_request) catch {
-            _ => internal_error_response(parsed_request.id)
-          }
-          request.reply.put(response) catch {
-            _ => ()
-          }
-        })
+        self.dispatch_runtime_request(
+          parsed_request,
+          request.reply,
+          group,
+          scope,
+          principal,
+          cancellation_token,
+        )
       }
     }
   }
@@ -653,6 +739,8 @@ async fn MCPServer::run_stdio_transport(
   transport : @transport.StdioTransport,
   group : @async.TaskGroup[Unit],
 ) -> Unit raise @types.TransportError {
+  let scope = self.new_request_scope()
+  defer self.cancel_scope(scope)
   let response_queue : @aqueue.Queue[String] = @aqueue.Queue(
     kind=@aqueue.Kind::Unbounded,
   )
@@ -673,7 +761,11 @@ async fn MCPServer::run_stdio_transport(
         break
       }
       Some(message) =>
-        self.handle_server_request({ message, reply: response_queue, }, group) catch {
+        self.handle_server_request(
+          { message, reply: response_queue, },
+          group,
+          scope~,
+        ) catch {
           _ => ()
         }
     }
@@ -686,14 +778,23 @@ async fn MCPServer::run_http_transport(
   transport : @transport.HttpTransport,
   group : @async.TaskGroup[Unit],
 ) -> Unit raise @types.TransportError {
+  transport.set_tool_schema_resolver(fn(name) {
+    self.registry.tools.get(name).map(entry => entry.definition.input_schema)
+  })
   while true {
-    match transport.receive_request() {
+    match transport.receive_authenticated_request() {
       None => {
         transport.close()
         break
       }
-      Some((message, reply_queue)) =>
-        self.handle_server_request({ message, reply: reply_queue, }, group) catch {
+      Some(request) =>
+        self.handle_server_request(
+          { message: request.message, reply: request.reply, },
+          group,
+          scope=self.new_request_scope(),
+          principal?=request.principal,
+          cancellation_token=request.cancellation_token,
+        ) catch {
           _ => ()
         }
     }
@@ -720,7 +821,7 @@ async fn MCPServer::run_with_transport(
 pub fn[T : @tool.Tool] MCPServer::with_tool(
   self : MCPServer,
   tool : T,
-) -> MCPServer {
+) -> MCPServer raise @types.MCPError {
   self.register_trait_tool(tool)
   self
 }
@@ -731,19 +832,37 @@ pub fn MCPServer::tool(
   name : String,
   description : String,
   input_schema : Json,
-  handler : async (Json) -> Result[@tool.ToolResult, @types.MCPError],
-) -> MCPServer {
+  handler : async (@runtime.RequestContext, Json) -> Result[
+    @tool.ToolResult,
+    @types.MCPError,
+  ],
+) -> MCPServer raise @types.MCPError {
   // Convenience: simple tools return ToolResult and always complete.
   // Wrap into ToolCallOutcome for the registry.
   let wrapped = async fn(
+    context : @runtime.RequestContext,
     args : Json,
   ) -> Result[@tool.ToolCallOutcome, @types.MCPError] {
-    match handler(args) {
+    match handler(context, args) {
       Ok(r) => Ok(@tool.ToolCallOutcome::Complete(r))
       Err(e) => Err(e)
     }
   }
   self.register_tool(name, description, input_schema, wrapped)
+  self
+}
+
+///|
+/// Register the complete wire definition without projecting its schema or metadata.
+pub fn MCPServer::tool_definition(
+  self : MCPServer,
+  definition : @types.ToolDefinition,
+  handler : async (@runtime.RequestContext, Json) -> Result[
+    @tool.ToolCallOutcome,
+    @types.MCPError,
+  ],
+) -> MCPServer raise @types.MCPError {
+  self.registry.register_definition(definition, handler)
   self
 }
 
@@ -763,9 +882,34 @@ pub fn MCPServer::resource(
   name : String,
   description : String,
   mime_type : String,
-  handler : async () -> Result[@resource.ResourceReadResult, @types.MCPError],
+  handler : async (@runtime.RequestContext) -> Result[
+    @resource.ResourceReadResult,
+    @types.MCPError,
+  ],
 ) -> MCPServer {
   self.register_resource(uri, name, description, mime_type, handler)
+  self
+}
+
+///|
+pub fn MCPServer::resource_definition(
+  self : MCPServer,
+  definition : @types.ResourceDefinition,
+  handler : async (@runtime.RequestContext, Json) -> Result[
+    @resource.ResourceReadOutcome,
+    @types.MCPError,
+  ],
+) -> MCPServer {
+  self.resource_registry.register_definition(definition, handler)
+  self
+}
+
+///|
+pub fn MCPServer::resource_template_definition(
+  self : MCPServer,
+  definition : @types.ResourceTemplateDefinition,
+) -> MCPServer {
+  self.resource_registry.register_template_definition(definition)
   self
 }
 
@@ -784,9 +928,25 @@ pub fn MCPServer::prompt(
   name : String,
   description : String,
   arguments : Array[@types.PromptArgument],
-  handler : async (Json) -> Result[@types.GetPromptResult, @types.MCPError],
+  handler : async (@runtime.RequestContext, Json) -> Result[
+    @types.GetPromptResult,
+    @types.MCPError,
+  ],
 ) -> MCPServer {
   self.register_prompt(name, description, arguments, handler)
+  self
+}
+
+///|
+pub fn MCPServer::prompt_definition(
+  self : MCPServer,
+  definition : @types.PromptDefinition,
+  handler : async (@runtime.RequestContext, Json) -> Result[
+    @prompt.PromptGetOutcome,
+    @types.MCPError,
+  ],
+) -> MCPServer {
+  self.prompt_registry.register_definition(definition, handler)
   self
 }
 
@@ -816,7 +976,7 @@ pub fn MCPServer::resource_mrtr(
   name : String,
   description : String,
   mime_type : String,
-  handler : async (Json) -> Result[
+  handler : async (@runtime.RequestContext, Json) -> Result[
     @resource.ResourceReadOutcome,
     @types.MCPError,
   ],
@@ -843,7 +1003,10 @@ pub fn MCPServer::prompt_mrtr(
   name : String,
   description : String,
   arguments : Array[@types.PromptArgument],
-  handler : async (Json) -> Result[@prompt.PromptGetOutcome, @types.MCPError],
+  handler : async (@runtime.RequestContext, Json) -> Result[
+    @prompt.PromptGetOutcome,
+    @types.MCPError,
+  ],
 ) -> MCPServer {
   self.register_prompt_mrtr(name, description, arguments, handler)
   self
@@ -900,8 +1063,7 @@ pub fn MCPServer::with_request_state_codec(
 
 ///|
 /// Inject a wall-clock source (unix seconds) for MRTR `requestState` expiry.
-/// Production servers should pass a real clock; the default returns 0, which
-/// disables expiry enforcement (blobs never expire).
+/// The default uses the system clock; injection is useful for deterministic tests.
 pub fn MCPServer::with_clock(self : MCPServer, clock : () -> Int) -> MCPServer {
   { ..self, clock, }
 }

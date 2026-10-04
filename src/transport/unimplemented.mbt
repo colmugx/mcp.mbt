@@ -1,26 +1,6 @@
 ///| wasm-gc stub — transport I/O not available on this target
 
 ///|
-pub struct AuthConfig {
-  verify_token : (String) -> Bool
-  resource_metadata_url : String
-  authorization_servers : Array[String]
-  required_scopes : String?
-  allowed_origins : Array[String]?
-}
-
-///|
-pub fn AuthConfig::AuthConfig(
-  verify_token~ : (String) -> Bool,
-  resource_metadata_url~ : String,
-  authorization_servers? : Array[String] = [],
-  required_scopes? : String = "",
-  allowed_origins? : Array[String] = [],
-) -> AuthConfig {
-  abort("AuthConfig is not available on wasm-gc target")
-}
-
-///|
 pub struct StdioTransport {
   closed : Bool
 }
@@ -69,6 +49,7 @@ pub struct HttpTransport {
 pub fn HttpTransport::HttpTransport(
   port? : Int = 4240,
   endpoint_path? : String = "/mcp",
+  keepalive_interval_ms? : Int = 15000,
 ) -> HttpTransport {
   abort("HttpTransport is not available on wasm-gc target")
 }
@@ -104,6 +85,15 @@ pub async fn HttpTransport::send_notification(
 }
 
 ///|
+pub fn HttpTransport::set_tool_schema_resolver(
+  self : HttpTransport,
+  _resolver : (String) -> Json?,
+) -> Unit {
+  ignore(self)
+  abort("HttpTransport is not available on wasm-gc target")
+}
+
+///|
 pub fn HttpTransport::with_auth(
   self : HttpTransport,
   _auth : AuthConfig,
@@ -116,6 +106,14 @@ pub fn HttpTransport::with_auth(
 pub async fn HttpTransport::receive_request(
   self : HttpTransport,
 ) -> (String, @async.Queue[String])? raise @types.TransportError {
+  ignore(self)
+  abort("HttpTransport is not available on wasm-gc target")
+}
+
+///|
+pub async fn HttpTransport::receive_authenticated_request(
+  self : HttpTransport,
+) -> AuthenticatedRequest? raise @types.TransportError {
   ignore(self)
   abort("HttpTransport is not available on wasm-gc target")
 }

@@ -79,18 +79,37 @@ pub async fn MCPHost::connect_stdio(
 pub async fn MCPHost::list_tools(
   self : MCPHost,
 ) -> Result[ListToolsResult, @types.MCPError] {
-  let tools : Array[@types.ToolDefinition] = []
-  for entry in self.connections {
-    let (connection_name, client) = entry
+  let results : Map[String, ListToolsResult] = Map([])
+  for connection_name, client in self.connections {
     match client.list_tools() {
-      Ok(result) =>
-        for tool in result.tools {
-          tools.push({ ..tool, name: connection_name + "." + tool.name, })
-        }
-      Err(e) => return Err(e)
+      Ok(result) => results.set(connection_name, result)
+      Err(error) => return Err(error)
     }
   }
-  Ok({ tools, next_cursor: None, })
+  Ok(aggregate_tool_lists(results))
+}
+
+///|
+fn aggregate_tool_lists(
+  results : Map[String, ListToolsResult],
+) -> ListToolsResult {
+  let tools : Array[@types.ToolDefinition] = []
+  let sources : Map[String, Json] = Map([])
+  for connection_name, result in results {
+    for tool in result.tools {
+      tools.push({ ..tool, name: connection_name + "." + tool.name, })
+    }
+    let source : Map[String, Json] = { "metadata": result.metadata.to_json() }
+    match result.next_cursor {
+      Some(cursor) => source.set("nextCursor", Json::string(cursor))
+      None => ()
+    }
+    sources.set(connection_name, Json::object(source))
+  }
+  // Cache hints belong to each source, not to the synthetic aggregate.
+  let metadata = @types.ResultMetadata::empty()
+  metadata.extensions.set("dev.moonbit.mcp/hostSources", Json::object(sources))
+  { tools, next_cursor: None, metadata, }
 }
 
 ///|

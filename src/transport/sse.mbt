@@ -24,22 +24,66 @@ pub struct SseEventReader {
 /// Build a reader over one streaming response body. The refill closure is
 /// created once here; every `next` call scans the same lexbuf it fills.
 pub fn SseEventReader::new(client : @http.Client) -> SseEventReader {
-  // Malformed UTF-8 cannot be raised through `AsyncLexbuf`'s fixed generic
-  // refill signature, so the closure flags the failure and reports EOF to
-  // stop the scan; `next` raises the error after scanning unwinds.
+  sse_reader_from_bytes(() => client.read_some(max_len=8192))
+}
+
+///|
+/// Leave only a potentially incomplete trailing UTF-8 sequence for the next refill.
+fn utf8_complete_prefix(bytes : Bytes) -> Int {
+  if bytes.is_empty() {
+    return 0
+  }
+  let mut start = bytes.length() - 1
+  while start > 0 && bytes[start] >= 0x80 && bytes[start] <= 0xbf {
+    start -= 1
+  }
+  let size = match bytes[start] {
+    0xc2..=0xdf => 2
+    0xe0..=0xef => 3
+    0xf0..=0xf4 => 4
+    _ => 1
+  }
+  if bytes.length() - start < size {
+    start
+  } else {
+    bytes.length()
+  }
+}
+
+///|
+fn sse_reader_from_bytes(refill : async () -> Bytes?) -> SseEventReader {
   let decode_failed = Ref(false)
+  let tail = Ref(b"")
+  let first = Ref(true)
   let buf = @lexbuf.AsyncLexbuf::from_fn(() => {
-    let chunk = client.read_some(max_len=8192)
-    match chunk {
-      Some(bytes) =>
-        Some(@utf8.decode(bytes)) catch {
-          _ => {
+    while true {
+      let chunk = match refill() {
+        Some(chunk) => chunk
+        None => {
+          if !tail.val.is_empty() {
             decode_failed.val = true
-            None
           }
+          return None
         }
-      None => None
+      }
+      let bytes = tail.val + chunk
+      let end = utf8_complete_prefix(bytes)
+      tail.val = bytes[end:].to_owned()
+      if end == 0 {
+        continue
+      }
+      let decoded = @utf8.decode(bytes[:end], ignore_bom=first.val) catch {
+        _ => {
+          decode_failed.val = true
+          return None
+        }
+      }
+      first.val = false
+      if !decoded.is_empty() {
+        return Some(decoded)
+      }
     }
+    None
   })
   { buf, decode_failed, }
 }
@@ -47,10 +91,15 @@ pub fn SseEventReader::new(client : @http.Client) -> SseEventReader {
 ///|
 /// Scan the next event from the response stream, reusing the reader's
 /// persistent lexbuf so bytes buffered by earlier `next` calls are not lost.
-pub async fn SseEventReader::next(
-  self : SseEventReader,
-) -> (String?, String?) raise @types.TransportError {
-  let scanned = scan_sse_event(self.buf, [], None) catch { _ => (None, None) }
+pub async fn SseEventReader::next(self : SseEventReader) -> (String?, String?) {
+  let scanned = scan_sse_event(self.buf, [], None) catch {
+    error => {
+      if @async.is_being_cancelled() {
+        raise error
+      }
+      raise @types.ReadError("Failed to read SSE response: \{error}")
+    }
+  }
   if self.decode_failed.val {
     self.decode_failed.val = false
     raise @types.ReadError("SSE body is not valid UTF-8")
@@ -64,9 +113,7 @@ pub async fn SseEventReader::next(
 /// response stream and call `next` repeatedly instead — each `read_sse_event`
 /// call starts a fresh lexbuf, dropping any trailing bytes buffered from its
 /// own scan.
-pub async fn read_sse_event(
-  client : @http.Client,
-) -> (String?, String?) raise @types.TransportError {
+pub async fn read_sse_event(client : @http.Client) -> (String?, String?) {
   SseEventReader::new(client).next()
 }
 
@@ -92,8 +139,8 @@ pub enum SseEventVerdict {
 /// carries an `id` but no data lines. None of those are JSON-RPC messages —
 /// queueing an empty payload desyncs response matching (initialize would
 /// parse the empty string), and treating a heartbeat as EOF ends the scan
-/// before the real reply arrives. A heartbeat with neither data nor id is
-/// indistinguishable from EOF by the scan result and still ends the stream.
+/// before the real reply arrives. The scanner absorbs comment-only events
+/// without data or id internally; `(None, None)` therefore signals EOF.
 pub fn sse_event_verdict(data : String?, id : String?) -> SseEventVerdict {
   match data {
     Some(event_json) =>
@@ -128,7 +175,12 @@ async fn scan_sse_event(
       )
     // Blank line: dispatch what has accumulated. Comment-only events
     // (heartbeats) carry the id but no payload.
-    re"^(\r\n|\r|\n)" => (join_sse_data(data), event_id)
+    re"^(\r\n|\r|\n)" =>
+      if data.is_empty() && event_id is None {
+        scan_sse_event(buf, [], None)
+      } else {
+        (join_sse_data(data), event_id)
+      }
     // Comment line.
     re"^:[^\n\r]*(\r\n|\r|\n)?" => scan_sse_event(buf, data, event_id)
     // Unknown field line.

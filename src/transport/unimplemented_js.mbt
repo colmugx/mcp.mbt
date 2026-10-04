@@ -8,39 +8,6 @@
 /// `--deny-warn`.
 
 ///|
-/// Server-side authentication configuration (MCP spec 2026-07-28).
-#warnings("-struct_never_constructed")
-pub struct AuthConfig {
-  /// Validate a Bearer token. Return true if the token is valid.
-  verify_token : (String) -> Bool
-  /// URL of this resource for WWW-Authenticate and metadata responses.
-  resource_metadata_url : String
-  /// Authorization server URLs for Protected Resource Metadata (RFC 9728).
-  authorization_servers : Array[String]
-  /// Required scopes (e.g. "mcp:read mcp:write"). None = no scope check.
-  required_scopes : String?
-  /// Allowed Origins for DNS rebinding prevention. None = loopback-only
-  /// default policy (see `origin_allowed`).
-  allowed_origins : Array[String]?
-}
-
-///|
-pub fn AuthConfig::AuthConfig(
-  verify_token~ : (String) -> Bool,
-  resource_metadata_url~ : String,
-  authorization_servers? : Array[String] = [],
-  required_scopes? : String = "",
-  allowed_origins? : Array[String] = [],
-) -> AuthConfig {
-  ignore(verify_token)
-  ignore(resource_metadata_url)
-  ignore(authorization_servers)
-  ignore(required_scopes)
-  ignore(allowed_origins)
-  abort("AuthConfig is not available on js target")
-}
-
-///|
 /// Not available on js — the stdio server transport requires process pipes.
 /// The constructor is intentionally inert (not an abort): connect_*_legacy
 /// wraps a Legacy client in a dummy StdioTransport that is never used for
@@ -106,6 +73,7 @@ pub struct HttpTransport {
 pub fn HttpTransport::HttpTransport(
   port? : Int = 4240,
   endpoint_path? : String = "/mcp",
+  keepalive_interval_ms? : Int = 15000,
 ) -> HttpTransport {
   abort("HttpTransport is not available on js target")
 }
@@ -149,6 +117,15 @@ pub async fn HttpTransport::send_notification(
 }
 
 ///|
+pub fn HttpTransport::set_tool_schema_resolver(
+  self : HttpTransport,
+  _resolver : (String) -> Json?,
+) -> Unit {
+  ignore(self)
+  abort("HttpTransport is not available on js target")
+}
+
+///|
 #warnings("-unused_value")
 pub fn HttpTransport::with_auth(
   self : HttpTransport,
@@ -163,6 +140,15 @@ pub fn HttpTransport::with_auth(
 pub async fn HttpTransport::receive_request(
   self : HttpTransport,
 ) -> (String, @async.Queue[String])? raise @types.TransportError {
+  ignore(self)
+  abort("HttpTransport is not available on js target")
+}
+
+///|
+#warnings("-unused_value-unused_async-unused_error_type")
+pub async fn HttpTransport::receive_authenticated_request(
+  self : HttpTransport,
+) -> AuthenticatedRequest? raise @types.TransportError {
   ignore(self)
   abort("HttpTransport is not available on js target")
 }

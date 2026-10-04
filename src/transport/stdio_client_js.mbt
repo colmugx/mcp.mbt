@@ -178,6 +178,7 @@ pub struct StdioClientTransport {
   args : Array[String]
   extra_env : Map[String, String]
   mut closed : Bool
+  send_mutex : @async.Mutex
   /// Buffered stdout reader; `Some` marks the transport as started.
   priv mut reader : &@io.Reader?
   /// Cancels the from_js copy coroutine and the underlying JS stream.
@@ -198,6 +199,7 @@ pub fn StdioClientTransport::StdioClientTransport(
     args,
     extra_env,
     closed: false,
+    send_mutex: @async.Mutex::Mutex(),
     reader: None,
     stop_reader: fn() { () },
     child: None,
@@ -342,7 +344,7 @@ fn env_vals(extra : Map[String, String]) -> Array[String] {
 /// Returns None on EOF (child closed stdout / process exited).
 pub async fn StdioClientTransport::receive(
   self : StdioClientTransport,
-) -> String? raise @types.TransportError {
+) -> String? {
   if self.closed {
     return None
   }
@@ -352,10 +354,7 @@ pub async fn StdioClientTransport::receive(
       raise @types.InvalidState("Transport not started — call start() first")
   }
   let line_opt = reader.read_until("\n") catch {
-    e =>
-      raise @types.ReadError(
-        "Failed to read from child process: " + e.to_string(),
-      )
+    e => raise transport_read_error(e, "Failed to read from child process: ")
   }
   match line_opt {
     None => {
@@ -379,7 +378,9 @@ pub async fn StdioClientTransport::receive(
 pub async fn StdioClientTransport::send(
   self : StdioClientTransport,
   message : String,
-) -> Unit raise @types.TransportError {
+) -> Unit {
+  self.send_mutex.acquire()
+  defer self.send_mutex.release()
   if self.closed {
     raise @types.InvalidState("Cannot send on closed transport")
   }
@@ -393,11 +394,9 @@ pub async fn StdioClientTransport::send(
       raise @types.WriteError("Invalid JSON-RPC message: " + e.message())
     Ok(_) => ()
   }
+  errdefer self.close()
   writer_write(writer, message + "\n").wait() catch {
-    e =>
-      raise @types.WriteError(
-        "Failed to write to child stdin: " + e.to_string(),
-      )
+    e => raise transport_write_error(e, "Failed to write to child stdin: ")
   }
 }
 
@@ -406,7 +405,9 @@ pub async fn StdioClientTransport::send(
 pub async fn StdioClientTransport::send_notification(
   self : StdioClientTransport,
   notification : @types.Notification,
-) -> Unit raise @types.TransportError {
+) -> Unit {
+  self.send_mutex.acquire()
+  defer self.send_mutex.release()
   if self.closed {
     raise @types.InvalidState("Cannot send on closed transport")
   }
@@ -416,9 +417,9 @@ pub async fn StdioClientTransport::send_notification(
       raise @types.InvalidState("Transport not started — call start() first")
   }
   let json = notification.to_jsonrpc_string()
+  errdefer self.close()
   writer_write(writer, json + "\n").wait() catch {
-    e =>
-      raise @types.WriteError("Failed to send notification: " + e.to_string())
+    e => raise transport_write_error(e, "Failed to send notification: ")
   }
 }
 

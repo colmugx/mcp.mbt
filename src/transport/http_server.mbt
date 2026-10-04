@@ -1,52 +1,11 @@
 ///|
-/// Server-side authentication configuration (MCP spec 2026-07-28).
-/// Provides Bearer token validation, Protected Resource Metadata,
-/// and Origin header validation for DNS rebinding prevention.
-pub struct AuthConfig {
-  /// Validate a Bearer token. Return true if the token is valid.
-  verify_token : (String) -> Bool
-  /// URL of this resource for WWW-Authenticate and metadata responses.
-  resource_metadata_url : String
-  /// Authorization server URLs for Protected Resource Metadata (RFC 9728).
-  authorization_servers : Array[String]
-  /// Required scopes (e.g. "mcp:read mcp:write"). None = no scope check.
-  required_scopes : String?
-  /// Allowed Origins for DNS rebinding prevention. None = loopback-only
-  /// default policy (see `origin_allowed`).
-  allowed_origins : Array[String]?
-}
-
-///|
-pub fn AuthConfig::AuthConfig(
-  verify_token~ : (String) -> Bool,
-  resource_metadata_url~ : String,
-  authorization_servers? : Array[String] = [],
-  required_scopes? : String = "",
-  allowed_origins? : Array[String] = [],
-) -> AuthConfig {
-  {
-    verify_token,
-    resource_metadata_url,
-    authorization_servers,
-    required_scopes: if required_scopes == "" {
-      None
-    } else {
-      Some(required_scopes)
-    },
-    allowed_origins: if allowed_origins.is_empty() {
-      None
-    } else {
-      Some(allowed_origins)
-    },
-  }
-}
-
-///|
 pub struct HttpTransport {
   port : Int
   endpoint_path : String
   auth : AuthConfig?
-  pending_requests : @async.Queue[(String, @async.Queue[String])]
+  keepalive_interval_ms : Int
+  tool_schema_resolver : Ref[(String) -> Json?]
+  pending_requests : @async.Queue[AuthenticatedRequest]
   pending_reply_queues : Map[String, @async.Queue[String]]
 }
 
@@ -54,14 +13,29 @@ pub struct HttpTransport {
 pub fn HttpTransport::HttpTransport(
   port? : Int = 4240,
   endpoint_path? : String = "/mcp",
+  keepalive_interval_ms? : Int = 15000,
 ) -> HttpTransport {
+  guard keepalive_interval_ms > 0 else {
+    abort("SSE keepalive interval must be positive")
+  }
   {
     port,
     endpoint_path,
     auth: None,
+    keepalive_interval_ms,
+    tool_schema_resolver: Ref(fn(_) { None }),
     pending_requests: @async.Queue(kind=Unbounded),
     pending_reply_queues: {},
   }
+}
+
+///|
+/// Attach a live tool-schema lookup before serving calls; MCPServer installs its registry.
+pub fn HttpTransport::set_tool_schema_resolver(
+  self : HttpTransport,
+  resolver : (String) -> Json?,
+) -> Unit {
+  self.tool_schema_resolver.val = resolver
 }
 
 ///|
@@ -183,7 +157,7 @@ pub async fn HttpTransport::start(
       None => ()
     }
     // Auth validation (when configured)
-    match self.auth {
+    let principal = match self.auth {
       Some(auth) => {
         // Token validation
         let auth_header = match req.headers.get("authorization") {
@@ -205,7 +179,8 @@ pub async fn HttpTransport::start(
           return
         }
         let token = auth_header[7:].trim().to_owned()
-        if !(auth.verify_token)(token) {
+        let authenticated = (auth.authenticate)(token)
+        if authenticated is None {
           let www_auth = "Bearer resource_metadata=\"" +
             auth.resource_metadata_url +
             "\", error=\"invalid_token\""
@@ -215,8 +190,9 @@ pub async fn HttpTransport::start(
           conn.end_response()
           return
         }
+        authenticated
       }
-      None => ()
+      None => None
     }
     log_stderr("[HttpTransport] Request to " + req.path + "\n")
     match req.meth {
@@ -242,8 +218,21 @@ pub async fn HttpTransport::start(
           Ok(_) => ()
         }
         let reply_queue = @async.Queue(kind=Blocking(1))
+        let cancellation_token = @runtime.CancellationToken::new()
+        let completed = Ref(false)
+        defer {
+          if !completed.val {
+            cancellation_token.cancel()
+          }
+          reply_queue.close(clear=true)
+        }
         try {
-          self.pending_requests.put((message, reply_queue))
+          self.pending_requests.put({
+            message,
+            reply: reply_queue,
+            principal,
+            cancellation_token,
+          })
           if is_notif {
             // JSON-RPC notification: accept and close immediately. The server
             // handler consumes the queued notification; no reply is expected.
@@ -263,6 +252,7 @@ pub async fn HttpTransport::start(
                 conn.send_response(200, "OK", extra_headers={
                   "Content-Type": "text/event-stream",
                   "X-Accel-Buffering": "no",
+                  "Cache-Control": "no-cache",
                   "MCP-Protocol-Version": @types.ProtocolVersion,
                 })
                 // ServerConnection writes are buffered; without an explicit
@@ -271,14 +261,31 @@ pub async fn HttpTransport::start(
                 conn.flush()
                 conn.write(sse_event_line(first))
                 conn.flush()
-                while true {
-                  let msg = reply_queue.get()
-                  conn.write(sse_event_line(msg))
-                  conn.flush()
-                  if classify_jsonrpc_message(msg) is FinalResponse {
-                    break
+                @async.with_task_group(group => {
+                  // Keepalive travels through the same queue: exactly one task owns socket writes.
+                  // This detects disconnects without consuming pipelined HTTP request bytes.
+                  group.spawn_bg(
+                    () => {
+                      while true {
+                        @async.sleep(self.keepalive_interval_ms)
+                        reply_queue.put(": keepalive\n\n")
+                      }
+                    },
+                    no_wait=true,
+                  )
+                  while true {
+                    let msg = reply_queue.get()
+                    if msg == ": keepalive\n\n" {
+                      conn.write(msg)
+                    } else {
+                      conn.write(sse_event_line(msg))
+                    }
+                    conn.flush()
+                    if classify_jsonrpc_message(msg) is FinalResponse {
+                      break
+                    }
                   }
-                }
+                })
                 conn.end_response()
               }
               _ => {
@@ -298,11 +305,11 @@ pub async fn HttpTransport::start(
               }
             }
           }
+          completed.val = true
         } catch {
-          _ => {
-            conn.send_response(500, "Internal Server Error")
-            conn.end_response()
-          }
+          _ =>
+            // A response may already be streaming. Never send a second status line after I/O failure.
+            conn.close()
         }
       }
       _ => {
@@ -328,8 +335,8 @@ pub async fn HttpTransport::start(
 /// - `Mcp-Method` present and matches body `method` for requests.
 /// - `Mcp-Name` present for tools/call|resources/read|prompts/get requests
 ///   and matches body `params.name` (or `params.uri` for resources/read).
-/// - `Mcp-Name`/`Mcp-Param-*` values contain only permitted characters or
-///   a valid Base64 sentinel encoding.
+/// - `Mcp-Name` and recognized `Mcp-Param-*` values decode safely and match
+///   their body values; annotated non-null parameters require headers.
 /// - Requests (notifications excluded) carry the required `params._meta`
 ///   fields `io.modelcontextprotocol/protocolVersion` (string) and
 ///   `io.modelcontextprotocol/clientCapabilities` (object) per basic/index
@@ -457,17 +464,32 @@ fn HttpTransport::validate_request_headers(
       _ => ()
     }
   }
-  // Character-set check for any Mcp-Param-* headers. This server has no
-  // tool-schema awareness, so it cannot compare values against body arguments;
-  // it only rejects header values containing characters outside the safe set
-  // (or a valid Base64 sentinel) per spec
-  // basic/transports/streamable-http#value-encoding.
-  for k, v in req.headers {
-    if k.0.to_lower().has_prefix("mcp-param-") {
-      match validate_header_value_characters(k.0, v, body~) {
-        Err(e) => return Err(e)
-        Ok(_) => ()
-      }
+  if !is_notif && body_method == "tools/call" {
+    match extract_body_string(json, "params", "name") {
+      Some(name) =>
+        match (self.tool_schema_resolver.val)(name) {
+          Some(schema) => {
+            let arguments = match json {
+              Object(fields) =>
+                match fields.get("params") {
+                  Some(Object(params)) =>
+                    params.get("arguments").unwrap_or(Json::object({}))
+                  _ => Json::object({})
+                }
+              _ => Json::object({})
+            }
+            let headers : Array[(String, String)] = []
+            for name, value in req.headers {
+              headers.push((name.0, value))
+            }
+            match validate_tool_parameter_headers(schema, arguments, headers) {
+              Ok(_) => ()
+              Err(reason) => return Err(header_mismatch_error(reason, body~))
+            }
+          }
+          None => ()
+        }
+      None => ()
     }
   }
   // Required body `_meta` fields (requests only; notifications carry no
@@ -510,50 +532,14 @@ fn validate_name_header(
   body~ : String,
 ) -> Result[Unit, String] {
   let expected = body_value.unwrap_or("")
-  match decode_base64_sentinel(header_value) {
-    Some(decoded) =>
-      if decoded != expected {
-        return Err(
-          header_mismatch_error(
-            "Mcp-Name header does not match body value",
-            body~,
-          ),
-        )
-      }
-    None => {
-      if !is_valid_header_characters(header_value) {
-        return Err(
-          header_mismatch_error("Invalid characters in Mcp-Name header", body~),
-        )
-      }
-      if header_value != expected {
-        return Err(
-          header_mismatch_error(
-            "Mcp-Name header does not match body value",
-            body~,
-          ),
-        )
-      }
-    }
+  let decoded = match decode_mirrored_header(header_value) {
+    Ok(value) => value
+    Err(reason) =>
+      return Err(header_mismatch_error("Mcp-Name: " + reason, body~))
   }
-  Ok(())
-}
-
-///|
-/// Reject header values that contain characters outside the permitted HTTP
-/// header value set unless they are encoded as a Base64 sentinel. `body` is
-/// the raw request body, used to echo the request `id` in error responses.
-fn validate_header_value_characters(
-  name : String,
-  value : String,
-  body~ : String,
-) -> Result[Unit, String] {
-  if looks_like_sentinel(value) {
-    return Ok(())
-  }
-  if !is_valid_header_characters(value) {
+  if decoded != expected {
     return Err(
-      header_mismatch_error("Invalid characters in " + name + " header", body~),
+      header_mismatch_error("Mcp-Name header does not match body value", body~),
     )
   }
   Ok(())
@@ -603,15 +589,22 @@ fn extract_body_string(body : Json, parent : String, child : String) -> String? 
 }
 
 ///|
+pub async fn HttpTransport::receive_authenticated_request(
+  self : HttpTransport,
+) -> AuthenticatedRequest? raise @types.TransportError {
+  Some(self.pending_requests.get()) catch {
+    e => raise @types.ReadError(e.to_string())
+  }
+}
+
+///|
+/// Low-level compatibility adapter. Runtime consumers should retain the authenticated envelope.
 pub async fn HttpTransport::receive_request(
   self : HttpTransport,
 ) -> (String, @async.Queue[String])? raise @types.TransportError {
-  try {
-    let req = self.pending_requests.get()
-    Some(req)
-  } catch {
-    e => raise @types.ReadError(e.to_string())
-  }
+  self
+  .receive_authenticated_request()
+  .map(fn(request) { (request.message, request.reply) })
 }
 
 ///|
