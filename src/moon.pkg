@@ -5,4 +5,5 @@ import {
   "colmugx/mcp/server",
   "colmugx/mcp/client",
   "colmugx/mcp/runtime",
+  "colmugx/mcp/validation",
 }

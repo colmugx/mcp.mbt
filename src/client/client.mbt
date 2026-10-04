@@ -517,7 +517,7 @@ fn MCPClient::maybe_store_server_info(
   self : MCPClient,
   response_str : String,
 ) -> Unit {
-  let json = @json.parse(response_str) catch { _ => return }
+  let json = @validation.parse_json(response_str) catch { _ => return }
   if json is Object(obj) {
     match obj.get("result") {
       Some(result_json) => {
@@ -599,7 +599,7 @@ fn MCPClient::check_input_required(
   response : String,
 ) -> Result[InputRequiredInfo?, @types.MCPError] {
   ignore(self)
-  let json = @json.parse(response) catch { _ => return Ok(None) }
+  let json = @validation.parse_json(response) catch { _ => return Ok(None) }
   let result = match json {
     Object(obj) =>
       match obj.get("result") {
@@ -841,7 +841,7 @@ fn build_retry_request(
   responses : Map[String, Json],
   request_state : String?,
 ) -> String {
-  let orig = @json.parse(original) catch { _ => return original }
+  let orig = @validation.parse_json(original) catch { _ => return original }
   if !(orig is Object(_)) {
     return original
   }
@@ -1637,7 +1637,7 @@ fn extract_subscription_id(params : Json?) -> String? {
 fn parse_jsonrpc_response(
   response_str : String,
 ) -> Result[Json, @types.MCPError] {
-  let json = @json.parse(response_str) catch {
+  let json = @validation.parse_json(response_str) catch {
     _ => return Err(@types.ParseError("Invalid JSON response"))
   }
   match json {

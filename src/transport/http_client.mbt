@@ -325,7 +325,7 @@ pub fn HttpClientTransport::close(self : HttpClientTransport) -> Unit {
 /// Used to mirror `method` (and `params.name`/`params.uri` below) into the
 /// `Mcp-Method` / `Mcp-Name` request headers.
 fn extract_field(body : String, field : String) -> String? {
-  let json = @json.parse(body) catch { _ => return None }
+  let json = @validation.parse_json(body) catch { _ => return None }
   if json is Object(obj) {
     match obj.get(field) {
       Some(String(s)) => Some(s)
@@ -341,7 +341,7 @@ fn extract_field(body : String, field : String) -> String? {
 /// `params.name` for tools/call|prompts/get, `params.uri` for resources/read.
 /// Returns None for methods that do not require `Mcp-Name`.
 fn extract_name_field(body : String) -> String? {
-  let json = @json.parse(body) catch { _ => return None }
+  let json = @validation.parse_json(body) catch { _ => return None }
   if json is Object(obj) {
     let met = match obj.get("method") {
       Some(String(m)) => m
@@ -370,7 +370,7 @@ fn extract_name_field(body : String) -> String? {
 /// value is `null`. Converts string, safe integer, and boolean values to their
 /// header string representations.
 pub fn extract_argument_value(body : String, path : Array[String]) -> String? {
-  let json = @json.parse(body) catch { _ => return None }
+  let json = @validation.parse_json(body) catch { _ => return None }
   if json is Object(obj) {
     match obj.get("params") {
       Some(Object(params)) =>
@@ -401,8 +401,8 @@ fn get_json_path_value(
   }
   match current {
     Some(String(s)) => Some(s)
-    Some(Number(n, ..)) =>
-      if is_safe_integer(n) {
+    Some(value) if value is Number(n, ..) =>
+      if @validation.is_safe_integer(value) {
         Some(n.to_int64().to_string())
       } else {
         // Non-integer or out-of-JS-safe-range numbers are not emitted as
@@ -414,14 +414,4 @@ fn get_json_path_value(
     Some(Null) | None => None
     _ => None
   }
-}
-
-///|
-/// Returns `true` when `n` is an integer within the JavaScript safe integer
-/// range (`-(2^53-1)` to `2^53-1`).
-fn is_safe_integer(n : Double) -> Bool {
-  let i = n.to_int64()
-  let min : Int64 = -9007199254740991L
-  let max : Int64 = 9007199254740991L
-  n == i.to_double() && i >= min && i <= max
 }

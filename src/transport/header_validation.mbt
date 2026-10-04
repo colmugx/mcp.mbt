@@ -31,21 +31,13 @@ fn header_matches_argument(decoded : String, value : Json) -> Bool {
     String(expected) => decoded == expected
     True => decoded == "true"
     False => decoded == "false"
-    Number(expected, ..) => {
-      if expected.is_nan() ||
-        expected.is_inf() ||
-        expected < -9007199254740991 ||
-        expected > 9007199254740991 ||
-        expected != expected.to_int64().to_double() {
+    Number(_, ..) => {
+      if !@validation.is_safe_integer(value) {
         return false
       }
-      // Compare integer bodies numerically (42 and 42.0 have the same meaning).
-      let actual = @json.parse(decoded) catch { _ => return false }
-      match actual {
-        Number(actual, ..) =>
-          !actual.is_nan() && !actual.is_inf() && actual == expected
-        _ => false
-      }
+      let actual = @validation.parse_json(decoded) catch { _ => return false }
+      @validation.is_safe_integer(actual) &&
+      @validation.json_equal(actual, value)
     }
     _ => false
   }

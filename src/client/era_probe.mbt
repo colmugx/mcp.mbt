@@ -140,7 +140,7 @@ fn build_legacy_meta(progress_token? : @types.ProgressToken) -> Json {
 /// server. If `meta` is empty, `_meta` is removed entirely; otherwise it is
 /// replaced with the provided legacy meta.
 fn apply_legacy_meta_to_request(request : String, meta : Json) -> String {
-  let json = @json.parse(request) catch { _ => return request }
+  let json = @validation.parse_json(request) catch { _ => return request }
   if json is Object(obj) {
     match obj.get("params") {
       Some(Object(params)) => {
