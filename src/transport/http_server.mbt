@@ -354,7 +354,7 @@ fn HttpTransport::validate_request_headers(
   is_notif~ : Bool,
 ) -> Result[Unit, String] {
   ignore(self)
-  let json = @json.parse(body) catch {
+  let json = @validation.parse_json(body) catch {
     _ => return Err(header_mismatch_error("malformed JSON body", body~))
   }
   let body_method = if json is Object(obj) {

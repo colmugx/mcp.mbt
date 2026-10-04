@@ -19,6 +19,8 @@ pub fn get_optional_string(Json, String) -> Result[String?, @types.ToolResult]
 
 pub fn get_string(Json, String) -> Result[String, @types.ToolResult]
 
+pub fn parse_json(StringView) -> Json raise @types.MCPError
+
 pub fn simple_tool(String, String, (@runtime.RequestContext, Json) -> @types.ToolResult) -> @core.ToolWrapper
 
 pub fn[Args : @core.Params, Ret : @core.ToToolResult] tool_fn((@runtime.RequestContext, Args) -> Ret, name~ : String, description~ : String) -> @core.ToolWrapper

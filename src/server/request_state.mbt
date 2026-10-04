@@ -305,7 +305,7 @@ fn payload_to_json(payload : RequestStatePayload) -> String {
 ///|
 /// Parse a payload from JSON. Inverse of `payload_to_json`.
 fn parse_payload_json(s : String) -> RequestStatePayload? {
-  let json = @json.parse(s) catch { _ => return None }
+  let json = @validation.parse_json(s) catch { _ => return None }
   if !(json is Object(_)) {
     return None
   }

@@ -1,6 +1,8 @@
 ///|
 priv struct ToolEntry {
   definition : @types.ToolDefinition
+  input_validator : @validation.CompiledSchema
+  output_validator : @validation.CompiledSchema?
   handler : async (@runtime.RequestContext, Json) -> Result[
     @tool.ToolCallOutcome,
     @types.MCPError,
@@ -43,13 +45,27 @@ fn ToolRegistry::register_definition(
     @types.MCPError,
   ],
 ) -> Unit raise @types.MCPError {
-  ignore(@types.ToolDefinition::from_json(definition.to_json()))
+  let definition = @types.ToolDefinition::from_json(
+    @validation.owned_json(definition.to_json()),
+  )
   match @transport.validate_tool_header_schema(definition.input_schema) {
     Invalid(reason) =>
       raise @types.InvalidParams("Invalid tool header schema: " + reason)
     Valid(_) => ()
   }
-  self.tools.set(definition.name, { definition, handler, })
+  let input_validator = @validation.CompiledSchema::compile(
+    definition.input_schema,
+    "inputSchema",
+  )
+  let output_validator = definition.output_schema.map(schema => {
+    @validation.CompiledSchema::compile(schema, "outputSchema")
+  })
+  self.tools.set(definition.name, {
+    definition,
+    input_validator,
+    output_validator,
+    handler,
+  })
 }
 
 ///|
@@ -70,8 +86,33 @@ async fn ToolRegistry::call_tool(
 ) -> Result[@tool.ToolCallOutcome, @types.MCPError] {
   match self.tools.get(name) {
     Some(entry) => {
-      let handler = entry.handler
-      handler(context, params)
+      entry.input_validator.check_input(params) catch {
+        error => return Err(error)
+      }
+      context.cancellation_token.throw_if_cancelled()
+      let outcome = (entry.handler)(context, params)
+      context.cancellation_token.throw_if_cancelled()
+      match outcome {
+        Ok(@tool.Complete(result)) => {
+          if result.is_error != Some(true) &&
+            entry.output_validator is Some(validator) {
+            let value = match result.structured_content {
+              Some(value) => value
+              None =>
+                return Err(
+                  @types.InternalError(
+                    "Tool declared outputSchema but successful result has no structuredContent",
+                  ),
+                )
+            }
+            validator.check_output(value) catch {
+              error => return Err(error)
+            }
+          }
+          outcome
+        }
+        _ => outcome
+      }
     }
     None => Err(@types.InvalidParams("Tool not found: " + name))
   }

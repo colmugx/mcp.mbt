@@ -1,4 +1,8 @@
 ///|
+/// Parse schema/instance JSON without discarding numeric literal precision.
+pub using @validation {parse_json}
+
+///|
 /// Protocol types
 pub using @ptypes {
   type MCPError,

@@ -298,7 +298,7 @@ pub async fn MCPServer::handle_request(
 fn parse_request_message(
   request_json : String,
 ) -> Result[@types.JsonRpcRequest, String] {
-  let parsed = @json.parse(request_json) catch {
+  let parsed = @validation.parse_json(request_json) catch {
     _ => return Err(jsonrpc_error_str_no_id(-32700, "Parse error"))
   }
   match @types.JsonRpcRequest::from_json(parsed) {

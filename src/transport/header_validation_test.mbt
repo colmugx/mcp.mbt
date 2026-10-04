@@ -140,6 +140,21 @@ test "mirrored headers decode UTF8 sentinel values once and reject malformed enc
 
 ///|
 test "mirrored integer headers preserve safe range without truncation" {
+  let fractional = @validation.parse_json("42.0000000000000000000000000000001")
+  for
+    (body, header) in [
+      (fractional, "42"),
+      (Json::number(42), "42.0000000000000000000000000000001"),
+    ] {
+    assert_true(
+      @transport.validate_tool_parameter_headers(
+        mirror_schema(),
+        { "nested": { "count": body } },
+        [("Mcp-Param-Count", header)],
+      )
+      is Err(_),
+    )
+  }
   for value in [9007199254740991.0, -9007199254740991.0, 2147483648.0] {
     assert_true(
       @transport.validate_tool_parameter_headers(

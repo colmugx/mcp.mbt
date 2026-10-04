@@ -62,7 +62,7 @@ fn build_tools_list_request(
 
 ///|
 fn parse_argument_object(arguments : String) -> Json raise @types.MCPError {
-  let value = @json.parse(arguments) catch {
+  let value = @validation.parse_json(arguments) catch {
     _ => raise @types.InvalidParams("Arguments must be valid JSON")
   }
   guard value is Object(_) else {

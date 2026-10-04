@@ -6,6 +6,7 @@ import {
   "colmugx/mcp/protocol/core",
   "colmugx/mcp/transport",
   "colmugx/mcp/runtime",
+  "colmugx/mcp/validation",
   "moonbitlang/core/json",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/async",
