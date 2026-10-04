@@ -1,0 +1,193 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/mcp"
+
+import {
+  "colmugx/mcp/client",
+  "colmugx/mcp/protocol/core",
+  "colmugx/mcp/protocol/tool",
+  "colmugx/mcp/protocol/types",
+  "colmugx/mcp/runtime",
+  "colmugx/mcp/server",
+}
+
+// Values
+pub fn get_number(Json, String) -> Result[Double, @types.ToolResult]
+
+pub fn get_optional_number(Json, String) -> Result[Double?, @types.ToolResult]
+
+pub fn get_optional_string(Json, String) -> Result[String?, @types.ToolResult]
+
+pub fn get_string(Json, String) -> Result[String, @types.ToolResult]
+
+pub fn parse_json(StringView) -> Json raise @types.MCPError
+
+pub fn simple_tool(String, String, (@runtime.RequestContext, Json) -> @types.ToolResult) -> @core.ToolWrapper
+
+pub fn[Args : @core.Params, Ret : @core.ToToolResult] tool_fn((@runtime.RequestContext, Args) -> Ret, name~ : String, description~ : String) -> @core.ToolWrapper
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+pub using @types {type Annotations}
+
+pub using @types {type CacheScope}
+
+pub using @types {type ToolResult as CallToolResult}
+
+pub using @runtime {type CancellationToken}
+
+pub using @types {type ClientCapabilities}
+
+pub using @types {type CompleteRequestParams}
+
+pub using @types {type CompletionArgument}
+
+pub using @types {type CompletionContext}
+
+pub using @types {type CompletionReference}
+
+pub using @server {type CompletionRegistry}
+
+pub using @types {type CompletionResult}
+
+pub using @types {type ContentBlock}
+
+pub using @types {type ContentMetadata}
+
+pub using @types {type CreateMessageRequest}
+
+pub using @types {type CreateMessageResult}
+
+pub using @types {type DiscoverResult}
+
+pub using @types {type ElicitationAction}
+
+pub using @types {type ElicitationCapabilities}
+
+pub using @types {type ElicitationRequest}
+
+pub using @types {type ElicitationResult}
+
+pub using @types {type ElicitationValue}
+
+pub using @types {type GetPromptResult}
+
+pub using @types {type Icon}
+
+pub using @types {type IconTheme}
+
+pub using @types {type InputRequestEntry}
+
+pub using @types {type InputRequestKind}
+
+pub using @types {type JsonRpcRequest}
+
+pub using @core {type JsonSchema}
+
+pub using @client {type ListPromptsResult}
+
+pub using @client {type ListResourcesResult}
+
+pub using @client {type ListToolsResult}
+
+pub using @client {type MCPClient}
+
+pub using @types {type MCPError}
+
+pub using @client {type MCPHost}
+
+pub using @server {type MCPServer}
+
+pub using @types {type ModelHint}
+
+pub using @types {type ModelPreferences}
+
+pub using @tool {type ParamDef}
+
+pub using @runtime {type Principal}
+
+pub using @types {type ProgressNotification}
+
+pub using @runtime {type ProgressReporter}
+
+pub using @types {type ProgressToken}
+
+pub using @types {type PromptArgument}
+
+pub using @types {type PromptCapabilities}
+
+pub using @types {type PromptDefinition}
+
+pub using @types {type PromptMessage}
+
+pub using @client {type ReadResourceResult}
+
+pub using @runtime {type RequestCancelled}
+
+pub using @runtime {type RequestContext}
+
+pub using @types {type RequestId}
+
+pub using @types {type ResourceCapabilities}
+
+pub using @types {type ResourceContents}
+
+pub using @types {type ResourceData}
+
+pub using @types {type ResourceDefinition}
+
+pub using @types {type ResourceLinkData}
+
+pub using @types {type ResourceReadResult}
+
+pub using @types {type ResourceTemplateDefinition}
+
+pub using @types {type ResultMetadata}
+
+pub using @types {type Role}
+
+pub using @types {type RootCapabilities}
+
+pub using @types {type SamplingCapabilities}
+
+pub using @types {type SamplingContent}
+
+pub using @types {type SamplingContentBlock}
+
+pub using @types {type SamplingContext}
+
+pub using @types {type SamplingMessage}
+
+pub using @types {type ServerCapabilities}
+
+pub using @types {type ServerInfo}
+
+pub using @types {type ToolAnnotations}
+
+pub using @tool {type ToolCallOutcome}
+
+pub using @types {type ToolCapabilities}
+
+pub using @types {type ToolChoice}
+
+pub using @types {type ToolChoiceMode}
+
+pub using @types {type ToolDefinition}
+
+pub using @core {type ToolError}
+
+pub using @types {type ToolResult}
+
+pub using @types {type ToolResultContent}
+
+pub using @types {type ToolUseContent}
+
+pub using @types {type TransportError}
+
+pub using @core {trait Params}
+
+pub using @tool {trait Tool}
+
+// Traits

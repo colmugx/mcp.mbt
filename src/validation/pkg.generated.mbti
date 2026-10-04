@@ -1,0 +1,29 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/mcp/validation"
+
+import {
+  "colmugx/mcp/protocol/types",
+}
+
+// Values
+pub fn is_safe_integer(Json) -> Bool
+
+pub fn json_equal(Json, Json) -> Bool
+
+pub fn owned_json(Json) -> Json raise @types.MCPError
+
+pub fn parse_json(StringView) -> Json raise @types.MCPError
+
+// Errors
+
+// Types and methods
+pub struct CompiledSchema {
+  // private fields
+}
+pub fn CompiledSchema::check_input(Self, Json) -> Unit raise @types.MCPError
+pub fn CompiledSchema::check_output(Self, Json) -> Unit raise @types.MCPError
+pub fn CompiledSchema::compile(Json, String) -> Self raise @types.MCPError
+
+// Type aliases
+
+// Traits

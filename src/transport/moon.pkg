@@ -1,0 +1,62 @@
+import {
+  "colmugx/mcp/protocol/types",
+  "colmugx/mcp/runtime",
+  "colmugx/mcp/validation",
+  "gmlewis/base64",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/json",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/lexbuf",
+  "moonbitlang/async/stdio",
+  "moonbitlang/async/http",
+  "moonbitlang/async/socket",
+  "moonbitlang/async/process",
+  "moonbitlang/async",
+  "moonbitlang/async/io",
+  "moonbitlang/async/js_async",
+}
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/quickcheck" @qc,
+} for "test"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/core/quickcheck" @qc,
+  "moonbitlang/async/js_async",
+} for "wbtest"
+
+// js/wasm-gc gate out the I/O source files, so their imports (stdio/socket/
+// process) are unused on those targets; unused_package is noise for gated
+// packages and cannot be suppressed per-target or per-file.
+
+warnings = "-unused_package"
+
+// http_client/sse rely on @http.Client streaming APIs, which moonbitlang/
+// async ships only for native+wasm (client.mbt) and js (client.js.mbt); they
+// are absent under wasm-gc, where unimplemented.mbt provides abort stubs.
+
+options(
+  targets: {
+    "unimplemented.mbt": [ "wasm-gc" ],
+    "unimplemented_js.mbt": [ "js" ],
+    "stdio.mbt": [ "native", "wasm" ],
+    "stdio_client.mbt": [ "native", "wasm" ],
+    "stdio_client_js.mbt": [ "js" ],
+    "stdio_client_js_wbtest.mbt": [ "js" ],
+    "stdio_frame_io_test.mbt": [ "native", "js" ],
+    "http_server.mbt": [ "native", "wasm" ],
+    "http_client.mbt": [ "native", "js", "wasm" ],
+    "cancellation.mbt": [ "native", "js", "wasm" ],
+    "http_client_lifecycle_wbtest.mbt": [ "native", "js", "wasm" ],
+    "sse.mbt": [ "native", "js", "wasm" ],
+    "sse_wbtest.mbt": [ "native", "js", "wasm" ],
+    "http_compliance_test.mbt": [ "native", "js", "wasm" ],
+    "transport_io_test.mbt": [ "native", "wasm" ],
+    "http_compliance_io_test.mbt": [ "native", "wasm" ],
+    "sse_flush_io_test.mbt": [ "native" ],
+    "cancellation_io_test.mbt": [ "native" ],
+  },
+)

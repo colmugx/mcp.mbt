@@ -1,0 +1,11 @@
+import {
+  "colmugx/mcp",
+  "moonbitlang/async",
+}
+
+pkgtype(kind: "executable")
+
+// Native CLI example; async runtime entry points are unavailable outside
+// native/js/wasm and the CLI is only exercised on native.
+
+supported_targets = "native"

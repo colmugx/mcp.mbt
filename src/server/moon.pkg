@@ -1,0 +1,27 @@
+import {
+  "colmugx/mcp/protocol/types",
+  "colmugx/mcp/protocol/tool",
+  "colmugx/mcp/protocol/resource",
+  "colmugx/mcp/protocol/prompt",
+  "colmugx/mcp/protocol/core",
+  "colmugx/mcp/transport",
+  "colmugx/mcp/runtime",
+  "colmugx/mcp/validation",
+  "moonbitlang/core/json",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/async",
+  "moonbitlang/async/aqueue",
+  "cc06b/mooncry/lib" @mooncry,
+  "Tigls/mb-getrandom/lib" @getrandom,
+  "gmlewis/base64",
+}
+
+import {
+  "moonbitlang/async",
+  "moonbitlang/core/debug",
+} for "test"
+
+import {
+  "moonbitlang/async",
+  "moonbitlang/core/debug",
+} for "wbtest"

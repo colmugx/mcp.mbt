@@ -1,0 +1,39 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/mcp/protocol/prompt"
+
+import {
+  "colmugx/mcp/protocol/types",
+  "colmugx/mcp/runtime",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) enum PromptGetOutcome {
+  Complete(@types.GetPromptResult)
+  InputRequired(input_requests~ : Map[String, @types.InputRequestEntry], state~ : Json)
+} derive(Eq, @debug.Debug)
+pub fn PromptGetOutcome::equal(Self, Self) -> Bool
+pub fn PromptGetOutcome::not_equal(Self, Self) -> Bool
+pub fn PromptGetOutcome::to_repr(Self) -> @debug.Repr
+
+// Type aliases
+pub using @types {type PromptDefinition}
+
+// Traits
+pub(open) trait Prompt {
+  fn name(Self) -> String
+  fn description(Self) -> String
+  fn arguments(Self) -> Array[@types.PromptArgument]
+  async fn get(Self, @runtime.RequestContext, Json) -> Result[@types.GetPromptResult, @types.MCPError]
+}
+
+pub(open) trait PromptMRTR {
+  fn name(Self) -> String
+  fn description(Self) -> String
+  fn arguments(Self) -> Array[@types.PromptArgument]
+  async fn get(Self, @runtime.RequestContext, Json) -> Result[PromptGetOutcome, @types.MCPError]
+}
