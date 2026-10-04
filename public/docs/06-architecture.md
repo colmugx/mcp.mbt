@@ -4,29 +4,33 @@ The SDK separates into four layers. Each layer only depends on the ones above it
 
 ## Protocol
 
-Protocol packages (`protocol/types`, `protocol/tool`, `protocol/resource`, `protocol/prompt`, `protocol/core`) define JSON-RPC and MCP data types plus codecs. They are pure data and serialization code with no async-runtime ownership, so they compile and test identically on every target.
+`protocol/types` owns wire models and codecs: pure data and serialization, without transport I/O. The tool/resource/prompt/core packages re-export those models and define handler traits/helpers. Those handler APIs depend on the public `runtime` package's `RequestContext`, but do not own transport tasks. Pure wire codecs are tested on native and js; platform I/O follows the transport target gates.
 
 ## Runtime
 
 Runtime code owns concurrency semantics.
 
-`ServerRuntime` responsibilities:
+`MCPServer` owns server runtime responsibilities:
 
 - parse each request once
 - classify fast and slow methods
 - dispatch server handlers
 - serialize stdio output
-- preserve HTTP per-request reply queues
+- preserve HTTP per-request reply queues and trusted principals
+- restore and bind stateless MRTR continuation state
+- cancel scoped in-flight tasks and suppress late responses/progress
 
-`ClientRuntime` responsibilities:
+The public `runtime` package supplies `RequestContext`, `Principal`, `CancellationToken`, and `ProgressReporter`; it does not hide an additional `ServerRuntime` object that applications must construct.
+
+`MCPClient` owns client runtime responsibilities:
 
 - allocate request IDs
 - store pending response queues
 - dispatch responses by JSON-RPC id
 - dispatch notifications
-- answer server-to-client requests
+- fulfill MRTR input requests in modern mode; answer server-to-client requests only in legacy mode
 
-`HostRuntime` responsibilities:
+`MCPHost` owns host responsibilities:
 
 - own multiple named clients
 - aggregate tool lists under `connection.tool` names

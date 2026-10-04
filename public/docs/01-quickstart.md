@@ -38,7 +38,7 @@ supported_targets = "native"
 async fn main {
   @mcp.MCPServer("notes", "1.0.0")
   .with_instructions("A tiny demo server.")
-  .tool("echo", "Echo text back", Json::object({}), fn(args) {
+  .tool("echo", "Echo text back", Json::object({ "type": "object" }), fn(_context, args) {
     match @mcp.get_string(args, "text") {
       Ok(text) => Ok(@mcp.ToolResult::text(text))
       Err(e) => Ok(e) // e is the ready-made error ToolResult
