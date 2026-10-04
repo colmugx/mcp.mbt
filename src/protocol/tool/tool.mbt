@@ -1,16 +1,12 @@
 ///|
-/// Tool execution result following MCP protocol format
-pub struct ToolResult {
-  content : Array[@types.ContentBlock]
-  is_error : Bool
-} derive(Eq, Debug)
+pub using @types {type ToolResult}
 
 ///|
 /// Outcome of a tool execution. Per the 2026-07-28 MRTR pattern, a tool may
 /// either complete normally (`Complete`) or request additional client input
 /// (`InputRequired`). On retry, the client resubmits with `inputResponses`
-/// and the echoed `requestState`; the tool then receives those responses via
-/// its arguments and returns `Complete`.
+/// and the echoed `requestState`; the tool receives responses and restored state
+/// through `RequestContext`, without modifying its business arguments.
 pub(all) enum ToolCallOutcome {
   /// Normal completion — the tool finished and produced a result.
   Complete(ToolResult)
@@ -23,24 +19,6 @@ pub(all) enum ToolCallOutcome {
     state~ : Json
   )
 } derive(Eq, Debug)
-
-///|
-/// Create a successful result with text content
-pub fn ToolResult::text(text : String) -> ToolResult {
-  { content: [@types.ContentBlock::text(text)], is_error: false, }
-}
-
-///|
-/// Create a successful result with multiple content items
-pub fn ToolResult::success(content : Array[@types.ContentBlock]) -> ToolResult {
-  { content, is_error: false, }
-}
-
-///|
-/// Create an error result with error message
-pub fn ToolResult::error(message : String) -> ToolResult {
-  { content: [@types.ContentBlock::text(message)], is_error: true, }
-}
 
 ///|
 /// Parameter definition for tool schema
@@ -60,7 +38,7 @@ pub(open) trait Tool {
   /// Execute the tool. Returns `Complete` for a normal result, or
   /// `InputRequired` to trigger an MRTR round-trip (the client will be asked
   /// for input and the request retried with `inputResponses`).
-  async fn execute(Self, Json) -> ToolCallOutcome
+  async fn execute(Self, @runtime.RequestContext, Json) -> ToolCallOutcome
 }
 
 ///|
@@ -126,13 +104,6 @@ pub fn get_optional_number(
     _ => Err(ToolResult::error("Expected JSON object"))
   }
 }
-
-///|
-/// Explicit trait method promotion for current MoonBit toolchains.
-pub extend ToolResult with Eq::{not_equal, equal}
-
-///|
-pub extend ToolResult with @moonbitlang/core/debug.Debug::{to_repr}
 
 ///|
 pub extend ToolCallOutcome with Eq::{not_equal, equal}

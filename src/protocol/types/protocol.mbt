@@ -16,9 +16,13 @@ pub(all) struct ServerInfo {
 
 ///|
 pub(all) struct ServerCapabilities {
+  experimental : Map[String, Json]?
+  logging : Map[String, Json]?
+  completions : Map[String, Json]?
   tools : ToolCapabilities?
   resources : ResourceCapabilities?
   prompts : PromptCapabilities?
+  extra_fields : Map[String, Json]
   /// Optional protocol extensions, per 2026-07-28 versioning: a map of
   /// extension identifiers (following `_meta` key naming rules) to
   /// per-extension settings objects.
@@ -27,25 +31,21 @@ pub(all) struct ServerCapabilities {
 
 ///|
 pub(all) struct ToolCapabilities {
-  list_changed : Bool
+  list_changed : Bool?
+  extra_fields : Map[String, Json]
 } derive(Debug, Eq)
 
 ///|
 pub(all) struct ResourceCapabilities {
-  subscribe : Bool
-  list_changed : Bool
+  subscribe : Bool?
+  list_changed : Bool?
+  extra_fields : Map[String, Json]
 } derive(Debug, Eq)
 
 ///|
 pub(all) struct PromptCapabilities {
-  list_changed : Bool
-} derive(Debug, Eq)
-
-///|
-pub(all) struct ToolDefinition {
-  name : String
-  description : String
-  input_schema : Json
+  list_changed : Bool?
+  extra_fields : Map[String, Json]
 } derive(Debug, Eq)
 
 ///|
@@ -68,6 +68,14 @@ pub fn RequestId::to_json_string(self : RequestId) -> String {
 }
 
 ///|
+pub fn RequestId::to_json(self : RequestId) -> Json {
+  match self {
+    Int(value) => Json::number(value.to_double())
+    Str(value) => Json::string(value)
+  }
+}
+
+///|
 pub(all) struct JsonRpcRequest {
   jsonrpc : String
   id : RequestId
@@ -78,20 +86,24 @@ pub(all) struct JsonRpcRequest {
 ///|
 pub(all) struct PromptArgument {
   name : String
+  title : String?
   description : String?
   required : Bool?
+  extensions : Map[String, Json]
 } derive(Debug, Eq)
 
 ///|
 pub(all) struct PromptMessage {
   role : String
   content : ContentBlock
+  extensions : Map[String, Json]
 } derive(Debug, Eq)
 
 ///|
 pub(all) struct GetPromptResult {
   description : String?
   messages : Array[PromptMessage]
+  metadata : ResultMetadata
 } derive(Debug, Eq)
 
 ///|

@@ -162,7 +162,7 @@ async test "cancel_request on stdio client takes the send path" {
     @transport.StdioClientTransport::StdioClientTransport(cmd="cat"),
   )
   let client = MCPClient::MCPClient(name="t", version="1", transport~)
-  match client.cancel_request("5", reason="test") {
+  match client.cancel_request(@types.RequestId::Int(5), reason="test") {
     Err(@types.InternalError(msg)) =>
       assert_true(msg.contains("Failed to send cancellation"))
     _ => panic()
@@ -178,7 +178,7 @@ async test "cancel_request on non-client stdio transport is unsupported" {
     @transport.StdioTransport::StdioTransport(),
   )
   let client = MCPClient::MCPClient(name="t", version="1", transport~)
-  match client.cancel_request("5") {
+  match client.cancel_request(@types.RequestId::Int(5)) {
     Err(@types.InternalError(msg)) =>
       assert_true(msg.contains("not supported for this transport"))
     _ => panic()

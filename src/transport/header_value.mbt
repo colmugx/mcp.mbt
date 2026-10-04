@@ -27,7 +27,7 @@ pub fn decode_base64_sentinel(value : String) -> String? {
   let suffix = "?="
   if value.has_prefix(prefix) &&
     value.has_suffix(suffix) &&
-    value.length() > prefix.length() + suffix.length() {
+    value.length() >= prefix.length() + suffix.length() {
     let encoded = value[prefix.length():value.length() - suffix.length()]
     match decode_base64(encoded.to_owned()) {
       Some(bytes) => Some(@utf8.decode(bytes[:])) catch { _ => None }

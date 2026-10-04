@@ -91,3 +91,77 @@ async test "HttpTransport SSE stream delivers events before end_response" {
     server_task.cancel()
   })
 }
+
+///|
+async test "SSE disconnect cancels its authenticated envelope and server stays alive" {
+  let transport = @transport.HttpTransport::HttpTransport(
+    port=47333,
+    keepalive_interval_ms=10,
+  ).with_auth(
+    @transport.AuthConfig(
+      authenticate=fn(token) {
+        if token == "valid" {
+          Some(@runtime.Principal::new("alice", scopes=["read"]))
+        } else {
+          None
+        }
+      },
+      resource_metadata_url="http://127.0.0.1:47333/.well-known/oauth-protected-resource",
+    ),
+  )
+  let client = @transport.HttpClientTransport::HttpClientTransport(
+    "http://127.0.0.1:47333/mcp",
+    auth_token="valid",
+  )
+  let cancelled : @async.Queue[Unit] = @async.Queue(kind=Unbounded)
+  let retained : Ref[@transport.AuthenticatedRequest?] = Ref(None)
+  let request = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"subscriptions/listen\",\"params\":{\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":\"2026-07-28\",\"io.modelcontextprotocol/clientCapabilities\":{}}}}"
+  let first = "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/message\",\"params\":{}}"
+  @async.with_task_group(group => {
+    group.spawn_bg(() => {
+      let envelope = transport.receive_authenticated_request().unwrap()
+      assert_eq(envelope.principal.map(fn(p) { p.id }), Some("alice"))
+      retained.val = Some(envelope)
+      ignore(
+        envelope.cancellation_token.on_cancel(fn() {
+          ignore(cancelled.try_put(()) catch { _ => false })
+        }),
+      )
+      envelope.reply.put(first)
+      let next = transport.receive_authenticated_request().unwrap()
+      next.reply.put(
+        "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"resultType\":\"complete\"}}",
+      )
+    })
+    let server_task = group.spawn(() => transport.start() catch { _ => () })
+    wait_for_listen(@socket.Addr::parse("127.0.0.1:47333"))
+    let sender = group.spawn(() => {
+      client.send(request) catch {
+        error => if !@async.is_cancellation_error(error) { raise error }
+      }
+    })
+    match @async.with_timeout_opt(3000, () => client.receive()) {
+      Some(Some(event)) => assert_eq(event, first)
+      _ => fail("SSE first event did not arrive")
+    }
+    sender.cancel()
+    match @async.with_timeout_opt(3000, () => cancelled.get()) {
+      Some(_) => ()
+      None => fail("disconnected SSE request was not cancelled")
+    }
+    let envelope = retained.val.unwrap()
+    assert_true(envelope.cancellation_token.is_cancelled())
+    try envelope.reply.try_put("late") catch {
+      _ => ()
+    } noraise {
+      _ => fail("disconnected reply queue must be closed")
+    }
+    let next_client = @transport.HttpClientTransport::HttpClientTransport(
+      "http://127.0.0.1:47333/mcp",
+      auth_token="valid",
+    )
+    next_client.send(request.replace(old="\"id\":1", new="\"id\":2"))
+    assert_true(next_client.receive() is Some(_))
+    server_task.cancel()
+  })
+}

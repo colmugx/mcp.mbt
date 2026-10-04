@@ -2,12 +2,7 @@
 /// Fixed `_meta` used by request-builder tests below. Kept stable so the
 /// expected JSON snapshots remain deterministic.
 fn test_meta() -> Json {
-  build_request_meta("test-client", "1.0.0", {
-    roots: None,
-    sampling: None,
-    elicitation: None,
-    extensions: None,
-  })
+  build_request_meta("test-client", "1.0.0", @types.ClientCapabilities::new())
 }
 
 ///|
@@ -427,14 +422,14 @@ test "parse_completion_result rejects non-object completion" {
 /// === cancel_request transport gating (A9a) ===
 
 ///|
-async test "cancel_request on HTTP transport rejects with SSE-stream guidance" {
+async test "cancel_request rejects an HTTP id not owned by this client" {
   let transport = @transport.AnyTransport::HttpClient(
     @transport.HttpClientTransport::HttpClientTransport("http://127.0.0.1:9/"),
   )
   let client = MCPClient::MCPClient(name="t", version="1", transport~)
-  match client.cancel_request("1") {
+  match client.cancel_request(@types.RequestId::Int(1)) {
     Err(@types.InternalError(msg)) =>
-      assert_true(msg.contains("closing the SSE response stream"))
+      assert_true(msg.contains("No active HTTP request with this id"))
     _ => panic()
   }
 }

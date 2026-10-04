@@ -4,4 +4,5 @@ import {
   "colmugx/mcp/protocol/core" @pcore,
   "colmugx/mcp/server",
   "colmugx/mcp/client",
+  "colmugx/mcp/runtime",
 }

@@ -2,10 +2,11 @@
 
 ///|
 priv struct PromptEntry {
-  name : String
-  description : String
-  arguments : Array[@types.PromptArgument]
-  handler : async (Json) -> Result[@prompt.PromptGetOutcome, @types.MCPError]
+  definition : @types.PromptDefinition
+  handler : async (@runtime.RequestContext, Json) -> Result[
+    @prompt.PromptGetOutcome,
+    @types.MCPError,
+  ]
 }
 
 ///|
@@ -24,9 +25,27 @@ fn PromptRegistry::register(
   name : String,
   description : String,
   arguments : Array[@types.PromptArgument],
-  handler : async (Json) -> Result[@prompt.PromptGetOutcome, @types.MCPError],
+  handler : async (@runtime.RequestContext, Json) -> Result[
+    @prompt.PromptGetOutcome,
+    @types.MCPError,
+  ],
 ) -> Unit {
-  self.prompts.set(name, { name, description, arguments, handler, })
+  self.register_definition(
+    @types.PromptDefinition::new(name, description~, arguments~),
+    handler,
+  )
+}
+
+///|
+fn PromptRegistry::register_definition(
+  self : PromptRegistry,
+  definition : @types.PromptDefinition,
+  handler : async (@runtime.RequestContext, Json) -> Result[
+    @prompt.PromptGetOutcome,
+    @types.MCPError,
+  ],
+) -> Unit {
+  self.prompts.set(definition.name, { definition, handler, })
 }
 
 ///|
@@ -35,12 +54,16 @@ fn PromptRegistry::register_simple(
   name : String,
   description : String,
   arguments : Array[@types.PromptArgument],
-  handler : async (Json) -> Result[@types.GetPromptResult, @types.MCPError],
+  handler : async (@runtime.RequestContext, Json) -> Result[
+    @types.GetPromptResult,
+    @types.MCPError,
+  ],
 ) -> Unit {
   let wrapped = async fn(
+    context : @runtime.RequestContext,
     params : Json,
   ) -> Result[@prompt.PromptGetOutcome, @types.MCPError] {
-    match handler(params) {
+    match handler(context, params) {
       Ok(result) => Ok(@prompt.PromptGetOutcome::Complete(result))
       Err(e) => Err(e)
     }
@@ -57,9 +80,10 @@ fn[T : @prompt.Prompt] PromptRegistry::register_trait_prompt(
   let description = prompt.description()
   let arguments = prompt.arguments()
   let handler = async fn(
+    context : @runtime.RequestContext,
     params : Json,
   ) -> Result[@prompt.PromptGetOutcome, @types.MCPError] {
-    match prompt.get(params) {
+    match prompt.get(context, params) {
       Ok(result) => Ok(@prompt.PromptGetOutcome::Complete(result))
       Err(e) => Err(e)
     }
@@ -76,9 +100,10 @@ fn[T : @prompt.PromptMRTR] PromptRegistry::register_trait_prompt_mrtr(
   let description = prompt.description()
   let arguments = prompt.arguments()
   let handler = async fn(
+    context : @runtime.RequestContext,
     params : Json,
   ) -> Result[@prompt.PromptGetOutcome, @types.MCPError] {
-    prompt.get(params)
+    prompt.get(context, params)
   }
   self.register(name, description, arguments, handler)
 }
@@ -88,26 +113,21 @@ fn PromptRegistry::list_prompts(
   self : PromptRegistry,
 ) -> Array[@prompt.PromptDefinition] {
   let entries : Array[PromptEntry] = Array::from_iter(self.prompts.values())
-  entries.sort_by(fn(a, b) { a.name.compare(b.name) })
-  entries.map(fn(entry) {
-    {
-      name: entry.name,
-      description: Some(entry.description),
-      arguments: Some(entry.arguments),
-    }
-  })
+  entries.sort_by(fn(a, b) { a.definition.name.compare(b.definition.name) })
+  entries.map(fn(entry) { entry.definition })
 }
 
 ///|
 async fn PromptRegistry::get_prompt(
   self : PromptRegistry,
   name : String,
+  context : @runtime.RequestContext,
   args : Json,
 ) -> Result[@prompt.PromptGetOutcome, @types.MCPError] {
   match self.prompts.get(name) {
     Some(entry) => {
       let handler = entry.handler
-      handler(args)
+      handler(context, args)
     }
     None => Err(@types.MethodNotFound("Prompt not found: " + name))
   }

@@ -40,7 +40,7 @@ pub(all) struct ToolWrapper {
   name_impl : () -> String
   description_impl : () -> String
   params_impl : () -> Array[@tool.ParamDef]
-  execute_impl : (Json) -> @tool.ToolResult
+  execute_impl : (@runtime.RequestContext, Json) -> @tool.ToolResult
 }
 
 ///|
@@ -61,15 +61,15 @@ pub impl @tool.Tool for ToolWrapper with fn params(self) -> Array[
 }
 
 ///|
-pub impl @tool.Tool for ToolWrapper with fn execute(self, json) -> @tool.ToolCallOutcome {
+pub impl @tool.Tool for ToolWrapper with fn execute(self, context, json) -> @tool.ToolCallOutcome {
   // ToolWrapper wraps a simple complete-or-error handler; it never triggers
   // MRTR input_required on its own.
-  @tool.ToolCallOutcome::Complete((self.execute_impl)(json))
+  @tool.ToolCallOutcome::Complete((self.execute_impl)(context, json))
 }
 
 ///|
 pub fn[Args : Params, Ret : ToToolResult] tool_fn(
-  handler : (Args) -> Ret,
+  handler : (@runtime.RequestContext, Args) -> Ret,
   name~ : String,
   description~ : String,
 ) -> ToolWrapper {
@@ -103,10 +103,10 @@ pub fn[Args : Params, Ret : ToToolResult] tool_fn(
       }
       params
     },
-    execute_impl: fn(json) -> @tool.ToolResult {
+    execute_impl: fn(context, json) -> @tool.ToolResult {
       try {
         let args = Args::from_json(json)
-        let result = handler(args)
+        let result = handler(context, args)
         result.to_tool_result()
       } catch {
         ToolError(msg) => @tool.ToolResult::error("Parameter error: " + msg)
@@ -119,7 +119,7 @@ pub fn[Args : Params, Ret : ToToolResult] tool_fn(
 pub fn simple_tool(
   name : String,
   description : String,
-  handler : (Json) -> @tool.ToolResult,
+  handler : (@runtime.RequestContext, Json) -> @tool.ToolResult,
 ) -> ToolWrapper {
   {
     name_impl: fn() -> String { name },

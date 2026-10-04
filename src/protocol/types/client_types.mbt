@@ -9,9 +9,11 @@ pub(all) struct ClientInfo {
 ///|
 /// Client Capabilities — declared during initialization
 pub(all) struct ClientCapabilities {
+  experimental : Map[String, Json]?
   roots : RootCapabilities?
   sampling : SamplingCapabilities?
   elicitation : ElicitationCapabilities?
+  extra_fields : Map[String, Json]
   /// Optional protocol extensions, per 2026-07-28 versioning: a map of
   /// extension identifiers (following `_meta` key naming rules) to
   /// per-extension settings objects.
@@ -21,17 +23,24 @@ pub(all) struct ClientCapabilities {
 ///|
 /// Root Capabilities — client can provide filesystem roots
 pub(all) struct RootCapabilities {
-  list_changed : Bool
+  list_changed : Bool?
+  extra_fields : Map[String, Json]
 } derive(Debug, Eq)
 
 ///|
 /// Sampling Capabilities — client supports LLM sampling requests
-pub(all) struct SamplingCapabilities {} derive(Debug, Eq)
+pub(all) struct SamplingCapabilities {
+  context : Map[String, Json]?
+  tools : Map[String, Json]?
+  extra_fields : Map[String, Json]
+} derive(Debug, Eq)
 
 ///|
 /// Elicitation Capabilities — client supports user interaction requests
 pub(all) struct ElicitationCapabilities {
-  form : Bool
+  form : Map[String, Json]?
+  url : Map[String, Json]?
+  extra_fields : Map[String, Json]
 } derive(Debug, Eq)
 
 ///|
@@ -44,52 +53,74 @@ pub(all) struct Root {
 ///|
 /// SamplingMessage — a message within a sampling/createMessage request
 pub(all) struct SamplingMessage {
-  role : String
-  content : ContentBlock
+  role : Role
+  content : SamplingContent
+  meta : Map[String, Json]?
+  extensions : Map[String, Json]
 } derive(Debug, Eq)
 
 ///|
 /// CreateMessageRequest — server asks client to sample an LLM
 pub(all) struct CreateMessageRequest {
   messages : Array[SamplingMessage]
-  max_tokens : Int
+  max_tokens : Double
+  model_preferences : ModelPreferences?
   system_prompt : String?
-  include_context : String?
+  include_context : SamplingContext?
   temperature : Double?
   stop_sequences : Array[String]?
-  metadata : Json?
+  metadata : Map[String, Json]?
+  tools : Array[ToolDefinition]?
+  tool_choice : ToolChoice?
+  extensions : Map[String, Json]
 } derive(Debug, Eq)
 
 ///|
 /// CreateMessageResult — client's response to a sampling request
 pub(all) struct CreateMessageResult {
-  role : String
+  role : Role
   model : String
-  content : ContentBlock
+  content : SamplingContent
   stop_reason : String?
+  meta : Map[String, Json]?
+  extensions : Map[String, Json]
 } derive(Debug, Eq)
 
 ///|
 /// ElicitationRequest — server asks client to interact with the user
-pub(all) struct ElicitationRequest {
-  message : String
-  requested_schema : Json
+pub(all) enum ElicitationRequest {
+  Form(
+    String,
+    requested_schema~ : Json,
+    explicit_mode~ : Bool,
+    meta~ : Map[String, Json]?,
+    extensions~ : Map[String, Json]
+  )
+  Url(
+    String,
+    url~ : String,
+    elicitation_id~ : String,
+    meta~ : Map[String, Json]?,
+    extensions~ : Map[String, Json]
+  )
 } derive(Debug, Eq)
 
 ///|
 /// ElicitationResult — client's response to an elicitation request
 pub(all) struct ElicitationResult {
-  action : String
-  content : Json?
+  action : ElicitationAction
+  content : Map[String, ElicitationValue]?
+  extensions : Map[String, Json]
 } derive(Debug, Eq)
 
 ///|
 /// ProgressNotification — params for `notifications/progress`
 pub(all) struct ProgressNotification {
-  progress_token : String
+  progress_token : ProgressToken
   progress : Double
   total : Double?
   message : String?
+  extra_fields : Map[String, Json]
 } derive(Debug, Eq)
 
 ///|

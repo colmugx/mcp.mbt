@@ -15,9 +15,7 @@ pub(all) enum AnyTransport {
 }
 
 ///|
-pub async fn AnyTransport::receive(
-  self : AnyTransport,
-) -> String? raise @types.TransportError {
+pub async fn AnyTransport::receive(self : AnyTransport) -> String? {
   match self {
     Stdio(t) => t.receive()
     StdioClient(t) => t.receive()

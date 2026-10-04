@@ -93,8 +93,18 @@ async test "HttpTransport routes out-of-order responses by JSON-RPC id" {
   let reply_a : @async.Queue[String] = @async.Queue(kind=Blocking(1))
   let reply_b : @async.Queue[String] = @async.Queue(kind=Blocking(1))
 
-  transport.pending_requests.put((request_a, reply_a))
-  transport.pending_requests.put((request_b, reply_b))
+  transport.pending_requests.put({
+    message: request_a,
+    reply: reply_a,
+    principal: None,
+    cancellation_token: @runtime.CancellationToken::new(),
+  })
+  transport.pending_requests.put({
+    message: request_b,
+    reply: reply_b,
+    principal: None,
+    cancellation_token: @runtime.CancellationToken::new(),
+  })
 
   @debug.assert_eq(transport.receive(), Some(request_a))
   @debug.assert_eq(transport.receive(), Some(request_b))
@@ -149,19 +159,28 @@ test "AnyTransport::close dispatches correctly" {
 
 ///|
 /// =====================================================
-test "AuthConfig::AuthConfig stores verify_token" {
+test "AuthConfig::AuthConfig returns a trusted principal or authentication failure" {
   let config = @transport.AuthConfig::AuthConfig(
-    verify_token=fn(token) { token == "valid" },
+    authenticate=fn(token) {
+      if token == "valid" {
+        Some(@runtime.Principal::new("user"))
+      } else {
+        None
+      }
+    },
     resource_metadata_url="http://localhost:4240/mcp",
   )
-  assert_true((config.verify_token)("valid"))
-  assert_true(!(config.verify_token)("invalid"))
+  assert_eq(
+    (config.authenticate)("valid"),
+    Some(@runtime.Principal::new("user")),
+  )
+  assert_eq((config.authenticate)("invalid"), None)
 }
 
 ///|
 test "AuthConfig::AuthConfig defaults optional fields to None" {
   let config = @transport.AuthConfig::AuthConfig(
-    verify_token=fn(_) { true },
+    authenticate=fn(_) { Some(@runtime.Principal::new("user")) },
     resource_metadata_url="http://localhost:4240/mcp",
   )
   @debug.assert_eq(config.required_scopes, None)
@@ -172,7 +191,7 @@ test "AuthConfig::AuthConfig defaults optional fields to None" {
 ///|
 test "AuthConfig::AuthConfig with all fields" {
   let config = @transport.AuthConfig::AuthConfig(
-    verify_token=fn(_) { true },
+    authenticate=fn(_) { Some(@runtime.Principal::new("user")) },
     resource_metadata_url="http://localhost:4240/mcp",
     authorization_servers=["https://auth.example.com"],
     required_scopes="mcp:read",
@@ -190,7 +209,7 @@ test "AuthConfig::AuthConfig with all fields" {
 ///|
 test "AuthConfig::AuthConfig empty string scopes → None" {
   let config = @transport.AuthConfig::AuthConfig(
-    verify_token=fn(_) { true },
+    authenticate=fn(_) { Some(@runtime.Principal::new("user")) },
     resource_metadata_url="http://localhost:4240/mcp",
     required_scopes="",
   )
@@ -206,7 +225,7 @@ test "HttpTransport::with_auth sets auth config" {
   }
   let authed = transport.with_auth(
     @transport.AuthConfig::AuthConfig(
-      verify_token=fn(_) { true },
+      authenticate=fn(_) { Some(@runtime.Principal::new("user")) },
       resource_metadata_url="http://localhost:4240/mcp",
     ),
   )
@@ -228,7 +247,7 @@ test "HttpTransport::with_auth preserves other fields" {
   )
   let authed = transport.with_auth(
     @transport.AuthConfig::AuthConfig(
-      verify_token=fn(_) { true },
+      authenticate=fn(_) { Some(@runtime.Principal::new("user")) },
       resource_metadata_url="http://localhost:8080/api",
     ),
   )

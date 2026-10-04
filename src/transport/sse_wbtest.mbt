@@ -193,3 +193,63 @@ test "sse_event_verdict: heartbeat with id is skipped, bare EOF ends" {
   // (None, None) is the scan's EOF shape.
   @debug.assert_eq(sse_event_verdict(None, None), Eof)
 }
+
+///|
+fn byte_feed(parts : Array[Bytes]) -> async () -> Bytes? {
+  let index = Ref(0)
+  () => {
+    if index.val >= parts.length() {
+      None
+    } else {
+      let part = parts[index.val]
+      index.val += 1
+      Some(part)
+    }
+  }
+}
+
+///|
+async test "SSE byte reader survives every multibyte refill boundary and leading split BOM" {
+  let text = "世界 😀 café"
+  let bytes = @utf8.encode("\u{feff}data: " + text + "\n\n")
+  for split in 1..<bytes.length() {
+    let reader = sse_reader_from_bytes(
+      byte_feed([bytes[:split].to_owned(), bytes[split:].to_owned()]),
+    )
+    assert_eq(reader.next(), (Some(text), None))
+    assert_eq(reader.next(), (None, None))
+  }
+  let parts = bytes.to_array().map(byte => Bytes::from_array([byte]))
+  let reader = sse_reader_from_bytes(byte_feed(parts))
+  assert_eq(reader.next(), (Some(text), None))
+}
+
+///|
+async test "SSE byte reader rejects malformed or truncated UTF8 instead of silently ending" {
+  for
+    bytes in [
+      b"data: \xc0\xaf\n\n", b"data: \xe4\xb8", b"data: \xf0\x9f\x98", b"data: \xff\n\n",
+    ] {
+    let reader = sse_reader_from_bytes(
+      byte_feed(bytes.to_array().map(byte => Bytes::from_array([byte]))),
+    )
+    try reader.next() catch {
+      @types.ReadError(_) => ()
+      error => fail("unexpected error: \{Repr(error)}")
+    } noraise {
+      _ => fail("invalid UTF8 must raise a read error")
+    }
+  }
+}
+
+///|
+async test "SSE byte reader preserves interior BOM and absorbs comment-only heartbeats" {
+  let reader = sse_reader_from_bytes(
+    byte_feed([
+      @utf8.encode(": heartbeat\n\n"),
+      @utf8.encode("data: a\u{feff}b\n\n"),
+    ]),
+  )
+  assert_eq(reader.next(), (Some("a\u{feff}b"), None))
+  assert_eq(reader.next(), (None, None))
+}

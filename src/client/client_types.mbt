@@ -2,51 +2,59 @@
 pub(all) struct ListToolsResult {
   tools : Array[@types.ToolDefinition]
   next_cursor : String?
+  metadata : @types.ResultMetadata
 } derive(Debug, Eq)
 
 ///|
-pub(all) struct CallToolResult {
-  content : Array[@types.ContentBlock]
-  is_error : Bool
-} derive(Debug, Eq)
+pub type CallToolResult = @types.ToolResult
 
 ///|
 pub(all) struct ListResourcesResult {
   resources : Array[@resource.ResourceDefinition]
   next_cursor : String?
+  metadata : @types.ResultMetadata
 } derive(Debug, Eq)
 
 ///|
 pub(all) struct ReadResourceResult {
-  contents : Array[@resource.ResourceReadResult]
+  contents : Array[@types.ResourceContents]
+  metadata : @types.ResultMetadata
 } derive(Debug, Eq)
 
 ///|
 pub(all) struct ListPromptsResult {
   prompts : Array[@prompt.PromptDefinition]
   next_cursor : String?
+  metadata : @types.ResultMetadata
 } derive(Debug, Eq)
 
 ///|
 pub(all) struct ResourceTemplate {
   uri_template : String
   name : String
+  title : String?
   description : String?
   mime_type : String?
+  icons : Array[@types.Icon]?
+  metadata : @types.ContentMetadata
 } derive(Debug, Eq)
 
 ///|
 pub(all) struct ListResourceTemplatesResult {
   resource_templates : Array[ResourceTemplate]
   next_cursor : String?
+  metadata : @types.ResultMetadata
 } derive(Debug, Eq)
 
 ///|
-pub(all) struct CompletionResult {
-  values : Array[String]
-  total : Int?
-  has_more : Bool?
-} derive(Debug, Eq)
+pub using @types {
+  type DiscoverResult,
+  type CompletionResult,
+  type CompletionReference,
+  type CompletionArgument,
+  type CompletionContext,
+  type CompleteRequestParams,
+}
 
 ///|
 /// Filter for a `subscriptions/listen` request. Controls which server
@@ -78,12 +86,6 @@ pub extend ListToolsResult with Debug::{to_repr}
 pub extend ListToolsResult with Eq::{not_equal, equal}
 
 ///|
-pub extend CallToolResult with Debug::{to_repr}
-
-///|
-pub extend CallToolResult with Eq::{not_equal, equal}
-
-///|
 pub extend ListResourcesResult with Debug::{to_repr}
 
 ///|
@@ -112,12 +114,6 @@ pub extend ListResourceTemplatesResult with Debug::{to_repr}
 
 ///|
 pub extend ListResourceTemplatesResult with Eq::{not_equal, equal}
-
-///|
-pub extend CompletionResult with Debug::{to_repr}
-
-///|
-pub extend CompletionResult with Eq::{not_equal, equal}
 
 ///|
 pub extend ListenFilter with Debug::{to_repr}

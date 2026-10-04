@@ -11,7 +11,13 @@ test "MCPServer::with_auth sets auth_config" {
   }
   let authed = server.with_auth(
     @transport.AuthConfig::AuthConfig(
-      verify_token=fn(token) { token == "valid" },
+      authenticate=fn(token) {
+        if token == "valid" {
+          Some(@runtime.Principal::new("user"))
+        } else {
+          None
+        }
+      },
       resource_metadata_url="http://localhost:4240/mcp",
     ),
   )
@@ -33,7 +39,7 @@ test "MCPServer::with_auth preserves other fields" {
     .with_description("A test server")
     .with_auth(
       @transport.AuthConfig::AuthConfig(
-        verify_token=fn(_) { true },
+        authenticate=fn(_) { Some(@runtime.Principal::new("user")) },
         resource_metadata_url="http://localhost:4240/mcp",
       ),
     )

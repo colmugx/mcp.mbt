@@ -21,9 +21,62 @@ test "conformance: tool result retains audio blob unknown and metadata" {
   match parse_call_tool({ "content": Json::array(items), "isError": false }) {
     Ok(result) => {
       assert_eq(result.content.length(), 3)
-      assert_eq(result.content.map(serialize_content_item), items)
-      assert_false(result.is_error)
+      assert_eq(result.content.map(item => item.to_json()), items)
+      assert_eq(result.is_error, Some(false))
     }
+    Err(error) => raise error
+  }
+}
+
+///|
+test "conformance: client retains structured output and result metadata" {
+  let wire : Json = {
+    "content": [],
+    "structuredContent": null,
+    "resultType": "complete",
+    "_meta": { "com.example/key": false },
+    "com.example/extension": [],
+  }
+  match parse_call_tool(wire) {
+    Ok(result) => {
+      assert_eq(result.structured_content, Some(null))
+      assert_eq(result.is_error, None)
+      assert_eq(
+        result.metadata.meta.unwrap().get("com.example/key"),
+        Some(false),
+      )
+      assert_eq(
+        result.metadata.extensions.get("com.example/extension"),
+        Some([]),
+      )
+    }
+    Err(error) => raise error
+  }
+}
+
+///|
+test "conformance: client tool list rejects malformed definitions rather than dropping them" {
+  let wire : Json = {
+    "tools": [
+      { "name": "valid", "inputSchema": { "type": "object" } },
+      { "name": "invalid", "inputSchema": {} },
+    ],
+  }
+  match parse_tools_list(wire) {
+    Err(@types.InvalidParams(_)) => ()
+    Err(error) => raise error
+    Ok(_) => fail("expected malformed tool definition to fail")
+  }
+  let definition : Json = {
+    "name": "valid",
+    "inputSchema": { "type": "object" },
+    "outputSchema": { "type": "string" },
+    "annotations": {},
+    "_meta": {},
+    "com.example/key": null,
+  }
+  match parse_tools_list({ "tools": [definition] }) {
+    Ok(result) => assert_eq(result.tools[0].to_json(), definition)
     Err(error) => raise error
   }
 }
@@ -60,7 +113,7 @@ test "conformance: prompt content uses the same lossless codec" {
     Ok(result) => {
       assert_eq(result.messages.length(), 3)
       assert_eq(
-        result.messages.map(message => serialize_content_item(message.content)),
+        result.messages.map(message => message.content.to_json()),
         items,
       )
       for message in result.messages {
@@ -100,12 +153,11 @@ test "conformance: sampling serialization retains content metadata" {
     "annotations": { "audience": ["assistant"] },
     "_meta": { "com.example/key": null },
   }
-  let result : @types.CreateMessageResult = {
-    role: "assistant",
-    model: "test",
-    stop_reason: None,
-    content: @types.ContentBlock::from_json(content),
-  }
+  let result = @types.CreateMessageResult::new(
+    @types.Role::Assistant,
+    "test",
+    @types.SamplingContent::from_json(content),
+  )
   assert_eq(sampling_result_to_json(result), {
     "role": "assistant",
     "model": "test",

@@ -44,16 +44,13 @@ fn parse_jsonrpc_error(body : String) -> @types.MCPError? {
             let required = match data {
               Some(Object(d)) =>
                 match d.get("requiredCapabilities") {
-                  Some(Array(arr)) =>
-                    arr.filter_map(fn(j) {
-                      match j {
-                        String(s) => Some(s)
-                        _ => None
-                      }
-                    })
-                  _ => []
+                  Some(value) =>
+                    @types.ClientCapabilities::from_json(value) catch {
+                      _ => return None
+                    }
+                  _ => return None
                 }
-              _ => []
+              _ => return None
             }
             Some(@types.MissingRequiredClientCapability(message, required~))
           }
@@ -129,10 +126,11 @@ fn classify_probe_error(err : @types.MCPError) -> ProbeVerdict {
 /// Build the `_meta` object used for legacy requests. It omits all
 /// `io.modelcontextprotocol/*` keys and only carries a progress token when one
 /// is supplied.
-fn build_legacy_meta(progress_token? : String = "") -> Json {
+fn build_legacy_meta(progress_token? : @types.ProgressToken) -> Json {
   let meta : Map[String, Json] = Default::default()
-  if progress_token != "" {
-    meta.set("progressToken", Json::string(progress_token))
+  match progress_token {
+    Some(token) => meta.set("progressToken", token.to_json())
+    None => ()
   }
   Json::object(meta)
 }
@@ -209,7 +207,12 @@ async fn send_discover_probe(
       }
   }
   let response = transport.receive() catch {
-    e => return Err(@types.TransportError(e))
+    e => {
+      if @async.is_being_cancelled() {
+        raise e
+      }
+      return Err(@types.TransportError(transport_error_of(e)))
+    }
   }
   let response_str = match response {
     Some(s) => s
@@ -223,7 +226,9 @@ async fn send_discover_probe(
   match parse_jsonrpc_response(response_str) {
     Err(e) => Err(e)
     Ok(result_json) => {
-      let caps = parse_discover_capabilities(result_json)
+      let caps = parse_discover_capabilities(result_json) catch {
+        error => return Err(error)
+      }
       Ok(caps)
     }
   }

@@ -40,12 +40,14 @@ pub fn resources_updated_notification(uri : String) -> Notification {
 ///|
 /// Create progress notification
 pub fn progress_notification(
-  token : String,
+  token : ProgressToken,
   progress : Double,
   total? : Double,
+  message? : String,
 ) -> Notification {
   let params_map : Map[String, Json] = Default::default()
-  params_map.set("progressToken", Json::string(token))
+  params_map.set("progressToken", token.to_json())
+  wire_put_string(params_map, "message", message)
   params_map.set("progress", Json::number(progress))
   match total {
     Some(t) => params_map.set("total", Json::number(t))
@@ -60,11 +62,11 @@ pub fn progress_notification(
 ///|
 /// Create cancelled notification
 pub fn cancelled_notification(
-  request_id : String,
+  request_id : RequestId,
   reason? : String,
 ) -> Notification {
   let params_map : Map[String, Json] = Default::default()
-  params_map.set("requestId", Json::string(request_id))
+  params_map.set("requestId", request_id.to_json())
   match reason {
     Some(r) => params_map.set("reason", Json::string(r))
     None => ()
