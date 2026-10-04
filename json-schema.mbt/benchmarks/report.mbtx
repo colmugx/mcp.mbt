@@ -1,0 +1,136 @@
+import {
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/x@0.5.5/fs",
+}
+
+fn read_object(path : String) -> Map[String, Json] raise {
+  guard @json.parse(@fs.read_file_to_string(path)) is Object(fields) else { fail("invalid report object: " + path) }
+  fields
+}
+
+fn number(fields : Map[String, Json], key : String) -> Double raise {
+  guard fields.get(key) is Some(Number(value, ..)) && !value.is_inf() && !value.is_nan() && value >= 0 else { fail("invalid report number: " + key) }
+  value
+}
+
+fn text(fields : Map[String, Json], key : String) -> String raise {
+  guard fields.get(key) is Some(String(value)) else { fail("invalid report string: " + key) }
+  value
+}
+
+fn count(fields : Map[String, Json], key : String) -> Int raise {
+  let value = number(fields, key)
+  guard value <= 2147483647 && value == value.to_int().to_double() else { fail("invalid integer count: " + key) }
+  value.to_int()
+}
+
+fn[V] sorted_keys(fields : Map[String, V]) -> Array[String] {
+  let keys = fields.keys().collect()
+  keys.sort()
+  keys
+}
+
+fn main raise {
+  let report = StringBuilder()
+  report <+ "# JSON Schema: conformance and native release performance\n\n"
+  let state = read_object("benchmark-results/campaign.json")
+  let state_status = text(state, "status")
+  guard state_status == "complete" || state_status == "incomplete" else { fail("unknown campaign status") }
+  let complete = state_status == "complete"
+  guard count(state, "version") == 1 && text(state, "target") == "native" && text(state, "build_mode") == "release" else { fail("invalid campaign configuration") }
+  let repetitions = count(state, "repetitions")
+  guard (state.get("smoke") == Some(Json::boolean(true)) && repetitions == 1) || (state.get("smoke") == Some(Json::boolean(false)) && repetitions == 5) else { fail("invalid repetitions/smoke configuration") }
+  let manifest = if @fs.path_exists("benchmark-results/manifest.json") { Some(read_object("benchmark-results/manifest.json")) } else { None }
+  let mut corpus_revision = ""
+  report <+ "Execution status: **\{if complete { "COMPLETE" } else { "FAILED / INCOMPLETE" }}**.\n\n"
+  report <+ "\{text(state, "message")}\n\n"
+  if @fs.path_exists("benchmark-results/conformance.json") {
+    let conformance = read_object("benchmark-results/conformance.json")
+    guard count(conformance, "version") == 1 && conformance.get("filtered") == Some(Json::boolean(false)) else { fail("filtered or unknown-version result cannot stand in for complete corpus") }
+    guard manifest is Some(manifest) && manifest.get("totals") is Some(Object(totals)) else { fail("conformance manifest missing") }
+    corpus_revision = text(conformance, "revision")
+    guard corpus_revision == text(manifest, "revision") else { fail("conformance corpus revision mismatch") }
+    guard conformance.get("counts") is Some(Object(categories)) else { fail("conformance counts missing") }
+    guard categories.get("standard") is Some(Object(standard)) else { fail("standard counts missing") }
+    let passed = count(standard, "passed")
+    let total = count(standard, "total")
+    guard total > 0 && passed <= total else { fail("invalid conformance denominator") }
+    report <+ "## draft2020-12: **\{passed}/\{total}**\n\n"
+    report <+ "\{if passed == total { "All standard examples matched; this is test-suite evidence, not a formal proof." } else { "COVERAGE INCOMPLETE. Unsupported and rejected schemas remain in the denominator." }}\n\n"
+    report <+ "Official revision: `\{text(conformance, "revision")}`.\n\n"
+    report <+ "| Corpus | Passed / total | Mismatch | Unsupported | Rejected |\n|---|---:|---:|---:|---:|\n"
+    for category in ["standard", "optional", "proposal"] {
+      guard categories.get(category) is Some(Object(counts)) else { fail("missing corpus category: " + category) }
+      let total = count(counts, "total")
+      let passed = count(counts, "passed")
+      let mismatch = count(counts, "mismatch")
+      let unsupported = count(counts, "unsupported")
+      let rejected = count(counts, "rejected")
+      guard passed + mismatch + unsupported + rejected == total && total == count(totals, category) else { fail("unaccounted or wrong denominator: " + category) }
+      report <+ "| \{category} | \{passed}/\{total} | \{mismatch} | \{unsupported} | \{rejected} |\n"
+    }
+    report <+ "\nOptional format assertions are not enabled by this implementation. Optional results use the current annotation-only configuration and do not enlarge the standard conformance numerator. Remote documents are saved, but reference resolution remains unimplemented.\n\n"
+    guard conformance.get("groups") is Some(Array(groups)) else { fail("group evidence missing") }
+    let file_totals : Map[String, (Int, Int)] = Map([])
+    for group in groups {
+      guard group is Object(fields) && fields.get("counts") is Some(Object(counts)) else { fail("invalid group evidence") }
+      let file = text(fields, "file")
+      let (prior_passed, prior_total) = file_totals.get(file).unwrap_or((0, 0))
+      file_totals[file] = (prior_passed + count(counts, "passed"), prior_total + count(counts, "total"))
+    }
+    report <+ "<details><summary>Per-file TDD coverage (including optional)</summary>\n\n| File | Passed / total |\n|---|---:|\n"
+    for file in sorted_keys(file_totals) {
+      let (passed, total) = file_totals[file]
+      report <+ "| `\{file}` | \{passed}/\{total} |\n"
+    }
+    report <+ "\n</details>\n\n"
+  } else {
+    guard !complete else { fail("completed campaign missing conformance evidence") }
+    report <+ "Conformance not completed; no x/N claim.\n\n"
+  }
+  report <+ "## Native release measurements\n\n"
+  report <+ "Serial fresh processes. Parsed instances/schema parsing and process startup are outside workload clocks. Boolean, compilation and diagnostics are separate workloads. Each performance corpus contains only correctness-verified cases; IDs and exclusions are saved with each run. Do not compare changing eligible sets as a stable speed index. Hosted-runner results are noisy and not an absolute speed gate.\n\n"
+  let samples : Map[String, Array[Double]] = Map([])
+  let identities : Map[String, Json] = Map([])
+  if @fs.path_exists("benchmark-results/runs") {
+    let paths = @fs.read_dir("benchmark-results/runs").to_owned()
+    paths.sort()
+    for path in paths {
+      if !path.has_suffix(".json") { continue }
+      let measurement = read_object("benchmark-results/runs/" + path)
+      let scenario = text(measurement, "scenario")
+      guard ["official_compile", "official_validate", "official_compile_validate", "official_diagnostics", "tool_arguments", "structured_result", "array1024", "unique128", "branches", "exact_decimal", "pattern"].contains(scenario) else { fail("unknown measured scenario") }
+      guard count(measurement, "version") == 1 && text(measurement, "revision") == corpus_revision && text(measurement, "target") == "native" && text(measurement, "build_mode") == "release" && measurement.get("smoke") == state.get("smoke") else { fail("measurement provenance mismatch") }
+      let operations = number(measurement, "operations")
+      let accepted = number(measurement, "accepted")
+      let iterations = count(measurement, "iterations")
+      let per_batch = count(measurement, "operations_per_batch")
+      let accepted_per_batch = count(measurement, "accepted_per_batch")
+      guard iterations > 0 && per_batch > 0 && accepted_per_batch <= per_batch && operations == iterations.to_double() * per_batch.to_double() && accepted == iterations.to_double() * accepted_per_batch.to_double() else { fail("measurement counter mismatch") }
+      let elapsed = number(measurement, "elapsed_us")
+      let value = number(measurement, "ns_per_operation")
+      guard elapsed > 0 && value > 0 && (value - elapsed * 1000 / operations).abs() <= value * 0.000000001 else { fail("measurement cost mismatch") }
+      guard measurement.get("eligible_case_ids") is Some(Array(ids)) && !ids.is_empty() else { fail("performance case identity missing") }
+      let ids = Json::array(ids)
+      if identities.get(scenario) is Some(previous) { guard previous == ids else { fail("performance case set changed across repetitions") } }
+      else { identities[scenario] = ids }
+      match samples.get(scenario) {
+        Some(values) => values.push(value)
+        None => samples[scenario] = [value]
+      }
+    }
+  }
+  report <+ "| Scenario | Runs | Median ns/op | Min | Max |\n|---|---:|---:|---:|---:|\n"
+  for scenario in sorted_keys(samples) {
+    let values = samples[scenario]
+    values.sort()
+    if complete { guard values.length() == repetitions else { fail("incomplete measurements: " + scenario) } }
+    report <+ "| \{scenario} | \{values.length()}/\{repetitions} | \{values[values.length() / 2]} | \{values[0]} | \{values[values.length() - 1]} |\n"
+  }
+  if complete { guard samples.length() == 11 else { fail("completed campaign missing a performance scenario") } }
+  report <+ "\nCompilation rows use schemas as operations; validation/diagnostic rows use instances. Macro scenarios identify their units in raw JSON. These are aggregate per-run costs, not individual request latency percentiles. Raw corpus, manifest, environment/build logs, per-process stdout/stderr/status and detailed JSON are retained in the artifact.\n"
+  @fs.write_string_to_file("benchmark-results/report.md", report.to_string())
+  if @env.get_env_var("GITHUB_STEP_SUMMARY") is Some(path) { @fs.write_string_to_file(path, report.to_string()) }
+  println("report: benchmark-results/report.md")
+}

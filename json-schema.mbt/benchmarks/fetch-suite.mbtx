@@ -1,0 +1,28 @@
+import {
+  "moonbitlang/async@0.21.3",
+  "moonbitlang/async@0.21.3/shell",
+  "moonbitlang/core/json",
+  "moonbitlang/x@0.5.5/fs",
+}
+
+async fn main {
+  guard! @json.parse(@fs.read_file_to_string("benchmarks/suite.json")) is Object(config)
+  guard! config["repository"] is String(repository)
+  guard! config["revision"] is String(revision)
+  guard! config["source"] is String(destination)
+  guard repository == "https://github.com/json-schema-org/JSON-Schema-Test-Suite.git" && revision.length() == 40 else { fail("invalid official suite configuration") }
+  if !@fs.path_exists("benchmark-results") { @fs.create_dir("benchmark-results") }
+  if !@fs.path_exists(destination) {
+    @shell.Cmd("git", ["clone", "--no-checkout", "--depth", "1", repository, destination]).run(timeout_ms=180000)
+    @shell.Cmd("git", ["-C", destination, "fetch", "--depth", "1", "origin", revision]).run(timeout_ms=180000)
+    @shell.Cmd("git", ["-C", destination, "checkout", "--detach", revision]).run(timeout_ms=60000)
+  }
+  let identity = @shell.Cmd("git", ["-C", destination, "rev-parse", "HEAD"]).output(timeout_ms=60000)
+  identity.check()
+  guard identity.stdout().trim().to_owned() == revision else { fail("cached official revision does not match pin; move the cache before fetching") }
+  let dirty = @shell.Cmd("git", ["-C", destination, "status", "--porcelain"]).output(timeout_ms=60000)
+  dirty.check()
+  guard dirty.stdout().trim().is_empty() else { fail("official tracked files were modified") }
+  @fs.write_string_to_file("benchmark-results/suite-source.json", @json.parse(@fs.read_file_to_string("benchmarks/suite.json")).stringify(indent=2))
+  println("official suite saved: \{destination} @ \{revision}")
+}

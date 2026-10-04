@@ -1,0 +1,7 @@
+import {
+  "colmugx/json-schema" @schema,
+  "moonbitlang/core/env",
+  "moonbitlang/x/sys",
+}
+
+pkgtype(kind: "executable")

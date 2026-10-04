@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "repository": "https://github.com/json-schema-org/JSON-Schema-Test-Suite.git",
+  "revision": "5b0ee1613e45fcc2bddac00e07c19cd49b00d8a8",
+  "source": "benchmark-results/official",
+  "manifest": "benchmark-results/manifest.json"
+}
