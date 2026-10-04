@@ -1,6 +1,0 @@
-members = [
-  ".",
-  "./examples/client",
-  "./examples/server",
-  "./json-schema.mbt",
-]

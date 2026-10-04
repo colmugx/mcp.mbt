@@ -1,7 +1,0 @@
-import {
-  "moonbitlang/core/bigint",
-  "moonbitlang/core/debug",
-  "moonbitlang/core/json",
-  "moonbitlang/core/string",
-  "moonbitlang/regexp",
-}
