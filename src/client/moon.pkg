@@ -1,0 +1,32 @@
+import {
+  "colmugx/mcp/protocol/types",
+  "colmugx/mcp/protocol/resource",
+  "colmugx/mcp/protocol/prompt",
+  "colmugx/mcp/transport",
+  "colmugx/mcp/validation",
+  "colmugx/mcp/client/legacy",
+  "moonbitlang/core/json",
+  "moonbitlang/async",
+  "moonbitlang/async/aqueue",
+}
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/async/socket",
+} for "wbtest"
+
+// era_connect_wbtest.mbt drives the public connect APIs against a raw-socket
+// fake HTTP server; request_cancel_io_wbtest.mbt spawns a real child process.
+// Both files are native-only, so their wbtest imports (utf8/socket) are
+// unused on js/wasm-gc; unused_package is noise for gated packages and
+// cannot be suppressed per-target or per-file.
+
+warnings = "-unused_package"
+
+options(
+  targets: {
+    "era_connect_wbtest.mbt": [ "native" ],
+    "request_cancel_io_wbtest.mbt": [ "native" ],
+  },
+)

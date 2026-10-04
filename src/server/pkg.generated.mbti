@@ -1,0 +1,224 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/mcp/server"
+
+import {
+  "colmugx/mcp/protocol/core",
+  "colmugx/mcp/protocol/prompt",
+  "colmugx/mcp/protocol/resource",
+  "colmugx/mcp/protocol/tool",
+  "colmugx/mcp/protocol/types",
+  "colmugx/mcp/runtime",
+  "colmugx/mcp/transport",
+  "moonbitlang/async/aqueue",
+}
+
+// Values
+pub fn get_number(Json, String) -> Result[Double, @types.ToolResult]
+
+pub fn get_optional_number(Json, String) -> Result[Double?, @types.ToolResult]
+
+pub fn get_optional_string(Json, String) -> Result[String?, @types.ToolResult]
+
+pub fn get_string(Json, String) -> Result[String, @types.ToolResult]
+
+pub fn simple_tool(String, String, (@runtime.RequestContext, Json) -> @types.ToolResult) -> @core.ToolWrapper
+
+pub fn[Args : @core.Params, Ret : @core.ToToolResult] tool_fn((@runtime.RequestContext, Args) -> Ret, name~ : String, description~ : String) -> @core.ToolWrapper
+
+// Errors
+
+// Types and methods
+pub(all) struct ActiveSubscription {
+  filter : SubscriptionFilter
+  reply : @aqueue.Queue[String]
+  subscription_id : String
+  cancellation_token : @runtime.CancellationToken
+  cancellation_registration : @runtime.CancellationRegistration
+}
+
+pub struct AesGcmStateCodec {
+  key : Bytes
+}
+pub fn AesGcmStateCodec::AesGcmStateCodec() -> Self
+pub fn AesGcmStateCodec::open(Self, String, RequestStateContext, now~ : Int) -> RequestStatePayload?
+pub fn AesGcmStateCodec::seal(Self, RequestStatePayload, now~ : Int) -> String
+pub fn AesGcmStateCodec::with_key(Bytes) -> Self
+
+pub struct CompletionRegistry {
+  handlers : Map[String, async (@runtime.RequestContext, @types.CompleteRequestParams) -> Result[@types.CompletionResult, @types.MCPError]]
+}
+pub fn CompletionRegistry::new() -> Self
+pub fn CompletionRegistry::register(Self, @types.CompletionReference, async (@runtime.RequestContext, @types.CompleteRequestParams) -> Result[@types.CompletionResult, @types.MCPError]) -> Self
+
+pub struct MCPServer {
+  name : String
+  version : String
+  title : String?
+  description : String?
+  instructions : String?
+  auth_config : @transport.AuthConfig?
+  request_state_codec : AesGcmStateCodec?
+  clock : () -> Int
+  registry : ToolRegistry
+  resource_registry : ResourceRegistry
+  prompt_registry : PromptRegistry
+  completion_registry : CompletionRegistry?
+  tools_enabled : Bool?
+  resources_enabled : Bool?
+  prompts_enabled : Bool?
+  subscriptions : Map[String, ActiveSubscription]
+  active_requests : Map[String, @runtime.CancellationToken]
+  mut next_scope_id : Int
+}
+pub fn MCPServer::MCPServer(String, String) -> Self
+pub fn MCPServer::capabilities(Self) -> @types.ServerCapabilities
+pub async fn MCPServer::close_subscription(Self, String, scope? : String) -> Unit
+pub async fn MCPServer::handle_request(Self, String, principal? : @runtime.Principal, cancellation_token? : @runtime.CancellationToken, progress_reporter? : @runtime.ProgressReporter) -> String
+pub async fn MCPServer::notify_prompts_list_changed(Self) -> Unit
+pub async fn MCPServer::notify_resource_updated(Self, String) -> Unit
+pub async fn MCPServer::notify_resources_list_changed(Self) -> Unit
+pub async fn MCPServer::notify_tools_list_changed(Self) -> Unit
+pub fn MCPServer::prompt(Self, String, String, Array[@types.PromptArgument], async (@runtime.RequestContext, Json) -> Result[@types.GetPromptResult, @types.MCPError]) -> Self
+pub fn MCPServer::prompt_definition(Self, @types.PromptDefinition, async (@runtime.RequestContext, Json) -> Result[@prompt.PromptGetOutcome, @types.MCPError]) -> Self
+pub fn MCPServer::prompt_mrtr(Self, String, String, Array[@types.PromptArgument], async (@runtime.RequestContext, Json) -> Result[@prompt.PromptGetOutcome, @types.MCPError]) -> Self
+pub fn MCPServer::resource(Self, String, String, String, String, async (@runtime.RequestContext) -> Result[@types.ResourceReadResult, @types.MCPError]) -> Self
+pub fn MCPServer::resource_definition(Self, @types.ResourceDefinition, async (@runtime.RequestContext, Json) -> Result[@resource.ResourceReadOutcome, @types.MCPError]) -> Self
+pub fn MCPServer::resource_mrtr(Self, String, String, String, String, async (@runtime.RequestContext, Json) -> Result[@resource.ResourceReadOutcome, @types.MCPError]) -> Self
+pub fn MCPServer::resource_template(Self, uri_template~ : String, name~ : String, description? : String, mime_type? : String) -> Self
+pub fn MCPServer::resource_template_definition(Self, @types.ResourceTemplateDefinition) -> Self
+pub async fn MCPServer::run_http(Self, port? : Int, path? : String) -> Unit raise @types.TransportError
+pub async fn MCPServer::run_stdio(Self) -> Unit raise @types.TransportError
+pub fn MCPServer::tool(Self, String, String, Json, async (@runtime.RequestContext, Json) -> Result[@types.ToolResult, @types.MCPError]) -> Self raise @types.MCPError
+pub fn MCPServer::tool_definition(Self, @types.ToolDefinition, async (@runtime.RequestContext, Json) -> Result[@tool.ToolCallOutcome, @types.MCPError]) -> Self raise @types.MCPError
+pub fn MCPServer::with_auth(Self, @transport.AuthConfig) -> Self
+pub fn MCPServer::with_clock(Self, () -> Int) -> Self
+pub fn MCPServer::with_completions(Self, CompletionRegistry) -> Self
+pub fn MCPServer::with_description(Self, String) -> Self
+pub fn MCPServer::with_instructions(Self, String) -> Self
+pub fn[T : @prompt.Prompt] MCPServer::with_prompt(Self, T) -> Self
+pub fn[T : @prompt.PromptMRTR] MCPServer::with_prompt_mrtr(Self, T) -> Self
+pub fn MCPServer::with_prompts(Self, enabled? : Bool) -> Self
+pub fn MCPServer::with_request_state_codec(Self, AesGcmStateCodec) -> Self
+pub fn[T : @resource.Resource] MCPServer::with_resource(Self, T) -> Self
+pub fn[T : @resource.ResourceMRTR] MCPServer::with_resource_mrtr(Self, T) -> Self
+pub fn MCPServer::with_resources(Self, enabled? : Bool) -> Self
+pub fn MCPServer::with_title(Self, String) -> Self
+pub fn[T : @tool.Tool] MCPServer::with_tool(Self, T) -> Self raise @types.MCPError
+pub fn MCPServer::with_tools(Self, enabled? : Bool) -> Self
+
+type PromptRegistry
+
+pub(all) struct RequestStateContext {
+  principal : String?
+  request_method : String
+  params : Json
+}
+
+pub(all) struct RequestStatePayload {
+  principal : String?
+  expires_at : Int
+  request_method : String
+  params_digest : String
+  state : Json
+}
+
+type ResourceRegistry
+
+pub(all) struct ServerRequest {
+  message : String
+  reply : @aqueue.Queue[String]
+}
+
+pub(all) struct SubscriptionFilter {
+  mut tools_list_changed : Bool
+  mut prompts_list_changed : Bool
+  mut resources_list_changed : Bool
+  mut resource_subscriptions : Array[String]
+}
+pub fn SubscriptionFilter::empty() -> Self
+pub fn SubscriptionFilter::matches(Self, @types.SubscriptionNotificationKind) -> Bool
+
+type ToolRegistry
+
+// Type aliases
+pub using @types {type Annotations}
+
+pub using @types {type CacheScope}
+
+pub using @runtime {type CancellationToken}
+
+pub using @types {type CompleteRequestParams}
+
+pub using @types {type CompletionArgument}
+
+pub using @types {type CompletionContext}
+
+pub using @types {type CompletionReference}
+
+pub using @types {type CompletionResult}
+
+pub using @types {type ContentBlock}
+
+pub using @types {type ContentMetadata}
+
+pub using @types {type Icon}
+
+pub using @types {type IconTheme}
+
+pub using @types {type InputRequestEntry}
+
+pub using @types {type InputRequestKind}
+
+pub using @types {type JsonRpcRequest}
+
+pub using @core {type JsonSchema}
+
+pub using @types {type MCPError}
+
+pub using @tool {type ParamDef}
+
+pub using @runtime {type Principal}
+
+pub using @runtime {type ProgressReporter}
+
+pub using @runtime {type RequestCancelled}
+
+pub using @runtime {type RequestContext}
+
+pub using @types {type RequestId}
+
+pub using @types {type ResourceContents}
+
+pub using @types {type ResourceData}
+
+pub using @types {type ResourceLinkData}
+
+pub using @types {type ResultMetadata}
+
+pub using @types {type Role}
+
+pub using @types {type ServerCapabilities}
+
+pub using @types {type ServerInfo}
+
+pub using @types {type ToolAnnotations}
+
+pub using @tool {type ToolCallOutcome}
+
+pub using @types {type ToolDefinition}
+
+pub using @core {type ToolError}
+
+pub using @types {type ToolResult}
+
+pub using @types {type TransportError}
+
+pub using @core {trait Params}
+
+pub using @tool {trait Tool}
+
+// Traits
+pub trait RequestStateCodec {
+  fn seal(Self, RequestStatePayload, now~ : Int) -> String
+  fn open(Self, String, RequestStateContext, now~ : Int) -> RequestStatePayload?
+}

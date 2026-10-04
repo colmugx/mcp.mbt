@@ -1,0 +1,255 @@
+///|
+/// Feed an `AsyncLexbuf` from a fixed list of chunks, simulating a chunked
+/// HTTP response body. Later chunks are returned on later refills; `None`
+/// after the last one.
+fn feed(parts : Array[String]) -> async () -> String? {
+  let index = Ref(0)
+  () => {
+    if index.val < parts.length() {
+      let chunk = parts[index.val]
+      index.val += 1
+      Some(chunk)
+    } else {
+      None
+    }
+  }
+}
+
+///|
+async test "scan_sse_event concatenates multi-line data and records id" {
+  let buf = @lexbuf.AsyncLexbuf::from_fn(
+    feed(["id: evt-1\n", "data: {\"a\":", "\ndata: 1}\n", "event: progress\n\n"]),
+  )
+  let (payload, id) = scan_sse_event(buf, [], None)
+  @debug.assert_eq(id, Some("evt-1"))
+  @debug.assert_eq(payload, Some("{\"a\":\n1}"))
+}
+
+///|
+async test "scan_sse_event returns None payload for heartbeat comments" {
+  let buf = @lexbuf.AsyncLexbuf::from_fn(
+    feed([": keep-alive\n", "id: evt-2\n\n"]),
+  )
+  let (payload, id) = scan_sse_event(buf, [], None)
+  @debug.assert_eq(id, Some("evt-2"))
+  @debug.assert_eq(payload, None)
+}
+
+///|
+async test "scan_sse_event survives patterns spanning refill chunks" {
+  let buf = @lexbuf.AsyncLexbuf::from_fn(
+    feed(["da", "ta: pa", "rtial\n", "\rid: next\r", "\r\n\r\n"]),
+  )
+  let (payload, _id) = scan_sse_event(buf, [], None)
+  @debug.assert_eq(payload, Some("partial"))
+}
+
+///|
+async test "scan_sse_event accepts CRLF and CR terminators" {
+  let buf = @lexbuf.AsyncLexbuf::from_fn(
+    feed(["data: crlf\r\n", "data: lone-cr\r", "data: lf\n", "\r\n"]),
+  )
+  let (payload, _id) = scan_sse_event(buf, [], None)
+  @debug.assert_eq(payload, Some("crlf\nlone-cr\nlf"))
+}
+
+///|
+async test "scan_sse_event strips at most one space after the field colon" {
+  let buf = @lexbuf.AsyncLexbuf::from_fn(
+    feed(["data:nospace\n", "data:  twospaces\n\n"]),
+  )
+  let (payload, _id) = scan_sse_event(buf, [], None)
+  @debug.assert_eq(payload, Some("nospace\n twospaces"))
+}
+
+///|
+async test "scan_sse_event dispatches unterminated final line at EOF" {
+  let buf = @lexbuf.AsyncLexbuf::from_fn(feed(["data: tail-without-newline"]))
+  let (payload, _id) = scan_sse_event(buf, [], None)
+  @debug.assert_eq(payload, Some("tail-without-newline"))
+}
+
+///|
+async test "scan_sse_event at EOF with no data returns None" {
+  let buf = @lexbuf.AsyncLexbuf::from_fn(feed([]))
+  let (payload, id) = scan_sse_event(buf, [], None)
+  @debug.assert_eq(payload, None)
+  @debug.assert_eq(id, None)
+}
+
+///|
+async test "scan_sse_event ignores unknown fields and keeps scanning" {
+  let buf = @lexbuf.AsyncLexbuf::from_fn(
+    feed(["retry: 5000\n", "event: progress\n", "data: x\n\n"]),
+  )
+  let (payload, _id) = scan_sse_event(buf, [], None)
+  @debug.assert_eq(payload, Some("x"))
+}
+
+///|
+async test "read_sse_event events flow one per call until EOF" {
+  let buf = @lexbuf.AsyncLexbuf::from_fn(
+    feed(["data: one\n\n", "data: two\n\n"]),
+  )
+  let (first, _) = scan_sse_event(buf, [], None)
+  let (second, _) = scan_sse_event(buf, [], None)
+  let (third, _) = scan_sse_event(buf, [], None)
+  @debug.assert_eq(first, Some("one"))
+  @debug.assert_eq(second, Some("two"))
+  @debug.assert_eq(third, None)
+}
+
+///|
+/// Build a `SseEventReader` over a fixed chunk list, mirroring how `new`
+/// wires an `@http.Client` into the persistent lexbuf.
+fn reader_from_feed(parts : Array[String]) -> SseEventReader {
+  let decode_failed = Ref(false)
+  let buf = @lexbuf.AsyncLexbuf::from_fn(feed(parts))
+  { buf, decode_failed, }
+}
+
+///|
+async test "SseEventReader keeps the reply after a same-chunk keepalive" {
+  // One HTTP chunk carrying an empty keepalive event followed by the real
+  // JSON-RPC reply: when the keepalive dispatches, the reply bytes are still
+  // buffered in the lexbuf and must survive into the next `next` call. A
+  // per-call lexbuf drops them and the second call sees EOF.
+  let reader = reader_from_feed([
+    "data: \nid: 0\nretry: 3000\n\ndata: {\"jsonrpc\":\"2.0\"}\n\n",
+  ])
+  let (keepalive_data, keepalive_id) = reader.next()
+  @debug.assert_eq(keepalive_data, Some(""))
+  @debug.assert_eq(keepalive_id, Some("0"))
+  @debug.assert_eq(sse_event_verdict(keepalive_data, keepalive_id), Skip)
+  let (reply, reply_id) = reader.next()
+  @debug.assert_eq(reply, Some("{\"jsonrpc\":\"2.0\"}"))
+  @debug.assert_eq(reply_id, None)
+  @debug.assert_eq(
+    sse_event_verdict(reply, reply_id),
+    Message("{\"jsonrpc\":\"2.0\"}"),
+  )
+  let (eof_data, eof_id) = reader.next()
+  @debug.assert_eq(eof_data, None)
+  @debug.assert_eq(eof_id, None)
+  @debug.assert_eq(sse_event_verdict(eof_data, eof_id), Eof)
+}
+
+///|
+async test "SseEventReader reads events split across chunks" {
+  // The keepalive and the reply in separate chunks — the pre-reader behavior
+  // — must keep working.
+  let reader = reader_from_feed([
+    "data: \nid: 0\nretry: 3000\n\n", "data: {\"jsonrpc\":\"2.0\"}\n\n",
+  ])
+  let (keepalive_data, keepalive_id) = reader.next()
+  @debug.assert_eq(keepalive_data, Some(""))
+  @debug.assert_eq(keepalive_id, Some("0"))
+  @debug.assert_eq(sse_event_verdict(keepalive_data, keepalive_id), Skip)
+  let (reply, _) = reader.next()
+  @debug.assert_eq(reply, Some("{\"jsonrpc\":\"2.0\"}"))
+  let (eof_data, eof_id) = reader.next()
+  @debug.assert_eq(eof_data, None)
+  @debug.assert_eq(eof_id, None)
+}
+
+///|
+/// `@qc.check` predicates are synchronous, so the async scanner is driven
+/// over pre-generated samples instead. Payloads containing line terminators
+/// are excluded: they legitimately frame as multiple SSE lines.
+async test "prop: scan_sse_event recovers formatted payloads" {
+  let payloads : Array[String] = @qc.samples(200).filter(s => {
+    !s.contains("\n") && !s.contains("\r")
+  })
+  for s in payloads {
+    let buf = @lexbuf.AsyncLexbuf::from_fn(feed(["data: " + s + "\n\n"]))
+    let (payload, _) = scan_sse_event(buf, [], None)
+    if payload != Some(s) {
+      fail("scan_sse_event failed to roundtrip payload: \{s}")
+    }
+  }
+}
+
+///|
+test "sse_event_verdict: opening keepalive with empty data is skipped" {
+  // Some legacy servers open every SSE stream with `data:` (empty) + `id:` +
+  // `retry:` before the first real payload.
+  @debug.assert_eq(sse_event_verdict(Some(""), Some("0")), Skip)
+  @debug.assert_eq(sse_event_verdict(Some("  "), None), Skip)
+}
+
+///|
+test "sse_event_verdict: real payloads pass through verbatim" {
+  @debug.assert_eq(
+    sse_event_verdict(Some("{\"jsonrpc\":\"2.0\"}"), None),
+    Message("{\"jsonrpc\":\"2.0\"}"),
+  )
+}
+
+///|
+test "sse_event_verdict: heartbeat with id is skipped, bare EOF ends" {
+  // A dispatched comment-only heartbeat carries the id but no data lines —
+  // that is not end-of-stream.
+  @debug.assert_eq(sse_event_verdict(None, Some("evt-2")), Skip)
+  // (None, None) is the scan's EOF shape.
+  @debug.assert_eq(sse_event_verdict(None, None), Eof)
+}
+
+///|
+fn byte_feed(parts : Array[Bytes]) -> async () -> Bytes? {
+  let index = Ref(0)
+  () => {
+    if index.val >= parts.length() {
+      None
+    } else {
+      let part = parts[index.val]
+      index.val += 1
+      Some(part)
+    }
+  }
+}
+
+///|
+async test "SSE byte reader survives every multibyte refill boundary and leading split BOM" {
+  let text = "世界 😀 café"
+  let bytes = @utf8.encode("\u{feff}data: " + text + "\n\n")
+  for split in 1..<bytes.length() {
+    let reader = sse_reader_from_bytes(
+      byte_feed([bytes[:split].to_owned(), bytes[split:].to_owned()]),
+    )
+    assert_eq(reader.next(), (Some(text), None))
+    assert_eq(reader.next(), (None, None))
+  }
+  let parts = bytes.to_array().map(byte => Bytes::from_array([byte]))
+  let reader = sse_reader_from_bytes(byte_feed(parts))
+  assert_eq(reader.next(), (Some(text), None))
+}
+
+///|
+async test "SSE byte reader rejects malformed or truncated UTF8 instead of silently ending" {
+  for
+    bytes in [
+      b"data: \xc0\xaf\n\n", b"data: \xe4\xb8", b"data: \xf0\x9f\x98", b"data: \xff\n\n",
+    ] {
+    let reader = sse_reader_from_bytes(
+      byte_feed(bytes.to_array().map(byte => Bytes::from_array([byte]))),
+    )
+    try reader.next() catch {
+      @types.ReadError(_) => ()
+      error => fail("unexpected error: \{Repr(error)}")
+    } noraise {
+      _ => fail("invalid UTF8 must raise a read error")
+    }
+  }
+}
+
+///|
+async test "SSE byte reader preserves interior BOM and absorbs comment-only heartbeats" {
+  let reader = sse_reader_from_bytes(
+    byte_feed([
+      @utf8.encode(": heartbeat\n\n"),
+      @utf8.encode("data: a\u{feff}b\n\n"),
+    ]),
+  )
+  assert_eq(reader.next(), (Some("a\u{feff}b"), None))
+  assert_eq(reader.next(), (None, None))
+}
