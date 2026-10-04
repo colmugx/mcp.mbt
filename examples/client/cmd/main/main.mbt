@@ -25,7 +25,8 @@ async fn main {
       Ok(result) => {
         println("\{result.tools.length()} tools:")
         for tool in result.tools {
-          println("  - \{tool.name}: \{tool.description}")
+          let description = tool.description.unwrap_or("")
+          println("  - \{tool.name}: \{description}")
         }
       }
       Err(e) => println("[tools/list] error: \{e.message()}")
