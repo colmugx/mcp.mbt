@@ -1,4 +1,0 @@
-import {
-  "colmugx/json-schema" @schema,
-  "colmugx/mcp/protocol/types",
-}

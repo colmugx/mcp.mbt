@@ -1,5 +1,0 @@
-import {
-  "colmugx/mcp/protocol/types",
-  "colmugx/mcp/protocol/core",
-  "colmugx/mcp/protocol/tool",
-}
