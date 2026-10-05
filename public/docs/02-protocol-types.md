@@ -365,7 +365,7 @@ pub(all) struct CreateMessageResult {
 pub(all) enum ElicitationRequest {
   Form(String, requested_schema~ : Json, explicit_mode~ : Bool,
        meta~ : Map[String, Json]?, extensions~ : Map[String, Json])
-  Url(String, url~ : String, elicitation_id~ : String,
+  Url(String, url~ : String, elicitation_id~ : String?,
       meta~ : Map[String, Json]?, extensions~ : Map[String, Json])
 } derive(Eq, Debug)
 
