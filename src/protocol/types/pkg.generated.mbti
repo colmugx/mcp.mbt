@@ -287,7 +287,7 @@ pub impl ToJson for ElicitationCapabilities
 
 pub(all) enum ElicitationRequest {
   Form(String, requested_schema~ : Json, explicit_mode~ : Bool, meta~ : Map[String, Json]?, extensions~ : Map[String, Json])
-  Url(String, url~ : String, elicitation_id~ : String, meta~ : Map[String, Json]?, extensions~ : Map[String, Json])
+  Url(String, url~ : String, elicitation_id~ : String?, meta~ : Map[String, Json]?, extensions~ : Map[String, Json])
 } derive(Eq, @debug.Debug)
 pub fn ElicitationRequest::equal(Self, Self) -> Bool
 pub fn ElicitationRequest::form(String, Json, explicit_mode? : Bool, meta? : Map[String, Json]) -> Self
@@ -295,7 +295,7 @@ pub fn ElicitationRequest::from_json(Json) -> Self raise MCPError
 pub fn ElicitationRequest::not_equal(Self, Self) -> Bool
 pub fn ElicitationRequest::to_json(Self) -> Json
 pub fn ElicitationRequest::to_repr(Self) -> @debug.Repr
-pub fn ElicitationRequest::url(String, String, String, meta? : Map[String, Json]) -> Self
+pub fn ElicitationRequest::url(String, String, elicitation_id? : String, meta? : Map[String, Json]) -> Self
 pub impl ToJson for ElicitationRequest
 
 pub(all) struct ElicitationResult {

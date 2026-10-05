@@ -99,7 +99,7 @@ pub(all) enum ElicitationRequest {
   Url(
     String,
     url~ : String,
-    elicitation_id~ : String,
+    elicitation_id~ : String?,
     meta~ : Map[String, Json]?,
     extensions~ : Map[String, Json]
   )

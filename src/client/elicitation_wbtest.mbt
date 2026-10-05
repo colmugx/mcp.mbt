@@ -16,7 +16,7 @@ test "MRTR elicitation uses the shared enum codec and never serializes absent co
         "elicitation/create",
         Json::object({
           "message": "name",
-          "requestedSchema": { "type": "object" },
+          "requestedSchema": { "type": "object", "properties": {} },
         }),
       ),
     ),
@@ -64,4 +64,72 @@ test "MRTR URL elicitation is not dispatched to a form-only client handler" {
   )
   assert_true(enabled.fulfill_input_requests(inputs) is Ok(_))
   assert_true(called.val)
+}
+
+///|
+test "MRTR elicitation rejects unsupported form constraints before invoking user code" {
+  let called = Ref(false)
+  let client = MCPClient::MCPClient(
+    name="t",
+    version="1",
+    transport=@transport.AnyTransport::Stdio(
+      @transport.StdioTransport::StdioTransport(),
+    ),
+  ).on_elicitation(fn(_) {
+    called.val = true
+    Ok(@types.ElicitationResult::new(@types.Cancel))
+  })
+  let inputs : Map[String, (String, Json)] = {
+    "input": (
+      "elicitation/create",
+      {
+        "message": "name",
+        "requestedSchema": {
+          "type": "object",
+          "properties": { "name": { "type": "string", "$dynamicRef": "#name" } },
+        },
+      },
+    ),
+  }
+  assert_true(
+    client.fulfill_input_requests(inputs) is Err(@types.InvalidParams(_)),
+  )
+  assert_false(called.val)
+}
+
+///|
+test "MRTR elicitation validates returned form data using the pre-handler snapshot" {
+  let properties : Map[String, Json] = {
+    "age": { "type": "integer", "minimum": 18 },
+  }
+  let client = MCPClient::MCPClient(
+    name="t",
+    version="1",
+    transport=@transport.AnyTransport::Stdio(
+      @transport.StdioTransport::StdioTransport(),
+    ),
+  ).on_elicitation(fn(_) {
+    properties["age"] = { "type": "integer" }
+    Ok(
+      @types.ElicitationResult::new(@types.Accept, content={
+        "age": @types.ElicitationValue::Number(17),
+      }),
+    )
+  })
+  let inputs : Map[String, (String, Json)] = {
+    "input": (
+      "elicitation/create",
+      {
+        "message": "age",
+        "requestedSchema": {
+          "type": "object",
+          "properties": Json::object(properties),
+          "required": ["age"],
+        },
+      },
+    ),
+  }
+  assert_true(
+    client.fulfill_input_requests(inputs) is Err(@types.InvalidParams(_)),
+  )
 }

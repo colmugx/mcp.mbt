@@ -28,5 +28,6 @@ options(
   targets: {
     "era_connect_wbtest.mbt": [ "native" ],
     "request_cancel_io_wbtest.mbt": [ "native" ],
+    "mrtr_rounds_io_wbtest.mbt": [ "native" ],
   },
 )

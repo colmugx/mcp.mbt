@@ -15,7 +15,7 @@ test "elicitation form and URL modes round trip metadata and open fields" {
       Json::object({
         "message": "name",
         "mode": "form",
-        "requestedSchema": { "type": "object" },
+        "requestedSchema": { "type": "object", "properties": {} },
       }),
       Json::object({
         "message": "authorize",
@@ -29,11 +29,31 @@ test "elicitation form and URL modes round trip metadata and open fields" {
     assert_eq(@types.ElicitationRequest::from_json(wire).to_json(), wire)
   }
   assert_eq(
-    @types.ElicitationRequest::form("name", { "type": "object" }).to_json(),
-    { "message": "name", "requestedSchema": { "type": "object" } },
+    @types.ElicitationRequest::form("name", {
+      "type": "object",
+      "properties": {},
+    }).to_json(),
+    {
+      "message": "name",
+      "requestedSchema": { "type": "object", "properties": {} },
+    },
+  )
+  let url : Json = {
+    "mode": "url",
+    "message": "authorize",
+    "url": "https://example.org",
+  }
+  assert_eq(@types.ElicitationRequest::from_json(url).to_json(), url)
+  assert_eq(
+    @types.ElicitationRequest::url("authorize", "https://example.org").to_json(),
+    url,
   )
   assert_eq(
-    @types.ElicitationRequest::url("authorize", "https://example.org", "id").to_json(),
+    @types.ElicitationRequest::url(
+      "authorize",
+      "https://example.org",
+      elicitation_id="id",
+    ).to_json(),
     {
       "mode": "url",
       "message": "authorize",
@@ -86,11 +106,7 @@ test "elicitation requests reject malformed modes and missing required mode fiel
   for
     wire in [
       Json::object({ "mode": "future", "message": "x" }),
-      Json::object({
-        "mode": "url",
-        "message": "x",
-        "url": "https://example.org",
-      }),
+      Json::object({ "mode": "url", "message": "x" }),
       Json::object({
         "mode": "form",
         "message": "x",

@@ -35,7 +35,10 @@ test "MRTR checks elicitation mode rather than only the top-level capability key
   )
   requests.set("input", {
     method_name: @types.ElicitationCreate,
-    params: { "message": "name", "requestedSchema": { "type": "object" } },
+    params: {
+      "message": "name",
+      "requestedSchema": { "type": "object", "properties": {} },
+    },
   })
   assert_eq(
     check_required_capabilities(
