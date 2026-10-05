@@ -86,7 +86,7 @@ pub fn ElicitationRequest::form(
 pub fn ElicitationRequest::url(
   message : String,
   url : String,
-  elicitation_id : String,
+  elicitation_id? : String,
   meta? : Map[String, Json],
 ) -> ElicitationRequest {
   Url(message, url~, elicitation_id~, meta~, extensions=Map([]))
@@ -109,6 +109,7 @@ pub fn ElicitationRequest::from_json(
             "Elicitation form requestedSchema must have an object root",
           )
       }
+      check_elicitation_schema(requested_schema)
       Form(
         message,
         requested_schema~,
@@ -123,7 +124,7 @@ pub fn ElicitationRequest::from_json(
       Url(
         message,
         url=wire_string(fields, "url"),
-        elicitation_id=wire_string(fields, "elicitationId"),
+        elicitation_id=wire_optional_string(fields, "elicitationId"),
         meta~,
         extensions=wire_extensions(fields, [
           "message", "mode", "url", "elicitationId", "_meta",
@@ -155,7 +156,7 @@ pub impl ToJson for ElicitationRequest with fn to_json(self) {
       fields.set("message", Json::string(message))
       fields.set("mode", Json::string("url"))
       fields.set("url", Json::string(url))
-      fields.set("elicitationId", Json::string(elicitation_id))
+      wire_put_string(fields, "elicitationId", elicitation_id)
       wire_put_meta(fields, meta)
       Json::object(fields)
     }

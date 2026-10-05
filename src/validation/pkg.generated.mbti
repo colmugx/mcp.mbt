@@ -6,6 +6,14 @@ import {
 }
 
 // Values
+pub fn check_input_response(String, Json, Json) -> Unit raise @types.MCPError
+
+pub fn check_roots_request(Json) -> Unit raise @types.MCPError
+
+pub fn check_roots_response(Json) -> Unit raise @types.MCPError
+
+pub fn check_unbound_input_response(Json) -> Unit raise @types.MCPError
+
 pub fn is_safe_integer(Json) -> Bool
 
 pub fn json_equal(Json, Json) -> Bool
@@ -23,6 +31,12 @@ pub struct CompiledSchema {
 pub fn CompiledSchema::check_input(Self, Json) -> Unit raise @types.MCPError
 pub fn CompiledSchema::check_output(Self, Json) -> Unit raise @types.MCPError
 pub fn CompiledSchema::compile(Json, String) -> Self raise @types.MCPError
+
+pub struct ElicitationValidator {
+  // private fields
+}
+pub fn ElicitationValidator::check_response(Self, Json) -> Unit raise @types.MCPError
+pub fn ElicitationValidator::compile(Json) -> Self raise @types.MCPError
 
 // Type aliases
 

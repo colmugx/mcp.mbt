@@ -560,7 +560,10 @@ async fn MCPClient::send_with_mrtr(
         match self.check_input_required(response) {
           Err(e) => return Err(e)
           Ok(None) => return Ok(response)
-          Ok(Some(input_req)) =>
+          Ok(Some(input_req)) => {
+            if rounds == max_rounds {
+              return Err(@types.InternalError("MRTR exceeded max rounds"))
+            }
             match self.fulfill_input_requests(input_req.input_requests) {
               Err(e) => return Err(e)
               Ok(responses) => {
@@ -574,6 +577,7 @@ async fn MCPClient::send_with_mrtr(
                 )
               }
             }
+          }
         }
     }
   }
@@ -716,19 +720,13 @@ fn MCPClient::fulfill_input_requests(
               )
               return
             }
-            match handler(params) {
-              Ok(r) => {
-                let response = elicitation_result_to_json(r)
-                ignore(@types.ElicitationResult::from_json(response)) catch {
-                  e => {
-                    error = Some(e)
-                    return
-                  }
-                }
-                responses.set(key, response)
+            let response = invoke_elicitation(handler, params) catch {
+              e => {
+                error = Some(e)
+                return
               }
-              Err(e) => error = Some(e)
             }
+            responses.set(key, response)
           }
           None =>
             error = Some(
@@ -805,8 +803,23 @@ fn MCPClient::fulfill_input_requests(
               )
               return
             }
+            @validation.check_roots_request(params) catch {
+              e => {
+                error = Some(e)
+                return
+              }
+            }
             match handler() {
-              Ok(roots) => responses.set(key, roots_to_json(roots))
+              Ok(roots) => {
+                let response = roots_to_json(roots)
+                @validation.check_roots_response(response) catch {
+                  e => {
+                    error = Some(e)
+                    return
+                  }
+                }
+                responses.set(key, response)
+              }
               Err(e) => error = Some(e)
             }
           }
@@ -864,11 +877,6 @@ fn build_retry_request(
   } else {
     original
   }
-}
-
-///|
-fn elicitation_result_to_json(r : @types.ElicitationResult) -> Json {
-  r.to_json()
 }
 
 ///|
@@ -1589,15 +1597,15 @@ fn[T] MCPClient::handle_server_request(
       "elicitation/create" =>
         match elicitation_h {
           Some(handler) =>
-            match handler(params) {
-              Ok(result) =>
+            try invoke_elicitation(handler, params) catch {
+              e => jsonrpc_error_str(id_json, e.to_error_code(), e.message())
+            } noraise {
+              result =>
                 Json::object({
                   "jsonrpc": "2.0",
                   "id": id_json,
-                  "result": result.to_json(),
+                  "result": result,
                 }).stringify()
-              Err(e) =>
-                jsonrpc_error_str(id_json, e.to_error_code(), e.message())
             }
           None =>
             jsonrpc_error_str(id_json, -32601, "elicitation not supported")

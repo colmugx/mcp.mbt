@@ -702,7 +702,15 @@ async test "mrtr retry: valid requestState passes verification and reaches the t
       params_digest: params_digest(
         Json::object({ "name": "resume_tool", "arguments": arguments }),
       ),
-      state: Json::object({}),
+      state: sealed_input_state({}, {
+        "login": {
+          method_name: @types.ElicitationCreate,
+          params: {
+            "message": "Login",
+            "requestedSchema": { "type": "object", "properties": {} },
+          },
+        },
+      }),
     },
     now=1_700_000_000,
   )
@@ -711,7 +719,7 @@ async test "mrtr retry: valid requestState passes verification and reaches the t
     "name": Json::string("resume_tool"),
     "arguments": arguments,
     "inputResponses": Json::object({
-      "login": Json::object({ "action": Json::string("accept") }),
+      "login": Json::object({ "action": Json::string("accept"), "content": {} }),
     }),
     "requestState": Json::string(blob),
   })
@@ -933,7 +941,10 @@ async test "compliance: undeclared elicitation capability returns -32021" {
   let reqs : Map[String, @types.InputRequestEntry] = Default::default()
   reqs.set("login", {
     method_name: @types.InputRequestKind::ElicitationCreate,
-    params: Json::object({ "message": Json::string("Login") }),
+    params: Json::object({
+      "message": Json::string("Login"),
+      "requestedSchema": { "type": "object", "properties": {} },
+    }),
   })
   server.register_tool(
     "gate",
@@ -977,7 +988,10 @@ async test "compliance: declared elicitation capability allows input_required" {
   let reqs : Map[String, @types.InputRequestEntry] = Default::default()
   reqs.set("login", {
     method_name: @types.InputRequestKind::ElicitationCreate,
-    params: Json::object({ "message": Json::string("Login") }),
+    params: Json::object({
+      "message": Json::string("Login"),
+      "requestedSchema": { "type": "object", "properties": {} },
+    }),
   })
   server.register_tool(
     "gate",
@@ -1051,7 +1065,10 @@ async test "mrtr: resources/read input_required → retry → complete" {
             let reqs : Map[String, @types.InputRequestEntry] = Default::default()
             reqs.set("login", {
               method_name: @types.InputRequestKind::ElicitationCreate,
-              params: Json::object({ "message": Json::string("Confirm") }),
+              params: Json::object({
+                "message": Json::string("Confirm"),
+                "requestedSchema": { "type": "object", "properties": {} },
+              }),
             })
             Ok(
               @resource.ResourceReadOutcome::InputRequired(
@@ -1091,7 +1108,7 @@ async test "mrtr: resources/read input_required → retry → complete" {
   let retry_params = Json::object({
     "uri": Json::string("memo://1"),
     "inputResponses": Json::object({
-      "login": Json::object({ "action": Json::string("accept") }),
+      "login": Json::object({ "action": Json::string("accept"), "content": {} }),
     }),
     "requestState": Json::string(blob),
     "_meta": Json::object({
@@ -1162,7 +1179,10 @@ async test "mrtr: prompts/get input_required → retry → complete" {
             let reqs : Map[String, @types.InputRequestEntry] = Default::default()
             reqs.set("login", {
               method_name: @types.InputRequestKind::ElicitationCreate,
-              params: Json::object({ "message": Json::string("Login") }),
+              params: Json::object({
+                "message": Json::string("Login"),
+                "requestedSchema": { "type": "object", "properties": {} },
+              }),
             })
             Ok(
               @prompt.PromptGetOutcome::InputRequired(
@@ -1208,7 +1228,7 @@ async test "mrtr: prompts/get input_required → retry → complete" {
     "name": Json::string("review"),
     "arguments": Json::object({}),
     "inputResponses": Json::object({
-      "login": Json::object({ "action": Json::string("accept") }),
+      "login": Json::object({ "action": Json::string("accept"), "content": {} }),
     }),
     "requestState": Json::string(blob),
     "_meta": Json::object({

@@ -320,7 +320,15 @@ fn check_required_capabilities(
     error => return Some(error)
   }
   let missing : Map[String, Json] = Map([])
-  for _, entry in input_requests {
+  for key, entry in input_requests {
+    validate_generated_input(entry) catch {
+      error =>
+        return Some(
+          @types.InternalError(
+            "Invalid server input request '" + key + "': \{Repr(error)}",
+          ),
+        )
+    }
     match entry.method_name {
       @types.RootsList =>
         if capabilities.roots is None {
@@ -441,7 +449,12 @@ fn restore_request_context(
     Some(_) => raise @types.InvalidParams("inputResponses must be an object")
   }
   let state = match fields.get("requestState") {
-    None => None
+    None => {
+      for _, response in responses {
+        @validation.check_unbound_input_response(response)
+      }
+      None
+    }
     Some(String(blob)) => {
       let codec = match server.request_state_codec {
         Some(codec) => codec
@@ -460,7 +473,7 @@ fn restore_request_context(
         now=(server.clock)(),
       )
       match payload {
-        Some(payload) => Some(payload.state)
+        Some(payload) => Some(restore_input_state(payload.state, responses))
         None => raise @types.InvalidParams("requestState verification failed")
       }
     }
@@ -476,6 +489,7 @@ fn seal_request_state(
   method_name : String,
   salient_params : Json,
   state : Json,
+  input_requests : Map[String, @types.InputRequestEntry],
 ) -> String raise @types.MCPError {
   let codec = match server.request_state_codec {
     Some(codec) => codec
@@ -491,7 +505,7 @@ fn seal_request_state(
       expires_at: now + 300,
       request_method: method_name,
       params_digest: params_digest(salient_params),
-      state,
+      state: sealed_input_state(state, input_requests),
     },
     now~,
   )
@@ -563,7 +577,7 @@ async fn handle_tools_call(
         None => ()
       }
       let blob = seal_request_state(
-        server, context, "tools/call", salient_params, state,
+        server, context, "tools/call", salient_params, state, input_requests,
       ) catch {
         error => return jsonrpc_error_from(id, error)
       }
@@ -645,7 +659,7 @@ async fn handle_resources_read(
         None => ()
       }
       let blob = seal_request_state(
-        server, context, "resources/read", salient_params, state,
+        server, context, "resources/read", salient_params, state, input_requests,
       ) catch {
         error => return jsonrpc_error_from(id, error)
       }
@@ -720,7 +734,7 @@ async fn handle_prompts_get(
         None => ()
       }
       let blob = seal_request_state(
-        server, context, "prompts/get", salient_params, state,
+        server, context, "prompts/get", salient_params, state, input_requests,
       ) catch {
         error => return jsonrpc_error_from(id, error)
       }
