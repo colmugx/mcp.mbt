@@ -211,6 +211,10 @@ Handlers now receive `RequestContext` before their business arguments. Simple re
 
 Enable opaque MRTR continuation state with `with_request_state_codec(AesGcmStateCodec)` (import `colmugx/mcp/server` for the codec). The default expiry clock is real Unix time; `with_clock` is for deterministic tests. On retry, state is checked against principal, method, salient parameters (including the tool name), integrity, and expiry before the handler runs. A valid same-operation retry may repeat within its lifetime: the runtime is stateless, not an exactly-once side-effect service. Make externally visible tool effects idempotent when appropriate.
 
+The runtime validates handler-authored elicitation/sampling/roots requests before issuing `input_required`; malformed server output produces `-32603`. Form elicitation must provide a restricted object schema with `properties`. The authenticated state also records the requested input keys and definitions. A retry must supply exactly those keys, matching each requested result type and any form constraints, or receive `-32602` before your handler is called. `context.continuation_state` still contains only your original business state; the correlation envelope is internal. Previously issued blobs without this envelope cannot resume after upgrading, so deploy instances sharing keys and a compatible runtime together.
+
+This is validation, not consent automation: your client handler owns user interaction, sensitive-data policy, and URL navigation. Form `format` and `default` fields are annotations, not automatic format checks or submitted defaults.
+
 Stdio `notifications/cancelled` cancels the matching in-flight task in that transport's scope. The cancelled task emits no final response or later progress. HTTP SSE streams use periodic keepalive flushes to detect disconnect; I/O failure cancels that request and closes its reply queue. Detection is bounded by keepalive cadence and socket failure reporting, not instantaneous. For CPU-bound loops, call `context.cancellation_token.throw_if_cancelled()` and yield periodically; no runtime can preempt a non-yielding synchronous computation.
 
 ## Completion
