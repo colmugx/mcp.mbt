@@ -30,7 +30,7 @@ The SDK uses four concrete I/O shapes:
 | Client stdio | `MCPClient` | child process stdin/stdout pipes |
 | Client HTTP | `MCPClient` | POST request/response plus optional SSE events |
 
-The old generic `send`/`receive String` mental model is no longer the design center. The runtime owns request IDs, pending responses, notification dispatch, and reply ownership.
+The old generic `send`/`receive String` mental model is no longer the design center. The runtime owns request IDs, pending responses, notification dispatch, and reply ownership. String ids remain distinct from numeric ids; numeric identity is exact beyond Int32 and binary64, and equivalent integer spellings share one key. The HTTP compatibility adapter follows the same routing rules. Transport rejections echo a valid original id, including its numeric literal, and omit malformed ids instead of inventing or narrowing an id.
 
 ## HTTP server
 

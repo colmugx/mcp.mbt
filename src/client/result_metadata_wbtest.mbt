@@ -39,7 +39,7 @@ test "JSON-RPC client errors retain the peer code and data instead of becoming I
       "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32602,\"message\":\"unknown tool\",\"data\":{\"name\":\"missing\"}}}",
     ) {
     Err(error) => {
-      assert_eq(error.to_error_code(), -32602)
+      assert_eq(error.to_error_code().as_int().unwrap(), -32602)
       assert_eq(error.message(), "unknown tool")
       assert_eq(
         error.to_error_data(),

@@ -560,28 +560,40 @@ test "compliance: validate_jsonrpc_message rejects missing method/result/error" 
 ///|
 /// =====================================================
 test "compliance: error codes match JSON-RPC 2.0 spec" {
-  assert_eq(@types.ParseError("x").to_error_code(), -32700)
-  assert_eq(@types.InvalidRequest("x").to_error_code(), -32600)
-  assert_eq(@types.MethodNotFound("x").to_error_code(), -32601)
-  assert_eq(@types.InvalidParams("x").to_error_code(), -32602)
-  assert_eq(@types.InternalError("x").to_error_code(), -32603)
+  assert_eq(@types.ParseError("x").to_error_code().as_int().unwrap(), -32700)
+  assert_eq(
+    @types.InvalidRequest("x").to_error_code().as_int().unwrap(),
+    -32600,
+  )
+  assert_eq(
+    @types.MethodNotFound("x").to_error_code().as_int().unwrap(),
+    -32601,
+  )
+  assert_eq(@types.InvalidParams("x").to_error_code().as_int().unwrap(), -32602)
+  assert_eq(@types.InternalError("x").to_error_code().as_int().unwrap(), -32603)
 }
 
 ///|
 test "compliance: tool error uses custom code -32000" {
-  assert_eq(@types.ToolError("x").to_error_code(), -32000)
+  assert_eq(@types.ToolError("x").to_error_code().as_int().unwrap(), -32000)
 }
 
 ///|
 test "compliance: spec-defined error codes in -3202x range" {
-  assert_eq(@types.HeaderMismatch("x").to_error_code(), -32020)
+  assert_eq(
+    @types.HeaderMismatch("x").to_error_code().as_int().unwrap(),
+    -32020,
+  )
   assert_eq(
     @types.MissingRequiredClientCapability(
       "x",
       required=@types.ClientCapabilities::new(
         elicitation=@types.ElicitationCapabilities::new(form={}),
       ),
-    ).to_error_code(),
+    )
+    .to_error_code()
+    .as_int()
+    .unwrap(),
     -32021,
   )
   assert_eq(
@@ -589,7 +601,10 @@ test "compliance: spec-defined error codes in -3202x range" {
       "x",
       supported=["2026-07-28"],
       requested="1999-01-01",
-    ).to_error_code(),
+    )
+    .to_error_code()
+    .as_int()
+    .unwrap(),
     -32022,
   )
 }
@@ -1287,7 +1302,7 @@ async test "compliance: close_subscription sends graceful result and removes sub
     kind=@aqueue.Kind::Unbounded,
   )
   server.subscriptions.set(
-    "42",
+    @types.RequestId::Int(42).key(),
     test_subscription(SubscriptionFilter::empty(), queue, "42"),
   )
   server.close_subscription("42") catch {
@@ -1301,11 +1316,8 @@ async test "compliance: close_subscription sends graceful result and removes sub
     json_get(result, "_meta"),
     "io.modelcontextprotocol/subscriptionId",
   )
-  match sid_json {
-    String(s) => assert_eq(s, "42")
-    _ => panic()
-  }
-  assert_true(server.subscriptions.get("42") is None)
+  assert_eq(@types.RequestId::from_json(sid_json), @types.RequestId::Int(42))
+  assert_true(server.subscriptions.get(@types.RequestId::Int(42).key()) is None)
 }
 
 ///|
@@ -1316,7 +1328,7 @@ test "compliance: cancelled subscription stops without a final response" {
     kind=@aqueue.Kind::Unbounded,
   )
   let sub = test_subscription(SubscriptionFilter::empty(), queue, "7")
-  server.subscriptions.set("7", sub)
+  server.subscriptions.set(@types.RequestId::Int(7).key(), sub)
   let notif = Json::object({
     "jsonrpc": Json::string("2.0"),
     "method": Json::string("notifications/cancelled"),
@@ -1325,7 +1337,7 @@ test "compliance: cancelled subscription stops without a final response" {
   server.handle_inbound_notification(notif)
   assert_true(sub.cancellation_token.is_cancelled())
   assert_true(queue.try_get() is None)
-  assert_true(server.subscriptions.get("7") is None)
+  assert_true(server.subscriptions.get(@types.RequestId::Int(7).key()) is None)
 }
 
 ///|

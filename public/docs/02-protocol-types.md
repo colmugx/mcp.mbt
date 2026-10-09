@@ -10,19 +10,22 @@ Types derive `Debug` and `Eq`. Content blocks, tool definitions/results, resourc
 
 ```moonbit
 pub(all) enum RequestId {
-  Int(Int)     // numeric id
-  Str(String)  // string id
-} derive(Eq, Debug)
+  Int(Int)              // convenient small numeric id
+  Number(JsonInteger)   // exact, arbitrary-size JSON integer
+  Str(String)           // string id
+} derive(Debug) // implements Eq using mathematical numeric identity
 ```
 
-`RequestId::to_json_string` renders either form as JSON text (string ids are quoted and escaped by the JSON serializer).
+`RequestId::from_json` accepts strings and mathematical JSON integers, as required by the pinned JSON schema; fractions, null and other types raise `InvalidRequest`. Numeric decoding produces `Number(JsonInteger)`, retaining the original literal rather than narrowing it to `Int` or a rounded `Double`. `RequestId::to_json_string` renders the original numeric spelling or a correctly quoted string. `Int(42)` and a decoded `4.2e1` compare equal, but neither matches `Str("42")`. Routing, duplicate checks, cancellation and subscription demultiplexing use the same type-tagged canonical `key()`.
+
+Use `JsonInteger::from_literal("9007199254740993")` to construct an exact large numeric id, or `RequestId::from_json(@mcp.parse_json(raw_id))` when receiving JSON. `JsonInteger::to_json` / `to_json_string` preserve the wire literal; `as_int() -> Int?` returns `None` outside signed 32-bit range rather than truncating. Very large exponents remain compact; the identity key does not expand them into a string of zeros.
 
 ### JsonRpcRequest
 
 ```moonbit
 pub(all) struct JsonRpcRequest {
   jsonrpc : String      // always "2.0"
-  id : RequestId        // request id (Int or Str)
+  id : RequestId        // exact integer or string request id
   method_name : String  // e.g. "tools/list"
   params : Json         // params object
 } derive(Eq, Debug)
@@ -58,7 +61,7 @@ pub(all) suberror MCPError {
   TransportError(TransportError)            // wrapped transport failure
   ToolError(String)                         // -32000 (implementation-defined)
   Cancelled(String)                         // local cancellation, not a peer response
-  RemoteError(String, code~ : Int, data~ : Json?, extensions~ : Map[String, Json])
+  RemoteError(String, code~ : JsonInteger, data~ : Json?, extensions~ : Map[String, Json])
   HeaderMismatch(String)                    // -32020 (MCP-defined)
   MissingRequiredClientCapability(          // -32021 (MCP-defined)
     String, required~ : ClientCapabilities,
@@ -69,7 +72,7 @@ pub(all) suberror MCPError {
 } derive(Eq, Debug)
 ```
 
-Methods: `message() -> String`, `to_error_code() -> Int`, and `to_error_data() -> Json?`. Ordinary client error responses become `RemoteError`, retaining the peer's code, data presence (including explicit null), and open fields rather than becoming indistinguishable `InternalError`s. `from_jsonrpc_error` / `to_jsonrpc_error` round-trip those error objects. The current error-code API accepts signed 32-bit integers and rejects out-of-range codes instead of truncating them; full numeric envelope support remains acceptance work.
+Methods: `message() -> String`, `to_error_code() -> JsonInteger`, and `to_error_data() -> Json?`. Ordinary client error responses become `RemoteError`, retaining the peer's exact integer code, data presence (including explicit null), and open fields rather than becoming indistinguishable `InternalError`s. `from_jsonrpc_error` / `to_jsonrpc_error` round-trip those error objects, including codes beyond Int32 and binary64's exact-integer range. Fractions are rejected. For a local switch over standard codes, use `to_error_code().as_int()` and handle `None`; serialize `to_jsonrpc_error()` rather than converting the code to a `Double`.
 
 ### TransportError — transport-level errors
 

@@ -9,6 +9,7 @@ pub using @ptypes {
   type TransportError,
   type JsonRpcRequest,
   type RequestId,
+  type JsonInteger,
   type InputRequestEntry,
   type InputRequestKind,
   type ServerInfo,

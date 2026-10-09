@@ -69,7 +69,7 @@ fn tag_notification_with_subscription(
   notification_json : String,
   id_str : String,
 ) -> String {
-  let json = @json.parse(notification_json) catch {
+  let json = @validation.parse_json(notification_json) catch {
     _ => return notification_json
   }
   if json is Object(obj) {
@@ -89,7 +89,10 @@ fn tag_notification_with_subscription(
         m
       }
     }
-    meta.set("io.modelcontextprotocol/subscriptionId", Json::string(id_str))
+    let id = @types.RequestId::from_json(@validation.parse_json(id_str)) catch {
+      _ => return notification_json
+    }
+    meta.set("io.modelcontextprotocol/subscriptionId", id.to_json())
     json.stringify()
   } else {
     notification_json
@@ -307,7 +310,9 @@ fn parse_request_message(
       // The message failed structural validation, so its id (if any) is not
       // trustworthy — respond without an id member (see
       // `jsonrpc_error_str_no_id`).
-      Err(jsonrpc_error_str_no_id(e.to_error_code(), e.message()))
+      Err(
+        Json::object({ "jsonrpc": "2.0", "error": e.to_jsonrpc_error() }).stringify(),
+      )
   }
 }
 
@@ -497,7 +502,7 @@ async fn MCPServer::handle_subscriptions_listen(
     parse_subscription_filter(request.params),
   )
   let sub_id = request.id.to_json_string()
-  let key = scoped_request_key(scope, sub_id)
+  let key = scoped_request_key(scope, request.id.key())
   let cancellation_registration = cancellation_token.on_cancel(fn() {
     self.subscriptions.remove(key)
   })
@@ -607,7 +612,8 @@ pub async fn MCPServer::close_subscription(
   subscription_id : String,
   scope? : String = "",
 ) -> Unit {
-  let key = scoped_request_key(scope, subscription_id)
+  let id = @types.RequestId::from_json(@validation.parse_json(subscription_id))
+  let key = scoped_request_key(scope, id.key())
   match self.subscriptions.get(key) {
     Some(sub) => {
       let result : Map[String, Json] = Default::default()
@@ -615,12 +621,12 @@ pub async fn MCPServer::close_subscription(
       result.set(
         "_meta",
         Json::object({
-          "io.modelcontextprotocol/subscriptionId": Json::string(
-            subscription_id,
+          "io.modelcontextprotocol/subscriptionId": @validation.parse_json(
+            sub.subscription_id,
           ),
         }),
       )
-      let id_json = @json.parse(subscription_id) catch { _ => Json::null() }
+      let id_json = @validation.parse_json(sub.subscription_id)
       let response = Json::object({
         "jsonrpc": Json::string("2.0"),
         "id": id_json,
@@ -646,17 +652,18 @@ fn MCPServer::handle_inbound_notification(
   message : String,
   scope? : String = "",
 ) -> Unit {
-  let json = @json.parse(message) catch { _ => return }
+  let json = @validation.parse_json(message) catch { _ => return }
   if json is Object(obj) {
     match obj.get("method") {
       Some(String("notifications/cancelled")) => {
         let request_id_str = match obj.get("params") {
           Some(Object(params)) =>
             match params.get("requestId") {
-              Some(Number(n, ..)) =>
-                Some(@types.RequestId::Int(n.to_int()).to_json_string())
-              Some(String(s)) => Some(@types.RequestId::Str(s).to_json_string())
-              _ => None
+              Some(value) =>
+                Some(@types.RequestId::from_json(value).key()) catch {
+                  _ => None
+                }
+              None => None
             }
           _ => None
         }

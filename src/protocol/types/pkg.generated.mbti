@@ -30,7 +30,7 @@ pub(all) suberror MCPError {
   TransportError(TransportError)
   ToolError(String)
   Cancelled(String)
-  RemoteError(String, code~ : Int, data~ : Json?, extensions~ : Map[String, Json])
+  RemoteError(String, code~ : JsonInteger, data~ : Json?, extensions~ : Map[String, Json])
   HeaderMismatch(String)
   MissingRequiredClientCapability(String, required~ : ClientCapabilities)
   UnsupportedProtocolVersion(String, supported~ : Array[String], requested~ : String)
@@ -39,7 +39,7 @@ pub fn MCPError::equal(Self, Self) -> Bool
 pub fn MCPError::from_jsonrpc_error(Json) -> Self raise Self
 pub fn MCPError::message(Self) -> String
 pub fn MCPError::not_equal(Self, Self) -> Bool
-pub fn MCPError::to_error_code(Self) -> Int
+pub fn MCPError::to_error_code(Self) -> JsonInteger
 pub fn MCPError::to_error_data(Self) -> Json?
 pub fn MCPError::to_jsonrpc_error(Self) -> Json
 pub fn MCPError::to_repr(Self) -> @debug.Repr
@@ -377,6 +377,22 @@ pub fn InputRequestKind::not_equal(Self, Self) -> Bool
 pub fn InputRequestKind::to_method(Self) -> String
 pub fn InputRequestKind::to_repr(Self) -> @debug.Repr
 
+pub struct JsonInteger {
+  wire : Json
+  canonical : String
+} derive(@debug.Debug)
+pub fn JsonInteger::as_int(Self) -> Int?
+pub fn JsonInteger::equal(Self, Self) -> Bool
+pub fn JsonInteger::from_int(Int) -> Self
+pub fn JsonInteger::from_json(Json) -> Self raise MCPError
+pub fn JsonInteger::from_literal(String) -> Self raise MCPError
+pub fn JsonInteger::key(Self) -> String
+pub fn JsonInteger::not_equal(Self, Self) -> Bool
+pub fn JsonInteger::to_json(Self) -> Json
+pub fn JsonInteger::to_json_string(Self) -> String
+pub fn JsonInteger::to_repr(Self) -> @debug.Repr
+pub impl Eq for JsonInteger
+
 pub(all) struct JsonRpcRequest {
   jsonrpc : String
   id : RequestId
@@ -508,13 +524,17 @@ pub impl ToJson for PromptMessage
 
 pub(all) enum RequestId {
   Int(Int)
+  Number(JsonInteger)
   Str(String)
-} derive(Eq, @debug.Debug)
+} derive(@debug.Debug)
 pub fn RequestId::equal(Self, Self) -> Bool
+pub fn RequestId::from_json(Json) -> Self raise MCPError
+pub fn RequestId::key(Self) -> String
 pub fn RequestId::not_equal(Self, Self) -> Bool
 pub fn RequestId::to_json(Self) -> Json
 pub fn RequestId::to_json_string(Self) -> String
 pub fn RequestId::to_repr(Self) -> @debug.Repr
+pub impl Eq for RequestId
 
 pub(all) struct ResourceCapabilities {
   subscribe : Bool?

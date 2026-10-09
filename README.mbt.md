@@ -10,7 +10,11 @@ The SDK targets MCP **2026-07-28** with stateless per-request metadata and MRTR.
 
 Tool input/output validation now compiles schemas once at registration and rejects invalid arguments before executing handlers. Successful structured output is validated when an output schema is declared. Closed objects, precise numeric constraints and local `$ref`/`$defs` are supported.
 
-**Conformance work is still in progress:** the validator has an explicit partial 2020-12 profile; arbitrary remote/dynamic/unevaluated schemas, elicitation validation and some numeric-id/MRTR edge cases remain open. See the [conformance evidence and migration notes](docs/conformance.md) before relying on a complete-protocol guarantee.
+Elicitation forms are validated before interaction and accepted content is checked against an owned schema snapshot. The server independently verifies MRTR response keys, result types, and form constraints from authenticated continuation state; the client bounds retries without a final unconsumable interaction.
+
+JSON-RPC ids and peer error codes now retain exact integer literals beyond Int32 and binary64. String ids, large numeric ids, duplicate checks, subscriptions and cancellation share consistent routing without truncation.
+
+**Conformance work is still in progress:** the validator has an explicit partial 2020-12 profile; arbitrary remote/dynamic/unevaluated schemas, remaining typed-value precision and normative edge cases remain open. See the [conformance evidence and migration notes](docs/conformance.md) before relying on a complete-protocol guarantee.
 
 Bearer tokens, server-side authentication hooks, and protected-resource metadata are supported. OAuth authorization client lifecycle, PKCE, dynamic client registration, and token refresh management are **not included**.
 
@@ -20,8 +24,8 @@ Bearer tokens, server-side authentication hooks, and protected-resource metadata
 moon add colmugx/mcp
 ```
 
-For this development revision, use the workspace and its checked-out `json-schema.mbt`
-module. The validator dependency must be published and a standalone build verified
+For this development revision, use the workspace and its independent
+`external/json-schema` submodule. The validator dependency must be published and a standalone build verified
 before releasing this SDK revision; the existing published SDK is not evidence that
 these workspace changes are already available through the registry.
 

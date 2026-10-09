@@ -14,8 +14,8 @@ async test "temporary client pump routes out-of-order replies and progress witho
   })
   let first : @aqueue.Queue[String] = @aqueue.Queue(kind=Unbounded)
   let second : @aqueue.Queue[String] = @aqueue.Queue(kind=Unbounded)
-  client.response_map.set(1, first)
-  client.response_map.set(2, second)
+  client.response_map.set(@types.RequestId::Int(1).key(), first)
+  client.response_map.set(@types.RequestId::Int(2).key(), second)
   transport.pending_responses.put(
     Json::object({
       "jsonrpc": "2.0",
@@ -55,7 +55,7 @@ async test "temporary client pump closes pending queues on transport EOF" {
     transport=@transport.AnyTransport::HttpClient(transport),
   )
   let queue : @aqueue.Queue[String] = @aqueue.Queue(kind=Unbounded)
-  client.response_map.set(1, queue)
+  client.response_map.set(@types.RequestId::Int(1).key(), queue)
   transport.close()
   @async.with_task_group(group => client.pump_direct_responses(group))
   assert_true(client.response_map.is_empty())

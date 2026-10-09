@@ -25,13 +25,20 @@ priv enum ProbeVerdict {
 ///   - -32021 MissingRequiredClientCapability
 ///   - -32022 UnsupportedProtocolVersion
 fn parse_jsonrpc_error(body : String) -> @types.MCPError? {
-  let json = @json.parse(body) catch { _ => return None }
+  let json = @validation.parse_json(body) catch { _ => return None }
   if json is Object(obj) {
     match obj.get("error") {
       Some(Object(err_obj)) => {
         let code = match err_obj.get("code") {
-          Some(Number(n, ..)) => n.to_int()
-          _ => return None
+          Some(value) =>
+            match
+              (@types.JsonInteger::from_json(value).as_int() catch {
+                _ => None
+              }) {
+              Some(code) => code
+              None => return None
+            }
+          None => return None
         }
         let message = match err_obj.get("message") {
           Some(String(s)) => s

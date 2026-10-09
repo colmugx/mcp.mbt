@@ -11,6 +11,18 @@ Toolchain: MoonBit v0.10.9, `moonbitlang/async` 0.20.5 → 0.21.0.
 
 ### Added
 
+- Exact `JsonInteger` wire values and `RequestId::Number`, retaining integer
+  literals beyond Int32 and binary64. Numeric equality uses compact canonical
+  identities without expanding large exponents; string ids stay distinct.
+- Elicitation form validation: restricted schema decoding, fail-closed constraint
+  compilation before user interaction, and accepted-content validation against
+  an owned snapshot. Modern MRTR and legacy elicitation callbacks share the
+  same checks; URL responses and declined/cancelled forms must omit content.
+- Authenticated MRTR input correlation for tools, resources, and prompts.
+  Continuation state now seals requested input keys and definitions alongside
+  business state. Missing/extra keys, mismatched result unions, invalid roots,
+  and invalid form content fail with `-32602` before business handlers execute.
+  Malformed handler-authored input requests fail with `-32603` before publication.
 - Compile-once tool input/output validation using the independent
   `colmugx/json-schema` library. Invalid arguments fail with `-32602` before
   handlers execute; successful results declaring an output schema must include
@@ -65,6 +77,17 @@ Toolchain: MoonBit v0.10.9, `moonbitlang/async` 0.20.5 → 0.21.0.
 
 ### Changed
 
+- `MCPError::RemoteError.code` and `to_error_code()` now use `JsonInteger`.
+  Use `as_int()` for an optional checked Int32 projection, and serialize peer
+  errors with `to_jsonrpc_error()` to preserve exact codes and metadata.
+- Numeric request decoding now produces `RequestId::Number`; update exhaustive
+  matches. The `Int` convenience constructor remains available.
+- URL elicitation no longer requires the nonstandard `elicitationId` field.
+  `ElicitationRequest::url(message, url, elicitation_id?)` accepts an optional
+  labeled compatibility identifier; its `Url` variant stores `String?`.
+- MRTR blobs issued before the authenticated input-correlation envelope was
+  introduced cannot resume under this runtime; coordinate mixed-version
+  deployments even when instances share the same encryption key.
 - Upgraded to `moonbitlang/async` 0.21.0 and migrated to the
   case-insensitive `@http.Headers` type: `response.headers.get("…")` no
   longer depends on the server's header casing, and the modern transport's
@@ -87,6 +110,8 @@ Toolchain: MoonBit v0.10.9, `moonbitlang/async` 0.20.5 → 0.21.0.
 
 ### Fixed
 
+- MRTR stops before invoking client input handlers when its exchange budget is
+  exhausted, avoiding user interactions whose responses could never be retried.
 - `StdioClientTransport::start` no longer leaks the parent-held pipe ends
   when `@process.spawn` fails or is cancelled mid-start (previously two FDs
   per failed start; `errdefer` releases them while preserving ownership

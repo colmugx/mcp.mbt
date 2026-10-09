@@ -67,7 +67,7 @@ async fn MCPServer::dispatch_runtime_request(
     }
     return
   }
-  let key = scoped_request_key(scope, request.id.to_json_string())
+  let key = scoped_request_key(scope, request.id.key())
   if self.active_requests.contains(key) || self.subscriptions.contains(key) {
     reply.put(
       jsonrpc_error_str(request.id, -32600, "Duplicate active request id"),

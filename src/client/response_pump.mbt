@@ -41,7 +41,7 @@ fn[T] MCPClient::route_received_message(
   message : String,
   group : @async.TaskGroup[T],
 ) -> Unit {
-  let json = @json.parse(message) catch {
+  let json = @validation.parse_json(message) catch {
     _ => {
       self.close_pending_response_queues()
       return

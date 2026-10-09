@@ -34,8 +34,8 @@ pub struct MCPClient {
     @types.ElicitationResult,
     @types.MCPError,
   ])?
-  response_map : Map[Int, @aqueue.Queue[String]]
-  request_cancellations : Map[Int, (String?) -> Unit]
+  response_map : Map[String, @aqueue.Queue[String]]
+  request_cancellations : Map[String, (String?) -> Unit]
   receive_mutex : @async.Mutex
   mut event_loop_started : Bool
   mut legacy_mode : Bool
@@ -378,7 +378,13 @@ async fn MCPClient::send_request(
   self : MCPClient,
   request : String,
 ) -> Result[String, @types.MCPError] {
-  let id = extract_request_id(request)
+  let request_id = extract_request_id(request) catch {
+    error => return Err(error)
+  }
+  let id = request_id.key()
+  if self.request_cancellations.contains(id) {
+    return Err(@types.InvalidRequest("Duplicate active request id"))
+  }
   let explicitly_cancelled = Ref(false)
   let cancellation_reason : Ref[String?] = Ref(None)
   @async.with_task_group(group => {
@@ -395,7 +401,7 @@ async fn MCPClient::send_request(
     })
     defer self.request_cancellations.remove(id)
     let task = group.spawn(
-      () => self.send_request_inner(request, cancellation_reason),
+      () => self.send_request_inner(request, request_id, cancellation_reason),
       allow_failure=true,
     )
     owned_task.val = Some(task)
@@ -417,9 +423,10 @@ async fn MCPClient::send_request(
 async fn MCPClient::send_request_inner(
   self : MCPClient,
   request : String,
+  request_id : @types.RequestId,
   cancellation_reason : Ref[String?],
 ) -> Result[String, @types.MCPError] {
-  let id = extract_request_id(request)
+  let id = request_id.key()
   let queue : @aqueue.Queue[String] = @aqueue.Queue(
     kind=@aqueue.Kind::Unbounded,
   )
@@ -433,7 +440,7 @@ async fn MCPClient::send_request_inner(
       error => {
         if @async.is_being_cancelled() {
           self.notify_cancelled_best_effort(
-            @types.RequestId::Int(id),
+            request_id,
             reason?=cancellation_reason.val,
           )
           raise error
@@ -445,7 +452,7 @@ async fn MCPClient::send_request_inner(
       error => {
         if @async.is_being_cancelled() {
           self.notify_cancelled_best_effort(
-            @types.RequestId::Int(id),
+            request_id,
             reason?=cancellation_reason.val,
           )
           raise error
@@ -899,15 +906,13 @@ fn roots_to_json(roots : Array[@types.Root]) -> Json {
 }
 
 ///|
-fn extract_request_id(request : String) -> Int {
-  let json = @json.parse(request) catch { _ => return 0 }
-  match json {
-    Object(obj) =>
-      match obj.get("id") {
-        Some(Number(n, ..)) => n.to_int()
-        _ => 0
-      }
-    _ => 0
+fn extract_request_id(
+  request : String,
+) -> @types.RequestId raise @types.MCPError {
+  let json = @validation.parse_json(request)
+  match @types.JsonRpcRequest::from_json(json) {
+    Ok(request) => request.id
+    Err(error) => raise error
   }
 }
 
@@ -928,14 +933,12 @@ pub async fn MCPClient::cancel_request(
       ),
     )
   }
-  if request_id is @types.RequestId::Int(id) {
-    match self.request_cancellations.get(id) {
-      Some(cancel) => {
-        cancel(reason)
-        return Ok(())
-      }
-      None => ()
+  match self.request_cancellations.get(request_id.key()) {
+    Some(cancel) => {
+      cancel(reason)
+      return Ok(())
     }
+    None => ()
   }
   match self.transport {
     @transport.AnyTransport::StdioClient(_) => {
@@ -1448,10 +1451,11 @@ pub fn MCPClient::listen(
     self.request_meta(),
     filter,
   )
-  self.subscription_handlers[id_str] = handler
+  let key = @types.RequestId::Int(id).key()
+  self.subscription_handlers[key] = handler
   group.spawn_bg(async fn() {
     let _ = self.send_request(request)
-    self.subscription_handlers.remove(id_str)
+    self.subscription_handlers.remove(key)
   })
   Ok(id_str)
 }
@@ -1463,11 +1467,10 @@ pub async fn MCPClient::cancel_listen(
   self : MCPClient,
   subscription_id : String,
 ) -> Result[Unit, @types.MCPError] {
-  let parsed = @json.parse(subscription_id) catch {
+  let parsed = @validation.parse_json(subscription_id) catch {
     _ => return Err(@types.InvalidParams("Invalid subscription id"))
   }
-  let id = match parsed {
-    Number(value, ..) => @types.RequestId::Int(value.to_int())
+  let id = @types.RequestId::from_json(parsed) catch {
     _ => return Err(@types.InvalidParams("Invalid subscription id"))
   }
   self.cancel_request(id, reason="client cancelled listen subscription")
@@ -1513,17 +1516,18 @@ fn MCPClient::dispatch_response(
   obj : Map[String, Json],
 ) -> Unit {
   let id = match obj.get("id") {
-    Some(Number(n, ..)) => n.to_int()
-    _ => return
+    Some(value) => @types.RequestId::from_json(value) catch { _ => return }
+    None => return
   }
-  match self.response_map.get(id) {
+  let key = id.key()
+  match self.response_map.get(key) {
     Some(queue) => {
       try {
         let _ = queue.try_put(raw_message)
       } catch {
         _ => ()
       }
-      self.response_map.remove(id)
+      self.response_map.remove(key)
     }
     None => ()
   }
@@ -1540,9 +1544,8 @@ fn[T] MCPClient::handle_server_request(
     _ => return
   }
   let id = match obj.get("id") {
-    Some(Number(n, ..)) => @types.RequestId::Int(n.to_int())
-    Some(String(s)) => @types.RequestId::Str(s)
-    _ => return
+    Some(value) => @types.RequestId::from_json(value) catch { _ => return }
+    None => return
   }
   let params = obj.get("params").unwrap_or(Json::null())
   let transport = self.transport
@@ -1562,8 +1565,7 @@ fn[T] MCPClient::handle_server_request(
                   "id": id_json,
                   "result": serialize_create_message_result(result),
                 }).stringify()
-              Err(e) =>
-                jsonrpc_error_str(id_json, e.to_error_code(), e.message())
+              Err(e) => jsonrpc_error_from(id_json, e)
             }
           None => jsonrpc_error_str(id_json, -32601, "sampling not supported")
         }
@@ -1589,8 +1591,7 @@ fn[T] MCPClient::handle_server_request(
                     ),
                   },
                 }).stringify()
-              Err(e) =>
-                jsonrpc_error_str(id_json, e.to_error_code(), e.message())
+              Err(e) => jsonrpc_error_from(id_json, e)
             }
           None => jsonrpc_error_str(id_json, -32601, "roots not supported")
         }
@@ -1598,7 +1599,7 @@ fn[T] MCPClient::handle_server_request(
         match elicitation_h {
           Some(handler) =>
             try invoke_elicitation(handler, params) catch {
-              e => jsonrpc_error_str(id_json, e.to_error_code(), e.message())
+              e => jsonrpc_error_from(id_json, e)
             } noraise {
               result =>
                 Json::object({
@@ -1631,9 +1632,11 @@ fn extract_subscription_id(params : Json?) -> String? {
       match obj.get("_meta") {
         Some(Object(meta)) =>
           match meta.get("io.modelcontextprotocol/subscriptionId") {
-            Some(Number(n, ..)) => Some(n.to_int().to_string())
-            Some(String(s)) => Some(s)
-            _ => None
+            Some(value) =>
+              Some(@types.RequestId::from_json(value).key()) catch {
+                _ => None
+              }
+            None => None
           }
         _ => None
       }
@@ -1911,10 +1914,7 @@ fn parse_completion_result(
 
 ///|
 fn request_id_to_json(id : @types.RequestId) -> Json {
-  match id {
-    Int(n) => Json::number(n.to_double())
-    Str(s) => Json::string(s)
-  }
+  id.to_json()
 }
 
 ///|
@@ -1924,6 +1924,11 @@ fn jsonrpc_error_str(id_json : Json, code : Int, message : String) -> String {
     "id": id_json,
     "error": { "code": code, "message": message },
   }).stringify()
+}
+
+///|
+fn jsonrpc_error_from(id : Json, error : @types.MCPError) -> String {
+  Json::object({ "jsonrpc": "2.0", "id": id, "error": error.to_jsonrpc_error() }).stringify()
 }
 
 ///|

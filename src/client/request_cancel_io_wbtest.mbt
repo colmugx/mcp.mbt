@@ -94,7 +94,9 @@ async test "explicit stdio cancellation releases local wait and preserves numeri
       )
     })
     @async.sleep(300)
-    assert_true(client.request_cancellations.contains(8))
+    assert_true(
+      client.request_cancellations.contains(@types.RequestId::Int(8).key()),
+    )
     assert_eq(
       client.cancel_request(@types.RequestId::Int(8), reason="user stop"),
       Ok(()),
@@ -103,8 +105,10 @@ async test "explicit stdio cancellation releases local wait and preserves numeri
       Err(@types.Cancelled(_)) => ()
       _ => fail("explicit cancellation must release the local request wait")
     }
-    assert_false(client.request_cancellations.contains(8))
-    assert_false(client.response_map.contains(8))
+    assert_false(
+      client.request_cancellations.contains(@types.RequestId::Int(8).key()),
+    )
+    assert_false(client.response_map.contains(@types.RequestId::Int(8).key()))
     let echoed = @async.with_timeout(3000, () => transport.receive()).unwrap()
     let message = @json.parse(echoed)
     guard message
@@ -162,7 +166,9 @@ async test "explicit HTTP cancellation closes the owned request stream and relea
       )
     })
     ignore(@async.with_timeout(3000, () => started.get()))
-    assert_true(client.request_cancellations.contains(9))
+    assert_true(
+      client.request_cancellations.contains(@types.RequestId::Int(9).key()),
+    )
     assert_eq(client.cancel_request(@types.RequestId::Int(9)), Ok(()))
     match @async.with_timeout(3000, () => task.wait()) {
       Err(@types.Cancelled(_)) => ()
@@ -193,7 +199,9 @@ async test "closing the client cancels its owned stdio request and releases the 
       )
     })
     @async.sleep(300)
-    assert_true(client.request_cancellations.contains(10))
+    assert_true(
+      client.request_cancellations.contains(@types.RequestId::Int(10).key()),
+    )
     client.close()
     match @async.with_timeout(3000, () => task.wait()) {
       Err(@types.Cancelled(_)) => ()
@@ -350,4 +358,44 @@ async test "concurrent direct HTTP calls correlate out-of-order replies independ
   })
   assert_true(client.response_map.is_empty())
   assert_true(client.request_cancellations.is_empty())
+}
+
+///|
+async test "owned stdio cancellation releases string and large numeric requests without narrowing ids" {
+  for literal in ["\"9007199254740993\"", "9007199254740993"] {
+    @async.with_timeout(5000, () => {
+      @async.with_task_group(group => {
+        let transport = @transport.StdioClientTransport::StdioClientTransport(
+          cmd="sh",
+          args=["-c", "read x; cat"],
+        )
+        transport.start(group)
+        defer transport.close()
+        let client = MCPClient::MCPClient(
+          name="test",
+          version="1",
+          transport=@transport.AnyTransport::StdioClient(transport),
+        )
+        let id = @types.RequestId::from_json(@validation.parse_json(literal))
+        let task = group.spawn(() => {
+          client.send_request(
+            "{\"jsonrpc\":\"2.0\",\"id\":" +
+            literal +
+            ",\"method\":\"tools/list\",\"params\":{}}",
+          )
+        })
+        @async.sleep(300)
+        assert_true(client.request_cancellations.contains(id.key()))
+        assert_eq(client.cancel_request(id, reason="stop"), Ok(()))
+        assert_true(task.wait() is Err(@types.Cancelled(_)))
+        assert_true(client.response_map.is_empty())
+        assert_true(client.request_cancellations.is_empty())
+        let notification = @validation.parse_json(transport.receive().unwrap())
+        guard notification is { "params": { "requestId": echoed, .. }, .. } else {
+          fail("missing cancellation id")
+        }
+        assert_eq(@types.RequestId::from_json(echoed).to_json_string(), literal)
+      })
+    })
+  }
 }

@@ -26,7 +26,7 @@ pub fn is_notification(body : Json) -> Bool {
 ///|
 /// Classify a serialized JSON-RPC message for response-mode selection.
 pub fn classify_jsonrpc_message(message : String) -> JsonRpcKind {
-  let json = @json.parse(message) catch { _ => return Other }
+  let json = @validation.parse_json(message) catch { _ => return Other }
   if json is Object(obj) {
     let has_method = obj.get("method") is Some(_)
     let has_id = obj.get("id") is Some(_)
@@ -47,12 +47,15 @@ pub fn classify_jsonrpc_message(message : String) -> JsonRpcKind {
 ///|
 /// Extract the JSON-RPC error code from a serialized response, if any.
 pub fn jsonrpc_error_code(message : String) -> Int? {
-  let json = @json.parse(message) catch { _ => return None }
+  let json = @validation.parse_json(message) catch { _ => return None }
   if json is Object(obj) {
     match obj.get("error") {
       Some(Object(err)) =>
         match err.get("code") {
-          Some(Number(n, ..)) => Some(n.to_int())
+          Some(value) =>
+            @types.JsonInteger::from_json(value).as_int() catch {
+              _ => None
+            }
           _ => None
         }
       _ => None
@@ -74,9 +77,15 @@ pub fn sse_event_line(json : String) -> String {
 /// is not a JSON object or carries no `id` — JSON-RPC allows omitting `id`
 /// when it cannot be determined from the (possibly malformed) request.
 pub fn request_id_from_body(body : String) -> Json? {
-  let json = @json.parse(body) catch { _ => return None }
+  let json = @validation.parse_json(body) catch { _ => return None }
   if json is Object(obj) {
-    obj.get("id")
+    match obj.get("id") {
+      Some(value) =>
+        Some(@types.RequestId::from_json(value).to_json()) catch {
+          _ => None
+        }
+      None => None
+    }
   } else {
     None
   }
@@ -86,16 +95,9 @@ pub fn request_id_from_body(body : String) -> Json? {
 /// Serialize a JSON-RPC 2.0 error response body for a transport-level
 /// rejection, echoing the request `id` extracted from `body` when readable.
 fn jsonrpc_error_body(error : @types.MCPError, body~ : String) -> String {
-  let error_obj : Map[String, Json] = Default::default()
-  error_obj.set("code", Json::number(error.to_error_code().to_double()))
-  error_obj.set("message", Json::string(error.message()))
-  match error.to_error_data() {
-    Some(data) => error_obj.set("data", data)
-    None => ()
-  }
   let response : Map[String, Json] = Default::default()
   response.set("jsonrpc", Json::string("2.0"))
-  response.set("error", Json::object(error_obj))
+  response.set("error", error.to_jsonrpc_error())
   match request_id_from_body(body) {
     Some(id) => response.set("id", id)
     None => ()

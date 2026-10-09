@@ -80,8 +80,8 @@ pub struct MCPClient {
   sampling_handler : ((Json) -> Result[@types.CreateMessageResult, @types.MCPError])?
   roots_handler : (() -> Result[Array[@types.Root], @types.MCPError])?
   elicitation_handler : ((Json) -> Result[@types.ElicitationResult, @types.MCPError])?
-  response_map : Map[Int, @aqueue.Queue[String]]
-  request_cancellations : Map[Int, (String?) -> Unit]
+  response_map : Map[String, @aqueue.Queue[String]]
+  request_cancellations : Map[String, (String?) -> Unit]
   receive_mutex : @async.Mutex
   mut event_loop_started : Bool
   mut legacy_mode : Bool
