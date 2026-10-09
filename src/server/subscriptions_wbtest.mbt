@@ -76,7 +76,7 @@ async test "subscriptions: notify_tools_list_changed routes to matching stream" 
   )
   // Register a subscription with id "1" and a tools-list filter.
   server.subscriptions.set(
-    "1",
+    @types.RequestId::Int(1).key(),
     test_subscription(tools_filter(), reply_queue, "1"),
   )
   // Trigger a tools-list-changed notification.
@@ -99,7 +99,7 @@ async test "subscriptions: notify_tools_list_changed routes to matching stream" 
           Some(Object(m)) =>
             assert_eq(
               m.get("io.modelcontextprotocol/subscriptionId"),
-              Some(Json::string("1")),
+              Some(Json::number(1)),
             )
           _ => panic()
         }
@@ -120,7 +120,7 @@ async test "subscriptions: non-matching filter receives no notification" {
   )
   // Subscribe only to prompts-list-changed.
   server.subscriptions.set(
-    "2",
+    @types.RequestId::Int(2).key(),
     test_subscription(
       { ..SubscriptionFilter::empty(), prompts_list_changed: true, },
       reply_queue,
@@ -147,7 +147,7 @@ async test "subscriptions: notify_resource_updated reaches only matching URI sub
     kind=@aqueue.Kind::Unbounded,
   )
   server.subscriptions.set(
-    "1",
+    @types.RequestId::Int(1).key(),
     test_subscription(
       {
         ..SubscriptionFilter::empty(),
@@ -158,7 +158,7 @@ async test "subscriptions: notify_resource_updated reaches only matching URI sub
     ),
   )
   server.subscriptions.set(
-    "2",
+    @types.RequestId::Int(2).key(),
     test_subscription(
       {
         ..SubscriptionFilter::empty(),
@@ -188,7 +188,7 @@ async test "subscriptions: notify_resource_updated reaches only matching URI sub
           Some(Object(m)) =>
             assert_eq(
               m.get("io.modelcontextprotocol/subscriptionId"),
-              Some(Json::string("1")),
+              Some(Json::number(1)),
             )
           _ => panic()
         }

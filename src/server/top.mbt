@@ -34,6 +34,7 @@ pub using @types {
   type MCPError,
   type TransportError,
   type RequestId,
+  type JsonInteger,
   type JsonRpcRequest,
   type ServerInfo,
   type ServerCapabilities,

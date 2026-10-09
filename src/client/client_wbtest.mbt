@@ -267,13 +267,19 @@ test "extract_subscription_id accepts Number and String ids" {
   ) catch {
     _ => panic()
   }
-  assert_eq(extract_subscription_id(Some(number_params)), Some("42"))
+  assert_eq(
+    extract_subscription_id(Some(number_params)),
+    Some(@types.RequestId::Int(42).key()),
+  )
   let string_params = @json.parse(
     "{\"_meta\":{\"io.modelcontextprotocol/subscriptionId\":\"sub-abc\"}}",
   ) catch {
     _ => panic()
   }
-  assert_eq(extract_subscription_id(Some(string_params)), Some("sub-abc"))
+  assert_eq(
+    extract_subscription_id(Some(string_params)),
+    Some(@types.RequestId::Str("sub-abc").key()),
+  )
   assert_eq(extract_subscription_id(None), None)
 }
 

@@ -38,7 +38,9 @@ async test "cancellation stops the handler and is isolated by transport scope" {
     assert_eq(stopped.get(), "a")
     assert_true(replies_a.try_get() is None)
     assert_true(
-      server.active_requests.contains(scoped_request_key("peer-b", "7")),
+      server.active_requests.contains(
+        scoped_request_key("peer-b", @types.RequestId::Int(7).key()),
+      ),
     )
     assert_true(replies_b.try_get() is None)
     server.handle_inbound_notification(notification, scope="peer-b")

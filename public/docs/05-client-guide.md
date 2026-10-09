@@ -118,7 +118,7 @@ Ordinary calls also route notifications and responses correctly **without** star
 
 For multiplexed subscriptions on one long-lived request, start `client.run(group)` before calling `listen(filter?, handler~, group~)`. It returns a subscription id. `cancel_listen(id)` cancels the owned subscription request on stdio or HTTP; it does not send a cross-request HTTP cancellation POST.
 
-Cancellation preserves request-id types: use `RequestId::Int(7)` for a numeric id, not `RequestId::Str("7")`. Explicit cancellation returns a local `MCPError::Cancelled` to the waiting caller. Cancelling the calling async task instead propagates the runtime cancellation error. An HTTP id not owned by this client cannot be cancelled through `cancel_request`.
+Cancellation preserves request-id types: use `RequestId::Int(7)` for a small numeric id, not `RequestId::Str("7")`; use `RequestId::Number(JsonInteger::from_literal(...))` for a large numeric id. String ids and integers beyond binary64's exact range have independent response/cancellation ownership. Equivalent numeric spellings such as `42` and `4.2e1` identify the same request. Explicit cancellation returns a local `MCPError::Cancelled` to the waiting caller. Cancelling the calling async task instead propagates the runtime cancellation error. An HTTP id not owned by this client cannot be cancelled through `cancel_request`.
 
 Progress tokens use `ProgressToken::String` or `ProgressToken::Number`. `call_tool(..., progress_token=ProgressToken::Number(7.5))` keeps the token numeric in request metadata and progress callbacks; it is not truncated or converted to a string.
 

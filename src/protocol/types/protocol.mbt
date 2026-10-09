@@ -49,17 +49,20 @@ pub(all) struct PromptCapabilities {
 } derive(Debug, Eq)
 
 ///|
-/// Request ID supporting both Int and String per JSON-RPC 2.0 / MCP spec
+/// Request ID supporting exact JSON integers and strings. Int is a convenience
+/// constructor; Number retains arbitrary-size wire integers.
 pub(all) enum RequestId {
   Int(Int)
+  Number(JsonInteger)
   Str(String)
-} derive(Eq, Debug)
+} derive(Debug)
 
 ///|
 /// Convert RequestId to its JSON string representation
 pub fn RequestId::to_json_string(self : RequestId) -> String {
   match self {
     Int(n) => n.to_string()
+    Number(n) => n.to_json_string()
     // Delegate string quoting to the Json serializer so every JSON escape
     // (\b, \f, other control chars < 0x20) is emitted correctly; a
     // hand-rolled escape list could produce invalid JSON text.
@@ -71,8 +74,33 @@ pub fn RequestId::to_json_string(self : RequestId) -> String {
 pub fn RequestId::to_json(self : RequestId) -> Json {
   match self {
     Int(value) => Json::number(value.to_double())
+    Number(value) => value.to_json()
     Str(value) => Json::string(value)
   }
+}
+
+///|
+pub fn RequestId::from_json(value : Json) -> RequestId raise MCPError {
+  match value {
+    String(value) => Str(value)
+    Number(_, ..) => Number(JsonInteger::from_json(value))
+    _ => raise InvalidRequest("Request id must be a string or JSON integer")
+  }
+}
+
+///|
+/// Type-tagged canonical identity for routing, duplicate checks and cancellation.
+pub fn RequestId::key(self : RequestId) -> String {
+  match self {
+    Int(value) => "n:" + JsonInteger::from_int(value).key()
+    Number(value) => "n:" + value.key()
+    Str(value) => "s:" + value
+  }
+}
+
+///|
+pub impl Eq for RequestId with fn equal(self, other) {
+  self.key() == other.key()
 }
 
 ///|
@@ -116,9 +144,11 @@ pub fn JsonRpcRequest::from_json(
       _ => return Err(InvalidRequest("Missing or invalid 'jsonrpc' field"))
     }
     let id = match obj.get("id") {
-      Some(Number(n, ..)) => RequestId::Int(n.to_int())
-      Some(String(s)) => RequestId::Str(s)
-      _ => return Err(InvalidRequest("Missing or invalid 'id' field"))
+      Some(value) =>
+        RequestId::from_json(value) catch {
+          error => return Err(error)
+        }
+      None => return Err(InvalidRequest("Missing 'id' field"))
     }
     let method_name = match obj.get("method") {
       Some(String(m)) => m

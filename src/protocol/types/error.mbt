@@ -67,7 +67,7 @@ pub(all) suberror MCPError {
   /// Peer error retaining its original code, data presence and open fields.
   RemoteError(
     String,
-    code~ : Int,
+    code~ : JsonInteger,
     data~ : Json?,
     extensions~ : Map[String, Json]
   )
@@ -88,9 +88,9 @@ pub(all) suberror MCPError {
 } derive(Debug, Eq)
 
 ///|
-/// Convert MCPError to JSON-RPC error code
-pub fn MCPError::to_error_code(self : MCPError) -> Int {
-  match self {
+/// Exact JSON-RPC error code. Use as_int() only when an Int32 projection is needed.
+pub fn MCPError::to_error_code(self : MCPError) -> JsonInteger {
+  let code = match self {
     ParseError(_) => -32700
     InvalidRequest(_) => -32600
     MethodNotFound(_) => -32601
@@ -98,11 +98,12 @@ pub fn MCPError::to_error_code(self : MCPError) -> Int {
     InternalError(_) => -32603
     TransportError(_) => -32603
     ToolError(_) | Cancelled(_) => -32000
-    RemoteError(_, code~, ..) => code
+    RemoteError(_, code~, ..) => return code
     HeaderMismatch(_) => -32020
     MissingRequiredClientCapability(_, ..) => -32021
     UnsupportedProtocolVersion(_, ..) => -32022
   }
+  JsonInteger::from_int(code)
 }
 
 ///|

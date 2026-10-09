@@ -58,5 +58,6 @@ options(
     "http_compliance_io_test.mbt": [ "native", "wasm" ],
     "sse_flush_io_test.mbt": [ "native" ],
     "cancellation_io_test.mbt": [ "native" ],
+    "request_id_io_test.mbt": [ "native" ],
   },
 )

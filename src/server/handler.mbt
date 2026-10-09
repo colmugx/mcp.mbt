@@ -2,10 +2,7 @@
 
 ///|
 fn request_id_to_json(id : @types.RequestId) -> Json {
-  match id {
-    Int(n) => Json::number(n.to_double())
-    Str(s) => Json::string(s)
-  }
+  id.to_json()
 }
 
 ///|

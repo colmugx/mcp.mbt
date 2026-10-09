@@ -40,16 +40,14 @@ pub fn HttpTransport::set_tool_schema_resolver(
 
 ///|
 fn id_key_from_json(value : Json) -> String? {
-  match value {
-    Number(n, ..) => Some("n:" + n.to_int().to_string())
-    String(s) => Some("s:" + s)
+  Some(@types.RequestId::from_json(value).key()) catch {
     _ => None
   }
 }
 
 ///|
 fn id_key_from_message(message : String) -> String? {
-  let json = @json.parse(message) catch { _ => return None }
+  let json = @validation.parse_json(message) catch { _ => return None }
   if json is Object(obj) {
     match obj.get("id") {
       Some(id) => id_key_from_json(id)

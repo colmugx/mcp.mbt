@@ -96,9 +96,8 @@ fn parse_cancelled_notification(
   obj : Map[String, Json],
 ) -> @types.CancelledNotification? {
   let request_id = match obj.get("requestId") {
-    Some(Number(n, ..)) => @types.RequestId::Int(n.to_int())
-    Some(String(s)) => @types.RequestId::Str(s)
-    _ => return None
+    Some(value) => @types.RequestId::from_json(value) catch { _ => return None }
+    None => return None
   }
   let reason = match obj.get("reason") {
     Some(String(r)) => Some(r)

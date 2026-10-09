@@ -3,15 +3,8 @@
 pub fn MCPError::from_jsonrpc_error(value : Json) -> MCPError raise MCPError {
   let fields = wire_object(value)
   let code = match fields.get("code") {
-    Some(Number(value, ..)) if !value.is_nan() &&
-      !value.is_inf() &&
-      value.trunc() == value &&
-      value >= -2147483648 &&
-      value <= 2147483647 => value.to_int()
-    _ =>
-      raise InvalidRequest(
-        "JSON-RPC error code must be a supported finite integer",
-      )
+    Some(value) => JsonInteger::from_json(value)
+    None => raise InvalidRequest("Missing JSON-RPC error code")
   }
   let message = wire_string(fields, "message")
   RemoteError(
@@ -29,7 +22,7 @@ pub fn MCPError::to_jsonrpc_error(self : MCPError) -> Json {
       wire_extensions(extensions, ["code", "message", "data"])
     _ => Map([])
   }
-  fields.set("code", Json::number(self.to_error_code().to_double()))
+  fields.set("code", self.to_error_code().to_json())
   fields.set("message", Json::string(self.message()))
   match self.to_error_data() {
     Some(value) => fields.set("data", value)
