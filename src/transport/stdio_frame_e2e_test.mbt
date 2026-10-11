@@ -1,5 +1,5 @@
 ///|
-async test "concurrent large stdio requests and notifications retain whole newline frames" {
+async test "e2e/stdio: concurrent large stdio requests and notifications retain whole newline frames" {
   @async.with_task_group(group => {
     let transport = @transport.StdioClientTransport::StdioClientTransport(
       cmd="cat",

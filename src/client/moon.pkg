@@ -16,18 +16,23 @@ import {
   "moonbitlang/async/socket",
 } for "wbtest"
 
-// era_connect_wbtest.mbt drives the public connect APIs against a raw-socket
-// fake HTTP server; request_cancel_io_wbtest.mbt spawns a real child process.
-// Both files are native-only, so their wbtest imports (utf8/socket) are
-// unused on js/wasm-gc; unused_package is noise for gated packages and
-// cannot be suppressed per-target or per-file.
+// http_era_connect_e2e_wbtest.mbt drives the public connect APIs against a
+// raw-socket fake HTTP server; stdio_request_cancel_e2e_wbtest.mbt spawns a
+// real child process. Both files are native-only, so their wbtest imports
+// (utf8/socket) are unused on js/wasm-gc; unused_package is noise for gated
+// packages and cannot be suppressed per-target or per-file. The same applies
+// to client_cancel_branch_wbtest.mbt (native+wasm only). client_logic_wbtest.mbt
+// is pure logic on a constructed-never-sent HttpClient dummy transport, so it
+// runs on every target with a real HttpClientTransport (wasm-gc has none).
 
 warnings = "-unused_package"
 
 options(
   targets: {
-    "era_connect_wbtest.mbt": [ "native" ],
-    "request_cancel_io_wbtest.mbt": [ "native" ],
-    "mrtr_rounds_io_wbtest.mbt": [ "native" ],
+    "http_era_connect_e2e_wbtest.mbt": [ "native" ],
+    "stdio_request_cancel_e2e_wbtest.mbt": [ "native" ],
+    "http_mrtr_rounds_e2e_wbtest.mbt": [ "native" ],
+    "client_logic_wbtest.mbt": [ "native", "js", "wasm" ],
+    "client_cancel_branch_wbtest.mbt": [ "native", "wasm" ],
   },
 )

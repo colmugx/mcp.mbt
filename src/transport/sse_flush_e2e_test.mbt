@@ -36,7 +36,7 @@ async fn wait_for_listen(addr : @socket.Addr, timeout_ms? : Int = 5000) -> Unit 
 /// the test — a deadlock, not a race. On the happy path every hop is
 /// loopback-local (milliseconds), so the generous timeout only trips on a
 /// real regression.
-async test "HttpTransport SSE stream delivers events before end_response" {
+async test "e2e/sse: HttpTransport SSE stream delivers events before end_response" {
   let transport = @transport.HttpTransport::HttpTransport(
     port=47331,
     endpoint_path="/mcp",
@@ -93,7 +93,7 @@ async test "HttpTransport SSE stream delivers events before end_response" {
 }
 
 ///|
-async test "SSE disconnect cancels its authenticated envelope and server stays alive" {
+async test "e2e/sse: SSE disconnect cancels its authenticated envelope and server stays alive" {
   let transport = @transport.HttpTransport::HttpTransport(
     port=47333,
     keepalive_interval_ms=10,

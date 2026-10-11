@@ -27,7 +27,7 @@ extern "js" fn node_exec_path() -> String =
   #| () => globalThis.process.execPath
 
 ///|
-async test "stdio client: send/receive round-trip and graceful close" {
+async test "e2e/stdio: stdio client: send/receive round-trip and graceful close" {
   let transport = StdioClientTransport::StdioClientTransport(
     cmd=node_exec_path(),
     args=["-e", echo_script],
@@ -56,7 +56,7 @@ async test "stdio client: send/receive round-trip and graceful close" {
 }
 
 ///|
-async test "stdio client: state contract after close and on invalid use" {
+async test "e2e/stdio: stdio client: state contract after close and on invalid use" {
   let transport = StdioClientTransport::StdioClientTransport(
     cmd=node_exec_path(),
     args=["-e", echo_script],
@@ -111,7 +111,7 @@ async test "stdio client: state contract after close and on invalid use" {
 /// the child is really gone, so `with_task_group` returns with no leaked
 /// child process. Echo child stays alive forever without stdin EOF, so the
 /// only way its exit promise can settle is the watchdog's intervention.
-async test "stdio client: task group cancellation terminates the child" {
+async test "e2e/stdio: stdio client: task group cancellation terminates the child" {
   let transport = StdioClientTransport::StdioClientTransport(
     cmd=node_exec_path(),
     args=["-e", echo_script],
@@ -160,7 +160,7 @@ async test "stdio client: task group cancellation terminates the child" {
 /// normally: the task completes without failing the group, and the group
 /// tears down cleanly. Exit-code semantics belong to receive()'s EOF
 /// handling, not to the watchdog.
-async test "stdio client: self-exiting child ends the watchdog without failing the group" {
+async test "e2e/stdio: stdio client: self-exiting child ends the watchdog without failing the group" {
   let transport = StdioClientTransport::StdioClientTransport(
     cmd=node_exec_path(),
     args=["-e", "setTimeout(() => process.exit(3), 150)"],

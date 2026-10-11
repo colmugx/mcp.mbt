@@ -80,7 +80,7 @@ async test "best effort cancellation notification has a bounded serialized-write
     transport=@transport.AnyTransport::StdioClient(transport),
   )
   let started = @async.now()
-  client.notify_cancelled_best_effort(@types.RequestId::Int(1))
+  client.notify_cancelled_best_effort(@types.RequestId::Int(1), wait_ms=50)
   let elapsed = @async.now() - started
-  assert_true(elapsed >= 900 && elapsed < 2500)
+  assert_true(elapsed >= 45 && elapsed < 1500)
 }

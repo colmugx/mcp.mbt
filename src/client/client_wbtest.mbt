@@ -88,39 +88,28 @@ test "build_prompts_get_request format" {
 }
 
 ///|
-test "handle_server_notification dispatches tools changed" {
-  let mut called = false
+test "handle_server_notification dispatches list_changed notifications" {
+  let mut tools_called = false
+  let mut resources_called = false
+  let mut prompts_called = false
   let handlers : NotificationHandlers = {
     ..NotificationHandlers::empty(),
-    on_tools_changed: Some(fn() { called = true }),
+    on_tools_changed: Some(fn() { tools_called = true }),
+    on_resources_changed: Some(fn() { resources_called = true }),
+    on_prompts_changed: Some(fn() { prompts_called = true }),
   }
-  let notification = @types.tools_list_changed_notification()
-  handle_server_notification(handlers, notification)
-  @debug.assert_eq(called, true)
-}
-
-///|
-test "handle_server_notification dispatches resources changed" {
-  let mut called = false
-  let handlers : NotificationHandlers = {
-    ..NotificationHandlers::empty(),
-    on_resources_changed: Some(fn() { called = true }),
-  }
-  let notification = @types.resources_list_changed_notification()
-  handle_server_notification(handlers, notification)
-  @debug.assert_eq(called, true)
-}
-
-///|
-test "handle_server_notification dispatches prompts changed" {
-  let mut called = false
-  let handlers : NotificationHandlers = {
-    ..NotificationHandlers::empty(),
-    on_prompts_changed: Some(fn() { called = true }),
-  }
-  let notification = @types.prompts_list_changed_notification()
-  handle_server_notification(handlers, notification)
-  @debug.assert_eq(called, true)
+  handle_server_notification(handlers, @types.tools_list_changed_notification())
+  handle_server_notification(
+    handlers,
+    @types.resources_list_changed_notification(),
+  )
+  handle_server_notification(
+    handlers,
+    @types.prompts_list_changed_notification(),
+  )
+  @debug.assert_eq(tools_called, true)
+  @debug.assert_eq(resources_called, true)
+  @debug.assert_eq(prompts_called, true)
 }
 
 ///|

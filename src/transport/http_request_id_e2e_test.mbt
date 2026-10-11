@@ -1,5 +1,5 @@
 ///|
-async test "HTTP compatibility routing isolates large and string ids under reversed replies" {
+async test "e2e/http: HTTP compatibility routing isolates large and string ids under reversed replies" {
   let transport = @transport.HttpTransport::HttpTransport(port=47397)
   let literals = [
     "9007199254740992", "9007199254740993", "\"9007199254740993\"", "4.2e1",

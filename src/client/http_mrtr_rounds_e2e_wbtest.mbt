@@ -1,5 +1,5 @@
 ///|
-async test "MRTR maximum rounds bounds exchanges without a final unconsumable user interaction" {
+async test "e2e/http: MRTR maximum rounds bounds exchanges without a final unconsumable user interaction" {
   let server = @socket.TcpServer::TcpServer(
     @socket.Addr::parse("127.0.0.1:47396"),
     reuse_addr=true,

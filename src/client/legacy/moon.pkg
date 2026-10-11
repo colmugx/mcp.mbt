@@ -26,6 +26,7 @@ options(
   targets: {
     "http_session.mbt": [ "native", "js", "wasm" ],
     "unimplemented.mbt": [ "wasm-gc" ],
-    "http_cancellation_wbtest.mbt": [ "native" ],
+    "http_cancellation_e2e_wbtest.mbt": [ "native" ],
+    "legacy_client_logic_wbtest.mbt": [ "native", "js", "wasm" ],
   },
 )
