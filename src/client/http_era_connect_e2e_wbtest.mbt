@@ -164,7 +164,7 @@ async fn era_fake_server(
 }
 
 ///|
-async test "era=Legacy connect_http sends initialize first, never discover" {
+async test "e2e/http: era=Legacy connect_http sends initialize first, never discover" {
   let server = try! @socket.TcpServer::TcpServer(
     @socket.Addr::parse("127.0.0.1:47361"),
     reuse_addr=true,
@@ -196,7 +196,7 @@ async test "era=Legacy connect_http sends initialize first, never discover" {
 }
 
 ///|
-async test "era=Modern connect_http: legacy fallback forbidden, modern ok" {
+async test "e2e/http: era=Modern connect_http: legacy fallback forbidden, modern ok" {
   // Legacy-only server: the 422 probe rejection must surface as an error
   // naming the era=Modern prohibition and the original 422 cause.
   let legacy_server = try! @socket.TcpServer::TcpServer(
@@ -256,7 +256,7 @@ async test "era=Modern connect_http: legacy fallback forbidden, modern ok" {
 }
 
 ///|
-async test "era default matches Auto: probe modern, fall back on legacy" {
+async test "e2e/http: era default matches Auto: probe modern, fall back on legacy" {
   // No era passed on a modern server: probe + modern backend (现状).
   let modern_server = try! @socket.TcpServer::TcpServer(
     @socket.Addr::parse("127.0.0.1:47364"),
@@ -328,7 +328,7 @@ async test "era default matches Auto: probe modern, fall back on legacy" {
 }
 
 ///|
-async test "MCPHost::connect_http passes era through" {
+async test "e2e/http: MCPHost::connect_http passes era through" {
   let server = try! @socket.TcpServer::TcpServer(
     @socket.Addr::parse("127.0.0.1:47366"),
     reuse_addr=true,
@@ -418,7 +418,7 @@ async fn era_gate_handle_conn(
 }
 
 ///|
-async test "legacy fallback carries extra_headers through initialize" {
+async test "e2e/http: legacy fallback carries extra_headers through initialize" {
   let server = try! @socket.TcpServer::TcpServer(
     @socket.Addr::parse("127.0.0.1:47367"),
     reuse_addr=true,
@@ -454,7 +454,7 @@ async test "legacy fallback carries extra_headers through initialize" {
 }
 
 ///|
-async test "legacy initialize 4xx error carries the response body" {
+async test "e2e/http: legacy initialize 4xx error carries the response body" {
   let server = try! @socket.TcpServer::TcpServer(
     @socket.Addr::parse("127.0.0.1:47368"),
     reuse_addr=true,

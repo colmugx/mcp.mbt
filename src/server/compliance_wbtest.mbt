@@ -197,31 +197,7 @@ test "compliance: input_required result carries inputRequests and requestState" 
 
 ///|
 /// =====================================================
-test "compliance: tools/list returns array with name/description/inputSchema" {
-  let server = MCPServer::MCPServer("test", "1.0.0")
-  server.register_tool(
-    "echo",
-    "Echo tool",
-    Json::object({ "type": "object" }),
-    fn(_context, _args) {
-      Ok(@tool.ToolCallOutcome::Complete(@tool.ToolResult::text("ok")))
-    },
-  )
-  let result = parse_result(handle_tools_list(server, @types.RequestId::Int(1)))
-  let tools = json_get(result, "tools")
-  assert_eq(json_arr_len(tools), 1)
-  if tools is Array(arr) {
-    let t = arr[0]
-    assert_true(json_has(t, "name"))
-    assert_true(json_has(t, "description"))
-    assert_true(json_has(t, "inputSchema"))
-  } else {
-    panic()
-  }
-}
-
-///|
-test "compliance: tools/list preserves tool name" {
+test "compliance: tools/list returns name, description and inputSchema" {
   let server = MCPServer::MCPServer("test", "1.0.0")
   server.register_tool(
     "my_tool",
@@ -232,9 +208,13 @@ test "compliance: tools/list preserves tool name" {
     },
   )
   let result = parse_result(handle_tools_list(server, @types.RequestId::Int(1)))
-  if json_get(result, "tools") is Array(arr) {
-    assert_eq(json_field_str(arr[0], "name"), "my_tool")
-    assert_eq(json_field_str(arr[0], "description"), "My tool")
+  let tools = json_get(result, "tools")
+  assert_eq(json_arr_len(tools), 1)
+  if tools is Array(arr) {
+    let t = arr[0]
+    assert_eq(json_field_str(t, "name"), "my_tool")
+    assert_eq(json_field_str(t, "description"), "My tool")
+    assert_eq(json_get(t, "inputSchema"), Json::object({ "type": "object" }))
   } else {
     panic()
   }
@@ -246,33 +226,7 @@ test "compliance: tools/list preserves tool name" {
 
 ///|
 /// =====================================================
-test "compliance: resources/list returns array with uri and name" {
-  let server = MCPServer::MCPServer("test", "1.0.0")
-  server.register_resource(
-    "file:///test.txt",
-    "Test File",
-    "A test file",
-    "text/plain",
-    fn(_context) {
-      Ok(@resource.ResourceReadResult::text("hello", uri="file:///test.txt"))
-    },
-  )
-  let result = parse_result(
-    handle_resources_list(server, @types.RequestId::Int(1)),
-  )
-  let resources = json_get(result, "resources")
-  assert_eq(json_arr_len(resources), 1)
-  if resources is Array(arr) {
-    let r = arr[0]
-    assert_true(json_has(r, "uri"))
-    assert_true(json_has(r, "name"))
-  } else {
-    panic()
-  }
-}
-
-///|
-test "compliance: resources/list includes mimeType" {
+test "compliance: resources/list returns uri, name, mimeType and description" {
   let server = MCPServer::MCPServer("test", "1.0.0")
   server.register_resource(
     "file:///data.json",
@@ -286,33 +240,14 @@ test "compliance: resources/list includes mimeType" {
   let result = parse_result(
     handle_resources_list(server, @types.RequestId::Int(1)),
   )
-  if json_get(result, "resources") is Array(arr) {
+  let resources = json_get(result, "resources")
+  assert_eq(json_arr_len(resources), 1)
+  if resources is Array(arr) {
     let r = arr[0]
-    assert_true(json_has(r, "mimeType"))
+    assert_eq(json_field_str(r, "uri"), "file:///data.json")
+    assert_eq(json_field_str(r, "name"), "Data")
     assert_eq(json_field_str(r, "mimeType"), "application/json")
-  } else {
-    panic()
-  }
-}
-
-///|
-test "compliance: resources/list includes description when present" {
-  let server = MCPServer::MCPServer("test", "1.0.0")
-  server.register_resource(
-    "file:///test.txt",
-    "Test",
-    "A test resource",
-    "text/plain",
-    fn(_context) {
-      Ok(@resource.ResourceReadResult::text("hello", uri="file:///test.txt"))
-    },
-  )
-  let result = parse_result(
-    handle_resources_list(server, @types.RequestId::Int(1)),
-  )
-  if json_get(result, "resources") is Array(arr) {
-    let r = arr[0]
-    assert_true(json_has(r, "description"))
+    assert_eq(json_field_str(r, "description"), "JSON data")
   } else {
     panic()
   }
@@ -324,9 +259,17 @@ test "compliance: resources/list includes description when present" {
 
 ///|
 /// =====================================================
-test "compliance: prompts/list returns array with name" {
+test "compliance: prompts/list returns name, arguments and description" {
   let server = MCPServer::MCPServer("test", "1.0.0")
-  server.register_prompt("greet", "Greeting prompt", [], fn(_context, _args) {
+  let arg = @types.PromptArgument::new(
+    "name",
+    description="Name to greet",
+    required=true,
+  )
+  server.register_prompt("greet", "Greeting prompt", [arg], fn(
+    _context,
+    _args,
+  ) {
     Ok({
       description: Some("A greeting"),
       messages: [
@@ -345,74 +288,17 @@ test "compliance: prompts/list returns array with name" {
   assert_eq(json_arr_len(prompts), 1)
   if prompts is Array(arr) {
     let p = arr[0]
-    assert_true(json_has(p, "name"))
     assert_eq(json_field_str(p, "name"), "greet")
-  } else {
-    panic()
-  }
-}
-
-///|
-test "compliance: prompts/list includes arguments" {
-  let server = MCPServer::MCPServer("test", "1.0.0")
-  let arg = @types.PromptArgument::new(
-    "name",
-    description="Name to greet",
-    required=true,
-  )
-  server.register_prompt("greet", "Greeting", [arg], fn(_context, _args) {
-    Ok({
-      description: Some("Greeting"),
-      messages: [
-        @types.PromptMessage::new(
-          @types.Role::User,
-          @types.ContentBlock::text("Hello"),
-        ),
-      ],
-      metadata: @types.ResultMetadata::empty(),
-    })
-  })
-  let result = parse_result(
-    handle_prompts_list(server, @types.RequestId::Int(1)),
-  )
-  if json_get(result, "prompts") is Array(arr) {
-    let p = arr[0]
-    assert_true(json_has(p, "arguments"))
+    assert_eq(json_field_str(p, "description"), "Greeting prompt")
     let arguments = json_get(p, "arguments")
     assert_eq(json_arr_len(arguments), 1)
     if arguments is Array(arg_arr) {
       let a = arg_arr[0]
       assert_eq(json_field_str(a, "name"), "name")
-      assert_true(json_has(a, "description"))
+      assert_eq(json_field_str(a, "description"), "Name to greet")
     } else {
       panic()
     }
-  } else {
-    panic()
-  }
-}
-
-///|
-test "compliance: prompts/list includes description" {
-  let server = MCPServer::MCPServer("test", "1.0.0")
-  server.register_prompt("greet", "A greeting prompt", [], fn(_context, _args) {
-    Ok({
-      description: Some("Greeting"),
-      messages: [
-        @types.PromptMessage::new(
-          @types.Role::User,
-          @types.ContentBlock::text("Hello"),
-        ),
-      ],
-      metadata: @types.ResultMetadata::empty(),
-    })
-  })
-  let result = parse_result(
-    handle_prompts_list(server, @types.RequestId::Int(1)),
-  )
-  if json_get(result, "prompts") is Array(arr) {
-    let p = arr[0]
-    assert_true(json_has(p, "description"))
   } else {
     panic()
   }
@@ -486,21 +372,19 @@ test "compliance: response _meta carries serverInfo" {
 
 ///|
 /// =====================================================
-test "compliance: tools list_changed notification has correct method" {
-  let n = @types.tools_list_changed_notification()
-  assert_eq(n.method_name, "notifications/tools/list_changed")
-}
-
-///|
-test "compliance: resources list_changed notification has correct method" {
-  let n = @types.resources_list_changed_notification()
-  assert_eq(n.method_name, "notifications/resources/list_changed")
-}
-
-///|
-test "compliance: prompts list_changed notification has correct method" {
-  let n = @types.prompts_list_changed_notification()
-  assert_eq(n.method_name, "notifications/prompts/list_changed")
+test "compliance: list_changed notifications carry correct methods" {
+  assert_eq(
+    @types.tools_list_changed_notification().method_name,
+    "notifications/tools/list_changed",
+  )
+  assert_eq(
+    @types.resources_list_changed_notification().method_name,
+    "notifications/resources/list_changed",
+  )
+  assert_eq(
+    @types.prompts_list_changed_notification().method_name,
+    "notifications/prompts/list_changed",
+  )
 }
 
 ///|
@@ -611,16 +495,12 @@ test "compliance: spec-defined error codes in -3202x range" {
 
 ///|
 test "compliance: UnsupportedProtocolVersion serializes supported/requested in data" {
-  let server = MCPServer::MCPServer("test", "1.0.0")
   let err = @types.UnsupportedProtocolVersion(
     "unsupported version",
     supported=["2026-07-28", "2025-11-25"],
     requested="1999-01-01",
   )
   let response = jsonrpc_error_from(@types.RequestId::Int(1), err)
-  // Reference `server` so the meta-bearing success builder stays in scope
-  // (keeps the test file consistent with the node-2 signature change).
-  ignore(server)
   let json = @json.parse(response) catch { _ => panic() }
   let err_obj = json_get(json, "error")
   assert_eq(json_field_str(err_obj, "message"), "unsupported version")
@@ -864,9 +744,9 @@ async test "compliance: unsupported protocol version returns -32022 with data" {
 
 ///|
 #cfg(not(target="wasm-gc"))
-async test "compliance: missing protocol version returns -32602" {
+async test "compliance: missing required _meta fields return -32602" {
   let server = MCPServer::MCPServer("test", "1.0.0")
-  let request = Json::object({
+  let missing_protocol_version = Json::object({
     "jsonrpc": Json::string("2.0"),
     "id": Json::number(1.0),
     "method": Json::string("tools/list"),
@@ -876,23 +756,9 @@ async test "compliance: missing protocol version returns -32602" {
       }),
     }),
   }).stringify()
-  let response = server.handle_request(request) catch { _ => panic() }
-  let json = @json.parse(response) catch { _ => panic() }
-  let err = json_get(json, "error")
-  assert_eq(json_field_int(err, "code"), -32602)
-  assert_eq(
-    json_field_str(err, "message"),
-    "Missing required _meta field: io.modelcontextprotocol/protocolVersion",
-  )
-}
-
-///|
-#cfg(not(target="wasm-gc"))
-async test "compliance: missing clientCapabilities returns -32602" {
-  let server = MCPServer::MCPServer("test", "1.0.0")
-  let request = Json::object({
+  let missing_client_capabilities = Json::object({
     "jsonrpc": Json::string("2.0"),
-    "id": Json::number(1.0),
+    "id": Json::number(2.0),
     "method": Json::string("tools/list"),
     "params": Json::object({
       "_meta": Json::object({
@@ -902,34 +768,31 @@ async test "compliance: missing clientCapabilities returns -32602" {
       }),
     }),
   }).stringify()
-  let response = server.handle_request(request) catch { _ => panic() }
-  let json = @json.parse(response) catch { _ => panic() }
-  let err = json_get(json, "error")
-  assert_eq(json_field_int(err, "code"), -32602)
-  assert_eq(
-    json_field_str(err, "message"),
-    "Missing required _meta field: io.modelcontextprotocol/clientCapabilities",
-  )
-}
-
-///|
-#cfg(not(target="wasm-gc"))
-async test "compliance: request without _meta at all returns -32602" {
-  let server = MCPServer::MCPServer("test", "1.0.0")
-  let request = Json::object({
+  let no_meta_at_all = Json::object({
     "jsonrpc": Json::string("2.0"),
-    "id": Json::number(1.0),
+    "id": Json::number(3.0),
     "method": Json::string("tools/list"),
     "params": Json::object({}),
   }).stringify()
-  let response = server.handle_request(request) catch { _ => panic() }
-  let json = @json.parse(response) catch { _ => panic() }
-  let err = json_get(json, "error")
-  assert_eq(json_field_int(err, "code"), -32602)
-  assert_eq(
-    json_field_str(err, "message"),
-    "Missing required _meta field: io.modelcontextprotocol/protocolVersion",
-  )
+  // Without `_meta` at all the parser misses protocolVersion first.
+  for
+    (request, expected_message) in [
+      (
+        missing_protocol_version, "Missing required _meta field: io.modelcontextprotocol/protocolVersion",
+      ),
+      (
+        missing_client_capabilities, "Missing required _meta field: io.modelcontextprotocol/clientCapabilities",
+      ),
+      (
+        no_meta_at_all, "Missing required _meta field: io.modelcontextprotocol/protocolVersion",
+      ),
+    ] {
+    let response = server.handle_request(request) catch { _ => panic() }
+    let json = @json.parse(response) catch { _ => panic() }
+    let err = json_get(json, "error")
+    assert_eq(json_field_int(err, "code"), -32602)
+    assert_eq(json_field_str(err, "message"), expected_message)
+  }
 }
 
 ///|

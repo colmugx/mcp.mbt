@@ -479,6 +479,9 @@ async fn MCPClient::notify_cancelled_best_effort(
   self : MCPClient,
   request_id : @types.RequestId,
   reason? : String,
+  /// Serialized-writer wait bound; overridable so tests can probe the
+  /// bounded-wait property without burning the production budget.
+  wait_ms? : Int = 1000,
 ) -> Unit {
   match self.transport {
     @transport.AnyTransport::StdioClient(_) => {
@@ -488,7 +491,9 @@ async fn MCPClient::notify_cancelled_best_effort(
       )
       let t = self.transport
       @async.protect_from_cancel(() => {
-        ignore(@async.with_timeout_opt(1000, () => t.send_notification(notif))) catch {
+        ignore(
+          @async.with_timeout_opt(wait_ms, () => t.send_notification(notif)),
+        ) catch {
           _ => ()
         }
       })

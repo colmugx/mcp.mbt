@@ -1,33 +1,7 @@
 ///| Http_compliance I/O configuration tests — native/wasm only.
 /// On js, HttpTransport is an abort stub (see unimplemented_js.mbt), so these
 /// tests are gated by moon.pkg targets.
-
-///| =====================================================
-
-///| HTTP Transport Configuration
-
-///|
-/// =====================================================
-test "compliance: HttpTransport default port is 4240" {
-  let transport = @transport.HttpTransport::HttpTransport()
-  @debug.assert_eq(transport.port, 4240)
-}
-
-///|
-test "compliance: HttpTransport default endpoint is /mcp" {
-  let transport = @transport.HttpTransport::HttpTransport()
-  @debug.assert_eq(transport.endpoint_path, "/mcp")
-}
-
-///|
-test "compliance: HttpTransport supports custom port and path" {
-  let transport = @transport.HttpTransport::HttpTransport(
-    port=8080,
-    endpoint_path="/api/mcp",
-  )
-  @debug.assert_eq(transport.port, 8080)
-  @debug.assert_eq(transport.endpoint_path, "/api/mcp")
-}
+/// (HttpTransport constructor tests live in transport_io_test.mbt.)
 
 ///| =====================================================
 
@@ -39,7 +13,7 @@ test "compliance: HttpTransport supports custom port and path" {
 ///|
 /// Block until a TCP connect to `addr` succeeds; connection-refused just
 /// means the HttpTransport server task has not bound its port yet. Distinct
-/// name from sse_flush_io_test's `wait_for_listen` (both compile on native).
+/// name from sse_flush_e2e_test's `wait_for_listen` (both compile on native).
 #cfg(target="native")
 async fn await_http_listen(
   addr : @socket.Addr,
@@ -69,7 +43,7 @@ async fn await_http_listen(
 /// JSON-RPC error body echoing the request id, and must not surface the
 /// request to the application. A compliant POST still flows through.
 #cfg(target="native")
-async test "compliance: POST without required _meta gets 400 + -32602 with id" {
+async test "e2e/http: compliance: POST without required _meta gets 400 + -32602 with id" {
   let transport = @transport.HttpTransport::HttpTransport(
     port=47351,
     endpoint_path="/mcp",
@@ -184,7 +158,7 @@ async fn origin_probe_post(
 /// origin and a request without an Origin header (non-browser client) are
 /// processed normally.
 #cfg(target="native")
-async test "compliance: unauthenticated server rejects cross-origin POST with 403" {
+async test "e2e/http: compliance: unauthenticated server rejects cross-origin POST with 403" {
   let transport = @transport.HttpTransport::HttpTransport(
     port=47352,
     endpoint_path="/mcp",
@@ -240,7 +214,7 @@ async test "compliance: unauthenticated server rejects cross-origin POST with 40
 
 ///|
 #cfg(target="native")
-async test "compliance: registry-aware mirrored headers reject before dispatch with HTTP 400 HeaderMismatch" {
+async test "e2e/http: compliance: registry-aware mirrored headers reject before dispatch with HTTP 400 HeaderMismatch" {
   let transport = @transport.HttpTransport::HttpTransport(port=47355)
   transport.set_tool_schema_resolver(fn(name) {
     if name == "mirror" {

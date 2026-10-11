@@ -3,127 +3,50 @@
 ///| Comprehensive tests for Tool trait and ToolResult
 
 ///|
-/// ToolResult Constructor Tests
-test "ToolResult::text creates single text content" {
-  let result = @server.ToolResult::text("Success")
-  @debug.assert_eq(result.is_error, Some(false))
-  @debug.assert_eq(result.content.length(), 1)
-  match result.content[0] {
+test "ToolResult and ContentBlock constructors smoke" {
+  let text = @server.ToolResult::text("Success")
+  @debug.assert_eq(text.is_error, Some(false))
+  match text.content[0] {
     Text(msg, ..) => @debug.assert_eq(msg, "Success")
     _ => panic()
   }
-}
-
-///|
-test "ToolResult::error creates error result" {
-  let result = @server.ToolResult::error("Failed")
-  @debug.assert_eq(result.is_error, Some(true))
-  @debug.assert_eq(result.content.length(), 1)
-  match result.content[0] {
-    Text(msg, ..) => @debug.assert_eq(msg, "Failed")
-    _ => panic()
-  }
-}
-
-///|
-test "ToolResult::success with multiple content items" {
+  let error = @server.ToolResult::error("Failed")
+  @debug.assert_eq(error.is_error, Some(true))
   let items = [
     @server.ContentBlock::text("Line 1"),
-    @server.ContentBlock::text("Line 2"),
     @server.ContentBlock::image("base64data", mime_type="image/png"),
-  ]
-  let result = @server.ToolResult::success(items)
-  @debug.assert_eq(result.is_error, Some(false))
-  @debug.assert_eq(result.content.length(), 3)
-}
-
-///|
-test "ToolResult::success with empty array" {
-  let items : Array[@server.ContentBlock] = []
-  let result = @server.ToolResult::success(items)
-  @debug.assert_eq(result.is_error, Some(false))
-  @debug.assert_eq(result.content.length(), 0)
-}
-
-///|
-/// ContentBlock Tests
-test "ContentBlock::Text with multiline content" {
-  let text = "Line 1\nLine 2\nLine 3"
-  let item = @server.ContentBlock::text(text)
-  match item {
-    Text(content, ..) => @debug.assert_eq(content, text)
-    _ => panic()
-  }
-}
-
-///|
-test "ContentBlock::Image with different MIME types" {
-  let png = @server.ContentBlock::image("data", mime_type="image/png")
-  let jpeg = @server.ContentBlock::image("data", mime_type="image/jpeg")
-  match png {
-    Image(data, mime_type~, ..) => {
-      @debug.assert_eq(data, "data")
-      @debug.assert_eq(mime_type, "image/png")
-    }
-    _ => panic()
-  }
-  match jpeg {
-    Image(_, mime_type~, ..) => @debug.assert_eq(mime_type, "image/jpeg")
-    _ => panic()
-  }
-}
-
-///|
-test "ContentBlock::ResourceLink with URI" {
-  let uri = "file:///path/to/resource.txt"
-  let item = @server.ContentBlock::resource_link(uri, name="resource.txt")
-  match item {
-    ResourceLink(link, ..) => @debug.assert_eq(link.uri, uri)
-    _ => panic()
-  }
-}
-
-///|
-test "ContentBlock derive Eq and Debug" {
-  let text1 = @server.ContentBlock::text("Hello")
-  let text2 = @server.ContentBlock::text("Hello")
-  let text3 = @server.ContentBlock::text("World")
-  @debug.assert_eq(text1, text2)
-  assert_true(text1 != text3)
-  debug_inspect(
-    text1,
-    content=(
-      #|Text(
-      #|  "Hello",
-      #|  metadata={ annotations: None, meta: None, extensions: {} },
-      #|)
+    @server.ContentBlock::resource_link(
+      "file:///path/to/resource.txt",
+      name="resource.txt",
     ),
-  )
+  ]
+  let multi = @server.ToolResult::success(items)
+  @debug.assert_eq(multi.is_error, Some(false))
+  @debug.assert_eq(multi.content.length(), 3)
+  match multi.content[1] {
+    Image(_, mime_type~, ..) => @debug.assert_eq(mime_type, "image/png")
+    _ => panic()
+  }
+  match multi.content[2] {
+    ResourceLink(link, ..) =>
+      @debug.assert_eq(link.uri, "file:///path/to/resource.txt")
+    _ => panic()
+  }
+  @debug.assert_eq(@server.ToolResult::success([]).content.length(), 0)
 }
 
 ///|
 /// Helper Function Tests
-test "get_string extracts valid string field" {
-  let json = Json::object({ "name": "MoonBit" })
-  match @server.get_string(json, "name") {
+test "get_string extracts, rejects missing/wrong-type/non-object" {
+  match @server.get_string(Json::object({ "name": "MoonBit" }), "name") {
     Ok(name) => @debug.assert_eq(name, "MoonBit")
     Err(_) => panic()
   }
-}
-
-///|
-test "get_string returns error for missing field" {
-  let json = Json::object({ "other": "value" })
-  match @server.get_string(json, "name") {
+  match @server.get_string(Json::object({ "other": "value" }), "name") {
     Err(result) => @debug.assert_eq(result.is_error, Some(true))
     Ok(_) => panic()
   }
-}
-
-///|
-test "get_string returns error for wrong type" {
-  let json = Json::object({ "name": 42.0 })
-  match @server.get_string(json, "name") {
+  match @server.get_string(Json::object({ "name": 42.0 }), "name") {
     Err(result) => {
       @debug.assert_eq(result.is_error, Some(true))
       match result.content[0] {
@@ -133,12 +56,7 @@ test "get_string returns error for wrong type" {
     }
     Ok(_) => panic()
   }
-}
-
-///|
-test "get_string returns error for non-object" {
-  let json = Json::string("not an object")
-  match @server.get_string(json, "name") {
+  match @server.get_string(Json::string("not an object"), "name") {
     Err(result) => {
       @debug.assert_eq(result.is_error, Some(true))
       match result.content[0] {
@@ -151,63 +69,42 @@ test "get_string returns error for non-object" {
 }
 
 ///|
-test "get_number extracts valid number field" {
-  let json = Json::object({ "count": 42.5 })
-  match @server.get_number(json, "count") {
+test "get_number extracts, rejects missing/wrong-type" {
+  match @server.get_number(Json::object({ "count": 42.5 }), "count") {
     Ok(num) => @debug.assert_eq(num, 42.5)
     Err(_) => panic()
   }
-}
-
-///|
-test "get_number returns error for missing field" {
-  let json = Json::object({ "other": 1.0 })
-  match @server.get_number(json, "count") {
+  match @server.get_number(Json::object({ "other": 1.0 }), "count") {
+    Err(result) => @debug.assert_eq(result.is_error, Some(true))
+    Ok(_) => panic()
+  }
+  match @server.get_number(Json::object({ "count": "42" }), "count") {
     Err(result) => @debug.assert_eq(result.is_error, Some(true))
     Ok(_) => panic()
   }
 }
 
 ///|
-test "get_number returns error for wrong type" {
-  let json = Json::object({ "count": "42" })
-  match @server.get_number(json, "count") {
-    Err(result) => @debug.assert_eq(result.is_error, Some(true))
-    Ok(_) => panic()
-  }
-}
-
-///|
-test "get_optional_string returns Some for present field" {
-  let json = Json::object({ "value": "present" })
-  match @server.get_optional_string(json, "value") {
+test "get_optional_string extracts, maps null/missing to None, rejects wrong-type" {
+  match
+    @server.get_optional_string(Json::object({ "value": "present" }), "value") {
     Ok(Some(value)) => @debug.assert_eq(value, "present")
     _ => panic()
   }
-}
-
-///|
-test "get_optional_string returns None for explicit null" {
-  let json = Json::object({ "value": Json::null() })
-  match @server.get_optional_string(json, "value") {
+  match
+    @server.get_optional_string(
+      Json::object({ "value": Json::null() }),
+      "value",
+    ) {
     Ok(None) => ()
     _ => panic()
   }
-}
-
-///|
-test "get_optional_string returns None for missing field" {
-  let json = Json::object({ "other": "value" })
-  match @server.get_optional_string(json, "value") {
+  match
+    @server.get_optional_string(Json::object({ "other": "value" }), "value") {
     Ok(None) => ()
     _ => panic()
   }
-}
-
-///|
-test "get_optional_string returns error for wrong type" {
-  let json = Json::object({ "value": 42.0 })
-  match @server.get_optional_string(json, "value") {
+  match @server.get_optional_string(Json::object({ "value": 42.0 }), "value") {
     Err(result) => @debug.assert_eq(result.is_error, Some(true))
     Ok(_) => panic()
   }

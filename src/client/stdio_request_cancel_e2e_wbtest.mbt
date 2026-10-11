@@ -16,7 +16,22 @@ priv struct SendRequestProbe {
 }
 
 ///|
-async test "cancelled send_request re-raises and delivers notifications/cancelled" {
+/// Poll `cond` until true, failing after `timeout_ms` — a deterministic
+/// replacement for fixed sleeps that waited for a request task to reach
+/// its suspension point (registration in request_cancellations/response_map
+/// happens before the wait, see send_request/send_request_inner).
+async fn wait_until(timeout_ms : Int, cond : () -> Bool) -> Unit {
+  let deadline = @async.now() + timeout_ms.to_int64()
+  while !cond() {
+    if @async.now() > deadline {
+      fail("condition not reached within \{timeout_ms}ms")
+    }
+    @async.sleep(5)
+  }
+}
+
+///|
+async test "e2e/stdio: cancelled send_request re-raises and delivers notifications/cancelled" {
   @async.with_task_group(group => {
     let transport = @transport.StdioClientTransport::StdioClientTransport(
       cmd="sh",
@@ -41,9 +56,12 @@ async test "cancelled send_request re-raises and delivers notifications/cancelle
         }
       }
     })
-    // Let the child consume the request line first, so the task is
-    // deterministically blocked in receive when the cancellation lands.
-    @async.sleep(300)
+    // Wait until the request is registered and parked in receive
+    // (response_map registration precedes the wait), so the cancellation
+    // lands deterministically in flight.
+    wait_until(3000, () => {
+      client.response_map.contains(@types.RequestId::Int(7).key())
+    })
     task.cancel()
     let _ = task.wait()
     assert_true(probe.raised)
@@ -75,7 +93,7 @@ async test "cancelled send_request re-raises and delivers notifications/cancelle
 }
 
 ///|
-async test "explicit stdio cancellation releases local wait and preserves numeric id and reason" {
+async test "e2e/stdio: explicit stdio cancellation releases local wait and preserves numeric id and reason" {
   @async.with_task_group(group => {
     let transport = @transport.StdioClientTransport::StdioClientTransport(
       cmd="sh",
@@ -93,7 +111,9 @@ async test "explicit stdio cancellation releases local wait and preserves numeri
         "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"tools/list\",\"params\":{}}",
       )
     })
-    @async.sleep(300)
+    wait_until(3000, () => {
+      client.request_cancellations.contains(@types.RequestId::Int(8).key())
+    })
     assert_true(
       client.request_cancellations.contains(@types.RequestId::Int(8).key()),
     )
@@ -126,7 +146,7 @@ async test "explicit stdio cancellation releases local wait and preserves numeri
 }
 
 ///|
-async test "explicit HTTP cancellation closes the owned request stream and releases the caller" {
+async test "e2e/stdio: explicit HTTP cancellation closes the owned request stream and releases the caller" {
   let server = @socket.TcpServer(
     @socket.Addr::parse("127.0.0.1:47334"),
     reuse_addr=true,
@@ -180,7 +200,7 @@ async test "explicit HTTP cancellation closes the owned request stream and relea
 }
 
 ///|
-async test "closing the client cancels its owned stdio request and releases the caller" {
+async test "e2e/stdio: closing the client cancels its owned stdio request and releases the caller" {
   @async.with_task_group(group => {
     let transport = @transport.StdioClientTransport::StdioClientTransport(
       cmd="sh",
@@ -198,7 +218,9 @@ async test "closing the client cancels its owned stdio request and releases the 
         "{\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"tools/list\",\"params\":{}}",
       )
     })
-    @async.sleep(300)
+    wait_until(3000, () => {
+      client.request_cancellations.contains(@types.RequestId::Int(10).key())
+    })
     assert_true(
       client.request_cancellations.contains(@types.RequestId::Int(10).key()),
     )
@@ -212,7 +234,7 @@ async test "closing the client cancels its owned stdio request and releases the 
 }
 
 ///|
-async test "direct HTTP calls consume progress then their own response without poisoning the next call" {
+async test "e2e/stdio: direct HTTP calls consume progress then their own response without poisoning the next call" {
   let server = @socket.TcpServer(
     @socket.Addr::parse("127.0.0.1:47336"),
     reuse_addr=true,
@@ -285,7 +307,7 @@ async test "direct HTTP calls consume progress then their own response without p
 }
 
 ///|
-async test "concurrent direct HTTP calls correlate out-of-order replies independently" {
+async test "e2e/stdio: concurrent direct HTTP calls correlate out-of-order replies independently" {
   let server = @socket.TcpServer(
     @socket.Addr::parse("127.0.0.1:47337"),
     reuse_addr=true,
@@ -361,7 +383,7 @@ async test "concurrent direct HTTP calls correlate out-of-order replies independ
 }
 
 ///|
-async test "owned stdio cancellation releases string and large numeric requests without narrowing ids" {
+async test "e2e/stdio: owned stdio cancellation releases string and large numeric requests without narrowing ids" {
   for literal in ["\"9007199254740993\"", "9007199254740993"] {
     @async.with_timeout(5000, () => {
       @async.with_task_group(group => {
@@ -384,7 +406,7 @@ async test "owned stdio cancellation releases string and large numeric requests 
             ",\"method\":\"tools/list\",\"params\":{}}",
           )
         })
-        @async.sleep(300)
+        wait_until(3000, () => client.request_cancellations.contains(id.key()))
         assert_true(client.request_cancellations.contains(id.key()))
         assert_eq(client.cancel_request(id, reason="stop"), Ok(()))
         assert_true(task.wait() is Err(@types.Cancelled(_)))

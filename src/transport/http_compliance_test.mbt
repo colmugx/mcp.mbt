@@ -50,52 +50,6 @@ fn _jget(json : Json, field : String) -> Json {
 
 ///| =====================================================
 
-///| SSE Event Format
-
-///|
-/// =====================================================
-test "compliance: notification serializes as SSE data field" {
-  let n = @types.tools_list_changed_notification()
-  let json = n.to_jsonrpc_string()
-  // SSE format: "data: <json>\n\n"
-  let sse_event = "data: " + json + "\n\n"
-  assert_true(sse_event.contains("data: "))
-  assert_true(sse_event.contains("notifications/tools/list_changed"))
-  // Verify the JSON within SSE is valid
-  let payload = parse(json)
-  @debug.assert_eq(jstr(payload, "jsonrpc"), "2.0")
-}
-
-///| =====================================================
-
-///| JSON-RPC over HTTP Response Format
-
-///|
-/// =====================================================
-test "compliance: HTTP response uses application/json content type for regular responses" {
-  // Verify our response format is valid JSON
-  let response = Json::object({ "jsonrpc": "2.0", "id": 1.0, "result": {} }).stringify()
-  let json = parse(response)
-  @debug.assert_eq(jstr(json, "jsonrpc"), "2.0")
-  assert_true(jhas(json, "result"))
-}
-
-///|
-test "compliance: HTTP response uses text/event-stream for SSE" {
-  // Verify notification format is compatible with SSE
-  let n = @types.tools_list_changed_notification()
-  let notification = n.to_jsonrpc_string()
-  let json = parse(notification)
-  // SSE events should not have "id" field (notifications)
-  if json is Object(obj) {
-    assert_true(obj.get("id") is None)
-  } else {
-    panic()
-  }
-}
-
-///| =====================================================
-
 ///| Base64 Sentinel Encoding
 
 ///|

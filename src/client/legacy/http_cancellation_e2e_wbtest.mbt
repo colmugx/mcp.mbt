@@ -17,7 +17,7 @@ async fn stall_after_accept_legacy(server : @socket.TcpServer) -> Unit {
 }
 
 ///|
-async test "timeout during legacy send surfaces TimeoutError, not ReadError" {
+async test "e2e/legacy: timeout during legacy send surfaces TimeoutError, not ReadError" {
   let server = try! @socket.TcpServer::TcpServer(
     @socket.Addr::parse("127.0.0.1:47345"),
     reuse_addr=true,
@@ -37,7 +37,7 @@ async test "timeout during legacy send surfaces TimeoutError, not ReadError" {
     // Cancellation lands in the do_post end_request catch; before the fix it
     // escaped as ReadError("Failed to get response: Cancelled").
     try
-      @async.with_timeout(5000, async fn() {
+      @async.with_timeout(500, async fn() {
         transport.send("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}")
       })
     catch {
@@ -58,7 +58,7 @@ async test "timeout during legacy send surfaces TimeoutError, not ReadError" {
 /// Group-boundary regression: cancelling a running legacy send directly must
 /// surface a recognizable cancellation error to the joining group, not a
 /// translated ReadError.
-async test "direct legacy send cancellation keeps identity at group boundary" {
+async test "e2e/legacy: direct legacy send cancellation keeps identity at group boundary" {
   let server = try! @socket.TcpServer::TcpServer(
     @socket.Addr::parse("127.0.0.1:47346"),
     reuse_addr=true,

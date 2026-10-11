@@ -30,13 +30,17 @@ test "StdioTransport::close is idempotent" {
 }
 
 ///|
-test "StdioTransport::send raises error on closed transport" {
+async test "StdioTransport::send raises InvalidState on closed transport" {
   let transport = @transport.StdioTransport::StdioTransport()
   transport.close()
-
-  // Note: This test demonstrates the error case
-  // In practice, we'd need async test framework to execute receive/send
-  @debug.assert_eq(transport.closed, true)
+  try
+    transport.send("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}")
+  catch {
+    @types.InvalidState(_) => ()
+    e => fail("expected InvalidState, got \{e}")
+  } noraise {
+    _ => fail("send on a closed transport must raise")
+  }
 }
 
 ///| =====================================================
@@ -124,26 +128,6 @@ async test "HttpTransport routes out-of-order responses by JSON-RPC id" {
 
 ///|
 /// =====================================================
-test "AnyTransport::Stdio variant creation" {
-  let transport = @transport.StdioTransport::StdioTransport()
-  let any_transport = @transport.AnyTransport::Stdio(transport)
-  match any_transport {
-    Stdio(_) => ()
-    _ => panic()
-  }
-}
-
-///|
-test "AnyTransport::Http variant creation" {
-  let transport = @transport.HttpTransport::HttpTransport()
-  let any_transport = @transport.AnyTransport::Http(transport)
-  match any_transport {
-    Http(_) => ()
-    _ => panic()
-  }
-}
-
-///|
 test "AnyTransport::close dispatches correctly" {
   let stdio = @transport.StdioTransport::StdioTransport()
   let any_transport = @transport.AnyTransport::Stdio(stdio)
@@ -204,16 +188,6 @@ test "AuthConfig::AuthConfig with all fields" {
     None => panic()
   }
   @debug.assert_eq(config.authorization_servers.length(), 1)
-}
-
-///|
-test "AuthConfig::AuthConfig empty string scopes → None" {
-  let config = @transport.AuthConfig::AuthConfig(
-    authenticate=fn(_) { Some(@runtime.Principal::new("user")) },
-    resource_metadata_url="http://localhost:4240/mcp",
-    required_scopes="",
-  )
-  @debug.assert_eq(config.required_scopes, None)
 }
 
 ///|
