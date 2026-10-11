@@ -393,6 +393,19 @@ pub fn JsonInteger::to_json_string(Self) -> String
 pub fn JsonInteger::to_repr(Self) -> @debug.Repr
 pub impl Eq for JsonInteger
 
+pub struct JsonNumber {
+  wire : Json
+  canonical : String
+} derive(@debug.Debug)
+pub fn JsonNumber::equal(Self, Self) -> Bool
+pub fn JsonNumber::from_json(Json) -> Self raise MCPError
+pub fn JsonNumber::from_literal(String) -> Self raise MCPError
+pub fn JsonNumber::key(Self) -> String
+pub fn JsonNumber::not_equal(Self, Self) -> Bool
+pub fn JsonNumber::to_json(Self) -> Json
+pub fn JsonNumber::to_repr(Self) -> @debug.Repr
+pub impl Eq for JsonNumber
+
 pub(all) struct JsonRpcRequest {
   jsonrpc : String
   id : RequestId
@@ -457,12 +470,14 @@ pub impl ToJson for ProgressNotification
 pub(all) enum ProgressToken {
   String(String)
   Number(Double)
-} derive(Eq, @debug.Debug)
+  ExactNumber(JsonNumber)
+} derive(@debug.Debug)
 pub fn ProgressToken::equal(Self, Self) -> Bool
 pub fn ProgressToken::from_json(Json) -> Self raise MCPError
 pub fn ProgressToken::not_equal(Self, Self) -> Bool
 pub fn ProgressToken::to_json(Self) -> Json
 pub fn ProgressToken::to_repr(Self) -> @debug.Repr
+pub impl Eq for ProgressToken
 pub impl ToJson for ProgressToken
 
 pub(all) struct PromptArgument {

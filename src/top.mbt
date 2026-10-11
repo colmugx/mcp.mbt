@@ -10,6 +10,7 @@ pub using @ptypes {
   type JsonRpcRequest,
   type RequestId,
   type JsonInteger,
+  type JsonNumber,
   type InputRequestEntry,
   type InputRequestKind,
   type ServerInfo,

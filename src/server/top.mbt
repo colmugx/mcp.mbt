@@ -35,6 +35,7 @@ pub using @types {
   type TransportError,
   type RequestId,
   type JsonInteger,
+  type JsonNumber,
   type JsonRpcRequest,
   type ServerInfo,
   type ServerCapabilities,
