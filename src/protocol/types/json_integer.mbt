@@ -100,7 +100,7 @@ pub impl Eq for JsonInteger with fn equal(self, other) {
 }
 
 ///|
-fn integer_key(literal : String) -> String? {
+fn integer_key(literal : String, integer_only? : Bool = true) -> String? {
   let length = literal.length()
   let negative = length > 0 && literal[0] == '-'
   let mut pos = if negative { 1 } else { 0 }
@@ -172,7 +172,7 @@ fn integer_key(literal : String) -> String? {
     @bigint.BigInt::from_int(
       digits.length() - end - (fraction_end - fraction_start),
     )
-  if exponent < @bigint.BigInt::from_int(0) {
+  if integer_only && exponent < @bigint.BigInt::from_int(0) {
     return None
   }
   Some(

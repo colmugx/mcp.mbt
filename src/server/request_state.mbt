@@ -175,7 +175,8 @@ impl RequestStateCodec for AesGcmStateCodec with fn open(
   if payload.params_digest != expected_digest {
     return None
   }
-  if now > payload.expires_at + request_state_clock_skew {
+  if now.to_int64() >
+    payload.expires_at.to_int64() + request_state_clock_skew.to_int64() {
     return None
   }
   Some(payload)
@@ -346,11 +347,16 @@ fn get_field(json : Json, key : String) -> String? {
 }
 
 ///|
-/// Extract a numeric field as an Int (truncating any fractional part).
+/// Reject fractional and out-of-range timestamp fields rather than narrowing.
 fn get_number_field(json : Json, key : String) -> Int? {
   if json is Object(obj) {
     match obj.get(key) {
-      Some(Number(n, ..)) => Some(n.to_int())
+      Some(value) =>
+        try @types.JsonInteger::from_json(value) catch {
+          _ => None
+        } noraise {
+          integer => integer.as_int()
+        }
       _ => None
     }
   } else {

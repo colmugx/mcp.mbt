@@ -171,6 +171,8 @@ pub using @types {type InputRequestKind}
 
 pub using @types {type JsonInteger}
 
+pub using @types {type JsonNumber}
+
 pub using @types {type JsonRpcRequest}
 
 pub using @core {type JsonSchema}

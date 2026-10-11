@@ -3,18 +3,14 @@
 pub(all) enum ProgressToken {
   String(String)
   Number(Double)
-} derive(Debug, Eq)
+  ExactNumber(JsonNumber)
+} derive(Debug)
 
 ///|
 pub fn ProgressToken::from_json(value : Json) -> ProgressToken raise MCPError {
   match value {
     String(value) => ProgressToken::String(value)
-    Number(value, ..) => {
-      guard !value.is_nan() && !value.is_inf() else {
-        raise InvalidParams("Progress token must be a finite number")
-      }
-      ProgressToken::Number(value)
-    }
+    Number(_, ..) => ProgressToken::ExactNumber(JsonNumber::from_json(value))
     _ => raise InvalidParams("Progress token must be a string or number")
   }
 }
@@ -24,6 +20,7 @@ pub impl ToJson for ProgressToken with fn to_json(self) {
   match self {
     String(value) => Json::string(value)
     Number(value) => Json::number(value)
+    ExactNumber(value) => value.to_json()
   }
 }
 
@@ -71,6 +68,23 @@ pub impl ToJson for ProgressNotification with fn to_json(self) {
 
 ///|
 pub extend ProgressToken with ToJson::{to_json}
+
+///|
+pub impl Eq for ProgressToken with fn equal(self, other) {
+  match (self, other) {
+    (String(left), String(right)) => left == right
+    (String(_), _) | (_, String(_)) => false
+    _ => {
+      let left = JsonNumber::from_json(self.to_json()) catch {
+        _ => return false
+      }
+      let right = JsonNumber::from_json(other.to_json()) catch {
+        _ => return false
+      }
+      left == right
+    }
+  }
+}
 
 ///|
 pub extend ProgressToken with Eq::{equal, not_equal}
