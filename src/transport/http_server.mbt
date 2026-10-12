@@ -1,9 +1,9 @@
 ///|
 pub struct HttpTransport {
-  port : Int
+  port : Int32
   endpoint_path : String
   auth : AuthConfig?
-  keepalive_interval_ms : Int
+  keepalive_interval_ms : Int32
   tool_schema_resolver : Ref[(String) -> Json?]
   pending_requests : @async.Queue[AuthenticatedRequest]
   pending_reply_queues : Map[String, @async.Queue[String]]
@@ -11,9 +11,9 @@ pub struct HttpTransport {
 
 ///|
 pub fn HttpTransport::HttpTransport(
-  port? : Int = 4240,
-  endpoint_path? : String = "/mcp",
-  keepalive_interval_ms? : Int = 15000,
+  port~ : Int32 = 4240,
+  endpoint_path~ : String = "/mcp",
+  keepalive_interval_ms~ : Int32 = 15000,
 ) -> HttpTransport {
   guard keepalive_interval_ms > 0 else {
     abort("SSE keepalive interval must be positive")

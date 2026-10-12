@@ -29,7 +29,7 @@ pub fn SseEventReader::new(client : @http.Client) -> SseEventReader {
 
 ///|
 /// Leave only a potentially incomplete trailing UTF-8 sequence for the next refill.
-fn utf8_complete_prefix(bytes : Bytes) -> Int {
+fn utf8_complete_prefix(bytes : Bytes) -> Int32 {
   if bytes.is_empty() {
     return 0
   }
@@ -38,9 +38,9 @@ fn utf8_complete_prefix(bytes : Bytes) -> Int {
     start -= 1
   }
   let size = match bytes[start] {
-    0xc2..=0xdf => 2
-    0xe0..=0xef => 3
-    0xf0..=0xf4 => 4
+    0xc2..<=0xdf => 2
+    0xe0..<=0xef => 3
+    0xf0..<=0xf4 => 4
     _ => 1
   }
   if bytes.length() - start < size {

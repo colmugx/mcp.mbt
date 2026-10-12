@@ -63,7 +63,7 @@ pub fn StdioTransport::close(self : StdioTransport) -> Unit {
 ///|
 #warnings("-struct_never_constructed")
 pub struct HttpTransport {
-  port : Int
+  port : Int32
   endpoint_path : String
   auth : AuthConfig?
 }
@@ -71,9 +71,9 @@ pub struct HttpTransport {
 ///|
 #warnings("-unused_value")
 pub fn HttpTransport::HttpTransport(
-  port? : Int = 4240,
-  endpoint_path? : String = "/mcp",
-  keepalive_interval_ms? : Int = 15000,
+  port~ : Int32 = 4240,
+  endpoint_path~ : String = "/mcp",
+  keepalive_interval_ms~ : Int32 = 15000,
 ) -> HttpTransport {
   abort("HttpTransport is not available on js target")
 }

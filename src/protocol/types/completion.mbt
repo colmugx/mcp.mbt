@@ -192,7 +192,7 @@ pub fn CompletionResult::new(
   values : Array[String],
   total? : Double,
   has_more? : Bool,
-  metadata? : ResultMetadata = ResultMetadata::empty(),
+  metadata~ : ResultMetadata = ResultMetadata::empty(),
 ) -> CompletionResult {
   { values, total, has_more, completion_extensions: Map([]), metadata, }
 }

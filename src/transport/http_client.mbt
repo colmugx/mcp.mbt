@@ -44,8 +44,8 @@ pub fn HttpClientTransport::set_tool_header_schemas(
 ///|
 pub fn HttpClientTransport::HttpClientTransport(
   base_url : String,
-  auth_token? : String = "",
-  extra_headers? : Array[(String, String)] = [],
+  auth_token~ : String = "",
+  extra_headers~ : Array[(String, String)] = [],
 ) -> HttpClientTransport {
   {
     base_url,

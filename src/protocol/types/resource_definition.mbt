@@ -19,7 +19,7 @@ pub fn ResourceDefinition::new(
   mime_type? : String,
   size? : Double,
   icons? : Array[Icon],
-  metadata? : ContentMetadata = ContentMetadata::empty(),
+  metadata~ : ContentMetadata = ContentMetadata::empty(),
 ) -> ResourceDefinition {
   { uri, name, title, description, mime_type, size, icons, metadata, }
 }
@@ -90,7 +90,7 @@ pub fn ResourceTemplateDefinition::new(
   description? : String,
   mime_type? : String,
   icons? : Array[Icon],
-  metadata? : ContentMetadata = ContentMetadata::empty(),
+  metadata~ : ContentMetadata = ContentMetadata::empty(),
 ) -> ResourceTemplateDefinition {
   { uri_template, name, title, description, mime_type, icons, metadata, }
 }

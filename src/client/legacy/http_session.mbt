@@ -21,8 +21,8 @@ pub struct LegacyHttpSessionTransport {
 ///|
 pub fn LegacyHttpSessionTransport::LegacyHttpSessionTransport(
   url~ : String,
-  auth_token? : String = "",
-  extra_headers? : Array[(String, String)] = [],
+  auth_token~ : String = "",
+  extra_headers~ : Array[(String, String)] = [],
 ) -> LegacyHttpSessionTransport {
   {
     base_url: url,

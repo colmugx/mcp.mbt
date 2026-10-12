@@ -54,7 +54,7 @@ fn with_server_meta(server : MCPServer, result : Json) -> Json {
 fn input_required_result(
   server : MCPServer,
   input_requests : Map[String, @types.InputRequestEntry],
-  request_state? : String? = None,
+  request_state~ : String? = None,
 ) -> Json {
   let reqs_map : Map[String, Json] = Default::default()
   input_requests.each(fn(key, entry) {
@@ -88,7 +88,7 @@ fn jsonrpc_input_required_str(
   server : MCPServer,
   id : @types.RequestId,
   input_requests : Map[String, @types.InputRequestEntry],
-  request_state? : String? = None,
+  request_state~ : String? = None,
 ) -> String {
   let result = input_required_result(server, input_requests, request_state~)
   Json::object({
@@ -128,7 +128,7 @@ fn jsonrpc_cacheable_success_str(
   server : MCPServer,
   id : @types.RequestId,
   result : Json,
-  ttl_ms : Int,
+  ttl_ms : Int32,
   cache_scope : String,
 ) -> String {
   ignore(@types.ResultMetadata::from_json(result, body_fields=[])) catch {
@@ -155,9 +155,9 @@ fn jsonrpc_cacheable_success_str(
 ///|
 fn jsonrpc_error_str(
   id : @types.RequestId,
-  code : Int,
+  code : Int32,
   message : String,
-  data? : Json? = None,
+  data~ : Json? = None,
 ) -> String {
   let error_map : Map[String, Json] = Default::default()
   error_map.set("code", Json::number(code.to_double()))
@@ -179,7 +179,7 @@ fn jsonrpc_error_str(
 /// says the id is null/absent there, while MCP forbids null ids — omitting
 /// the field satisfies both. A fixed placeholder id (e.g. 0) would misroute
 /// the error onto a live request that genuinely used that id.
-fn jsonrpc_error_str_no_id(code : Int, message : String) -> String {
+fn jsonrpc_error_str_no_id(code : Int32, message : String) -> String {
   let error_map : Map[String, Json] = Default::default()
   error_map.set("code", Json::number(code.to_double()))
   error_map.set("message", Json::string(message))

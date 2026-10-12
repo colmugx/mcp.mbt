@@ -31,7 +31,7 @@ pub(all) enum ParamKind {
 }
 
 ///|
-pub fn str_schema(desc? : String = "") -> JsonSchema {
+pub fn str_schema(desc~ : String = "") -> JsonSchema {
   {
     type_name: "string",
     description: desc,
@@ -43,7 +43,7 @@ pub fn str_schema(desc? : String = "") -> JsonSchema {
 }
 
 ///|
-pub fn int_schema(desc? : String = "") -> JsonSchema {
+pub fn int_schema(desc~ : String = "") -> JsonSchema {
   {
     type_name: "integer",
     description: desc,
@@ -55,7 +55,7 @@ pub fn int_schema(desc? : String = "") -> JsonSchema {
 }
 
 ///|
-pub fn num_schema(desc? : String = "") -> JsonSchema {
+pub fn num_schema(desc~ : String = "") -> JsonSchema {
   {
     type_name: "number",
     description: desc,
@@ -67,7 +67,7 @@ pub fn num_schema(desc? : String = "") -> JsonSchema {
 }
 
 ///|
-pub fn bool_schema(desc? : String = "") -> JsonSchema {
+pub fn bool_schema(desc~ : String = "") -> JsonSchema {
   {
     type_name: "boolean",
     description: desc,
@@ -79,7 +79,7 @@ pub fn bool_schema(desc? : String = "") -> JsonSchema {
 }
 
 ///|
-pub fn arr_schema(item : JsonSchema, desc? : String = "") -> JsonSchema {
+pub fn arr_schema(item : JsonSchema, desc~ : String = "") -> JsonSchema {
   {
     type_name: "array",
     description: desc,
@@ -94,7 +94,7 @@ pub fn arr_schema(item : JsonSchema, desc? : String = "") -> JsonSchema {
 pub fn obj_schema(
   props : Map[String, JsonSchema],
   required : Array[String],
-  desc? : String = "",
+  desc~ : String = "",
 ) -> JsonSchema {
   {
     type_name: "object",
@@ -158,12 +158,12 @@ pub impl Params for String with fn to_json(self : String) -> Json {
 }
 
 ///|
-pub impl Params for Int with fn schema() -> JsonSchema {
+pub impl Params for Int32 with fn schema() -> JsonSchema {
   int_schema(desc="Integer value")
 }
 
 ///|
-pub impl Params for Int with fn from_json(j : Json) -> Int raise ToolError {
+pub impl Params for Int32 with fn from_json(j : Json) -> Int32 raise ToolError {
   match j {
     Number(n, ..) => n.to_int()
     _ => raise ToolError("Expected integer")
@@ -171,7 +171,7 @@ pub impl Params for Int with fn from_json(j : Json) -> Int raise ToolError {
 }
 
 ///|
-pub impl Params for Int with fn to_json(self : Int) -> Json {
+pub impl Params for Int32 with fn to_json(self : Int32) -> Json {
   Json::number(self.to_double())
 }
 

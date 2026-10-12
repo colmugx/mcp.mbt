@@ -18,7 +18,7 @@ pub extend ContentBlock with Debug::{to_repr}
 ///|
 pub fn ContentBlock::text(
   text : String,
-  metadata? : ContentMetadata = ContentMetadata::empty(),
+  metadata~ : ContentMetadata = ContentMetadata::empty(),
 ) -> ContentBlock {
   Text(text, metadata~)
 }
@@ -27,7 +27,7 @@ pub fn ContentBlock::text(
 pub fn ContentBlock::image(
   data : String,
   mime_type~ : String,
-  metadata? : ContentMetadata = ContentMetadata::empty(),
+  metadata~ : ContentMetadata = ContentMetadata::empty(),
 ) -> ContentBlock {
   Image(data, mime_type~, metadata~)
 }
@@ -36,7 +36,7 @@ pub fn ContentBlock::image(
 pub fn ContentBlock::audio(
   data : String,
   mime_type~ : String,
-  metadata? : ContentMetadata = ContentMetadata::empty(),
+  metadata~ : ContentMetadata = ContentMetadata::empty(),
 ) -> ContentBlock {
   Audio(data, mime_type~, metadata~)
 }
@@ -50,7 +50,7 @@ pub fn ContentBlock::resource_link(
   mime_type? : String,
   size? : Double,
   icons? : Array[Icon],
-  metadata? : ContentMetadata = ContentMetadata::empty(),
+  metadata~ : ContentMetadata = ContentMetadata::empty(),
 ) -> ContentBlock {
   ResourceLink(
     { uri, name, title, description, mime_type, size, icons, },
@@ -61,7 +61,7 @@ pub fn ContentBlock::resource_link(
 ///|
 pub fn ContentBlock::resource(
   resource : ResourceContents,
-  metadata? : ContentMetadata = ContentMetadata::empty(),
+  metadata~ : ContentMetadata = ContentMetadata::empty(),
 ) -> ContentBlock {
   EmbeddedResource(resource, metadata~)
 }

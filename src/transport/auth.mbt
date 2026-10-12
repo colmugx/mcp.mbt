@@ -14,9 +14,9 @@ pub struct AuthConfig {
 pub fn AuthConfig::AuthConfig(
   authenticate~ : (String) -> @runtime.Principal?,
   resource_metadata_url~ : String,
-  authorization_servers? : Array[String] = [],
-  required_scopes? : String = "",
-  allowed_origins? : Array[String] = [],
+  authorization_servers~ : Array[String] = [],
+  required_scopes~ : String = "",
+  allowed_origins~ : Array[String] = [],
 ) -> AuthConfig {
   {
     authenticate,

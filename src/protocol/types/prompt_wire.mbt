@@ -139,7 +139,7 @@ pub impl ToJson for PromptMessage with fn to_json(self) {
 pub fn GetPromptResult::new(
   messages : Array[PromptMessage],
   description? : String,
-  metadata? : ResultMetadata = ResultMetadata::empty(),
+  metadata~ : ResultMetadata = ResultMetadata::empty(),
 ) -> GetPromptResult {
   { messages, description, metadata, }
 }

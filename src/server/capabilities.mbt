@@ -52,7 +52,7 @@ fn MCPServer::supported_subscription_filter(
 /// Without an override, registering a tool enables tools automatically.
 pub fn MCPServer::with_tools(
   self : MCPServer,
-  enabled? : Bool = true,
+  enabled~ : Bool = true,
 ) -> MCPServer {
   { ..self, tools_enabled: Some(enabled), }
 }
@@ -61,7 +61,7 @@ pub fn MCPServer::with_tools(
 /// Enable an empty resources/templates registry, or explicitly disable its methods.
 pub fn MCPServer::with_resources(
   self : MCPServer,
-  enabled? : Bool = true,
+  enabled~ : Bool = true,
 ) -> MCPServer {
   { ..self, resources_enabled: Some(enabled), }
 }
@@ -70,7 +70,7 @@ pub fn MCPServer::with_resources(
 /// Enable an empty prompts registry, or explicitly disable its methods.
 pub fn MCPServer::with_prompts(
   self : MCPServer,
-  enabled? : Bool = true,
+  enabled~ : Bool = true,
 ) -> MCPServer {
   { ..self, prompts_enabled: Some(enabled), }
 }

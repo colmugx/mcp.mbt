@@ -40,16 +40,16 @@ pub fn StdioTransport::close(self : StdioTransport) -> Unit {
 
 ///|
 pub struct HttpTransport {
-  port : Int
+  port : Int32
   endpoint_path : String
   auth : AuthConfig?
 }
 
 ///|
 pub fn HttpTransport::HttpTransport(
-  port? : Int = 4240,
-  endpoint_path? : String = "/mcp",
-  keepalive_interval_ms? : Int = 15000,
+  port~ : Int32 = 4240,
+  endpoint_path~ : String = "/mcp",
+  keepalive_interval_ms~ : Int32 = 15000,
 ) -> HttpTransport {
   abort("HttpTransport is not available on wasm-gc target")
 }
@@ -131,8 +131,8 @@ pub struct StdioClientTransport {
 ///|
 pub fn StdioClientTransport::StdioClientTransport(
   cmd~ : String,
-  args? : Array[String] = [],
-  extra_env? : Map[String, String] = {},
+  args~ : Array[String] = [],
+  extra_env~ : Map[String, String] = {},
 ) -> StdioClientTransport {
   abort("StdioClientTransport is not available on wasm-gc target")
 }
@@ -185,8 +185,8 @@ pub struct HttpClientTransport {
 ///|
 pub fn HttpClientTransport::HttpClientTransport(
   base_url : String,
-  auth_token? : String = "",
-  extra_headers? : Array[(String, String)] = [],
+  auth_token~ : String = "",
+  extra_headers~ : Array[(String, String)] = [],
 ) -> HttpClientTransport {
   ignore(base_url)
   ignore(auth_token)

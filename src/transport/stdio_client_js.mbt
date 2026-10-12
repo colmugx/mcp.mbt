@@ -48,7 +48,7 @@ priv type JsStdinWriter
 /// Plain JS object `{ code : Int }` resolved by the exit listener
 /// (`code = -1` when the child was killed by a signal — node passes null).
 priv struct ChildExit {
-  code : Int
+  code : Int32
 }
 
 ///|
@@ -191,8 +191,8 @@ pub struct StdioClientTransport {
 ///|
 pub fn StdioClientTransport::StdioClientTransport(
   cmd~ : String,
-  args? : Array[String] = [],
-  extra_env? : Map[String, String] = {},
+  args~ : Array[String] = [],
+  extra_env~ : Map[String, String] = {},
 ) -> StdioClientTransport {
   {
     cmd,

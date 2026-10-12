@@ -35,7 +35,7 @@ fn origin_host(origin : String) -> String? {
   for c in authority {
     if in_port {
       match c {
-        '0'..='9' => port_digits += 1
+        '0'..<='9' => port_digits += 1
         _ => return None
       }
     } else {

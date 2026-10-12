@@ -46,7 +46,7 @@ pub fn classify_jsonrpc_message(message : String) -> JsonRpcKind {
 
 ///|
 /// Extract the JSON-RPC error code from a serialized response, if any.
-pub fn jsonrpc_error_code(message : String) -> Int? {
+pub fn jsonrpc_error_code(message : String) -> Int32? {
   let json = @validation.parse_json(message) catch { _ => return None }
   if json is Object(obj) {
     match obj.get("error") {

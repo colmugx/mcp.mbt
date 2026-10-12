@@ -19,7 +19,7 @@ fn era_jsonrpc_method(body : String) -> String {
 
 ///|
 /// Parse `Content-Length` out of an HTTP request head (0 when absent).
-fn era_content_length(head : String) -> Int {
+fn era_content_length(head : String) -> Int32 {
   let lowered = head.to_lower()
   let marker = "content-length:"
   let start = match lowered.find(marker) {
@@ -56,7 +56,7 @@ fn era_http_response(
 
 ///|
 /// Parse a small hex chunk-size line (0 on any parse trouble).
-fn era_hex_size(line : String) -> Int {
+fn era_hex_size(line : String) -> Int32 {
   let mut n = 0
   for c in line.trim() {
     let d = if c >= '0' && c <= '9' {

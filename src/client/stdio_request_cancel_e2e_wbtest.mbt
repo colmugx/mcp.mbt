@@ -20,7 +20,7 @@ priv struct SendRequestProbe {
 /// replacement for fixed sleeps that waited for a request task to reach
 /// its suspension point (registration in request_cancellations/response_map
 /// happens before the wait, see send_request/send_request_inner).
-async fn wait_until(timeout_ms : Int, cond : () -> Bool) -> Unit {
+async fn wait_until(timeout_ms : Int32, cond : () -> Bool) -> Unit {
   let deadline = @async.now() + timeout_ms.to_int64()
   while !cond() {
     if @async.now() > deadline {

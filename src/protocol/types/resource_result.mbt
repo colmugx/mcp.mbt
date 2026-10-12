@@ -7,7 +7,7 @@ pub(all) struct ResourceReadResult {
 ///|
 pub fn ResourceReadResult::new(
   contents : Array[ResourceContents],
-  metadata? : ResultMetadata = ResultMetadata::empty(),
+  metadata~ : ResultMetadata = ResultMetadata::empty(),
 ) -> ResourceReadResult {
   { contents, metadata, }
 }

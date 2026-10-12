@@ -53,7 +53,7 @@ pub fn owned_json(value : Json) -> Json raise @types.MCPError {
 }
 
 ///|
-fn copy_json(value : Json, depth : Int) -> Json raise @types.MCPError {
+fn copy_json(value : Json, depth : Int32) -> Json raise @types.MCPError {
   if depth > 128 {
     raise @types.InvalidParams(
       "Tool definition exceeds the supported nesting depth",

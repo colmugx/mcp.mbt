@@ -20,7 +20,7 @@ pub(all) suberror TransportError {
   /// era probe) can inspect it for a recognized modern JSON-RPC error
   /// (UnsupportedProtocolVersion / MissingRequiredClientCapability /
   /// HeaderMismatch) before deciding on a legacy fallback.
-  HttpError(Int, String)
+  HttpError(Int32, String)
 } derive(Debug, Eq)
 
 ///|

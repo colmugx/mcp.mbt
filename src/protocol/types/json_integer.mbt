@@ -52,7 +52,7 @@ pub fn JsonInteger::from_literal(
 }
 
 ///|
-pub fn JsonInteger::from_int(value : Int) -> JsonInteger {
+pub fn JsonInteger::from_int(value : Int32) -> JsonInteger {
   let literal = value.to_string()
   {
     wire: Json::number(value.to_double(), repr=literal),
@@ -72,7 +72,7 @@ pub fn JsonInteger::to_json_string(self : JsonInteger) -> String {
 
 ///|
 /// Returns None rather than narrowing an out-of-range integer.
-pub fn JsonInteger::as_int(self : JsonInteger) -> Int? {
+pub fn JsonInteger::as_int(self : JsonInteger) -> Int32? {
   guard self.wire is Number(value, ..) &&
     !value.is_nan() &&
     !value.is_inf() &&
@@ -100,7 +100,7 @@ pub impl Eq for JsonInteger with fn equal(self, other) {
 }
 
 ///|
-fn integer_key(literal : String, integer_only? : Bool = true) -> String? {
+fn integer_key(literal : String, integer_only~ : Bool = true) -> String? {
   let length = literal.length()
   let negative = length > 0 && literal[0] == '-'
   let mut pos = if negative { 1 } else { 0 }
@@ -110,8 +110,8 @@ fn integer_key(literal : String, integer_only? : Bool = true) -> String? {
   }
   if literal[pos] == '0' {
     pos += 1
-  } else if literal[pos] is ('1'..='9') {
-    while pos < length && literal[pos] is ('0'..='9') {
+  } else if literal[pos] is ('1'..<='9') {
+    while pos < length && literal[pos] is ('0'..<='9') {
       pos += 1
     }
   } else {
@@ -123,7 +123,7 @@ fn integer_key(literal : String, integer_only? : Bool = true) -> String? {
   if pos < length && literal[pos] == '.' {
     pos += 1
     fraction_start = pos
-    while pos < length && literal[pos] is ('0'..='9') {
+    while pos < length && literal[pos] is ('0'..<='9') {
       pos += 1
     }
     fraction_end = pos
@@ -139,7 +139,7 @@ fn integer_key(literal : String, integer_only? : Bool = true) -> String? {
       pos += 1
     }
     let exponent_start = pos
-    while pos < length && literal[pos] is ('0'..='9') {
+    while pos < length && literal[pos] is ('0'..<='9') {
       pos += 1
     }
     if exponent_start == pos {

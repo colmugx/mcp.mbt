@@ -17,7 +17,7 @@
 #cfg(target="native")
 async fn await_http_listen(
   addr : @socket.Addr,
-  timeout_ms? : Int = 5000,
+  timeout_ms~ : Int32 = 5000,
 ) -> Unit {
   let deadline = @async.now() + timeout_ms.to_int64()
   while true {
@@ -121,7 +121,7 @@ async fn origin_probe_post(
   url : String,
   body : String,
   origin~ : String,
-) -> (Int, String) {
+) -> (Int32, String) {
   let body_bytes = @utf8.encode(body)
   let headers : @http.Headers = Default::default()
   headers["Content-Type"] = "application/json"

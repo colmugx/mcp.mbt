@@ -26,7 +26,7 @@ pub struct LegacyClient {
   client_name : String
   client_version : String
   transport : LegacyTransport
-  mut next_id : Int
+  mut next_id : Int32
   mut server_name : String
   mut server_version : String
 }
@@ -48,7 +48,7 @@ pub fn LegacyClient::LegacyClient(
 }
 
 ///|
-fn LegacyClient::next_request_id(self : LegacyClient) -> Int {
+fn LegacyClient::next_request_id(self : LegacyClient) -> Int32 {
   self.next_id = self.next_id + 1
   self.next_id
 }
@@ -170,7 +170,7 @@ pub async fn LegacyClient::send_raw(
 
 ///|
 /// Build a JSON-RPC `ping` request string for the given id.
-fn build_ping_request(id : Int) -> String {
+fn build_ping_request(id : Int32) -> String {
   Json::object({
     "jsonrpc": Json::string("2.0"),
     "id": Json::number(id.to_double()),
@@ -219,8 +219,8 @@ pub async fn LegacyClient::connect_http(
   url~ : String,
   name~ : String,
   version~ : String,
-  auth_token? : String = "",
-  extra_headers? : Array[(String, String)] = [],
+  auth_token~ : String = "",
+  extra_headers~ : Array[(String, String)] = [],
 ) -> Result[LegacyClient, @types.MCPError] {
   let http_transport = LegacyHttpSessionTransport::LegacyHttpSessionTransport(
     url~,

@@ -15,8 +15,8 @@ pub extend Principal with @moonbitlang/core/debug.Debug::{to_repr}
 ///|
 pub fn Principal::new(
   id : String,
-  scopes? : Array[String] = [],
-  attributes? : Map[String, Json] = {},
+  scopes~ : Array[String] = [],
+  attributes~ : Map[String, Json] = {},
 ) -> Principal {
   { id, scopes, attributes, }
 }
@@ -25,8 +25,8 @@ pub fn Principal::new(
 /// Request-local cooperative cancellation, shared with its transport and task owner.
 pub struct CancellationToken {
   mut cancelled : Bool
-  callbacks : Map[Int, () -> Unit]
-  mut next_callback_id : Int
+  callbacks : Map[Int32, () -> Unit]
+  mut next_callback_id : Int32
 }
 
 ///|
@@ -59,7 +59,7 @@ pub fn CancellationToken::on_cancel(
 /// Dispose registrations when their request/task completes to avoid retaining finished work.
 pub struct CancellationRegistration {
   token : CancellationToken
-  id : Int
+  id : Int32
 }
 
 ///|
@@ -109,7 +109,7 @@ pub struct ProgressReporter {
 ///|
 pub fn ProgressReporter::new(
   send : async (Double, Double?, String?) -> Unit,
-  cancellation_token? : CancellationToken = CancellationToken::new(),
+  cancellation_token~ : CancellationToken = CancellationToken::new(),
 ) -> ProgressReporter {
   { send, cancellation_token, }
 }
@@ -140,11 +140,11 @@ pub(all) struct RequestContext {
 ///|
 pub fn RequestContext::new(
   request_id : @types.RequestId,
-  meta? : Map[String, Json] = {},
+  meta~ : Map[String, Json] = {},
   principal? : Principal,
-  input_responses? : Map[String, Json] = {},
+  input_responses~ : Map[String, Json] = {},
   continuation_state? : Json,
-  cancellation_token? : CancellationToken = CancellationToken::new(),
+  cancellation_token~ : CancellationToken = CancellationToken::new(),
   progress_reporter? : ProgressReporter,
 ) -> RequestContext {
   {

@@ -18,7 +18,7 @@ fn build_request_meta(
   client_name : String,
   client_version : String,
   capabilities : @types.ClientCapabilities,
-  log_level? : String? = None,
+  log_level~ : String? = None,
 ) -> Json {
   let meta : Map[String, Json] = Default::default()
   meta.set(
@@ -43,9 +43,9 @@ fn build_request_meta(
 
 ///|
 fn build_tools_list_request(
-  id : Int,
+  id : Int32,
   meta : Json,
-  cursor? : String = "",
+  cursor~ : String = "",
 ) -> String {
   let params : Map[String, Json] = Default::default()
   params.set("_meta", meta)
@@ -73,10 +73,10 @@ fn parse_argument_object(arguments : String) -> Json raise @types.MCPError {
 
 ///|
 fn build_tools_call_request(
-  id : Int,
+  id : Int32,
   name : String,
   meta : Json,
-  arguments? : String = "{}",
+  arguments~ : String = "{}",
   progress_token? : @types.ProgressToken,
 ) -> String raise @types.MCPError {
   let arguments_json = parse_argument_object(arguments)
@@ -109,9 +109,9 @@ fn build_tools_call_request(
 
 ///|
 fn build_resources_list_request(
-  id : Int,
+  id : Int32,
   meta : Json,
-  cursor? : String = "",
+  cursor~ : String = "",
 ) -> String {
   let params : Map[String, Json] = Default::default()
   params.set("_meta", meta)
@@ -127,7 +127,11 @@ fn build_resources_list_request(
 }
 
 ///|
-fn build_resources_read_request(id : Int, uri : String, meta : Json) -> String {
+fn build_resources_read_request(
+  id : Int32,
+  uri : String,
+  meta : Json,
+) -> String {
   Json::object({
     "jsonrpc": "2.0",
     "id": id,
@@ -138,9 +142,9 @@ fn build_resources_read_request(id : Int, uri : String, meta : Json) -> String {
 
 ///|
 fn build_prompts_list_request(
-  id : Int,
+  id : Int32,
   meta : Json,
-  cursor? : String = "",
+  cursor~ : String = "",
 ) -> String {
   let params : Map[String, Json] = Default::default()
   params.set("_meta", meta)
@@ -157,10 +161,10 @@ fn build_prompts_list_request(
 
 ///|
 fn build_prompts_get_request(
-  id : Int,
+  id : Int32,
   name : String,
   meta : Json,
-  arguments? : String = "{}",
+  arguments~ : String = "{}",
 ) -> String raise @types.MCPError {
   let arguments_json = parse_argument_object(arguments)
   Json::object({
@@ -173,9 +177,9 @@ fn build_prompts_get_request(
 
 ///|
 fn build_resources_templates_list_request(
-  id : Int,
+  id : Int32,
   meta : Json,
-  cursor? : String = "",
+  cursor~ : String = "",
 ) -> String {
   let params : Map[String, Json] = Default::default()
   params.set("_meta", meta)
@@ -192,7 +196,7 @@ fn build_resources_templates_list_request(
 
 ///|
 fn build_completion_reference_request(
-  id : Int,
+  id : Int32,
   meta : Json,
   reference : @types.CompletionReference,
   argument_name~ : String,
@@ -228,7 +232,7 @@ fn build_completion_reference_request(
 /// when empty. This mirrors the server-side `parse_subscription_filter`
 /// semantics: absent fields simply mean "not subscribed".
 fn build_subscriptions_listen_request(
-  id : Int,
+  id : Int32,
   meta : Json,
   filter : ListenFilter,
 ) -> String {
@@ -264,7 +268,7 @@ fn build_subscriptions_listen_request(
 /// carries no parameters beyond the standard `_meta`; it is the primary way
 /// clients learn a server's supported versions, capabilities, and identity,
 /// and serves as the era probe for legacy fallback.
-fn build_discover_request(id : Int, meta : Json) -> String {
+fn build_discover_request(id : Int32, meta : Json) -> String {
   Json::object({
     "jsonrpc": "2.0",
     "id": id,

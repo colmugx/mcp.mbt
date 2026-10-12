@@ -76,7 +76,7 @@ pub impl ToJson for ElicitationValue with fn to_json(self) {
 pub fn ElicitationRequest::form(
   message : String,
   requested_schema : Json,
-  explicit_mode? : Bool = false,
+  explicit_mode~ : Bool = false,
   meta? : Map[String, Json],
 ) -> ElicitationRequest {
   Form(message, requested_schema~, explicit_mode~, meta~, extensions=Map([]))

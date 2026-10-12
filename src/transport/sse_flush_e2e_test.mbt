@@ -7,7 +7,10 @@
 /// Block until a TCP connect to `addr` succeeds. Connection-refused means the
 /// HttpTransport server task has not bound its port yet; the deadline turns
 /// "never binds" into a bounded failure instead of a hung test.
-async fn wait_for_listen(addr : @socket.Addr, timeout_ms? : Int = 5000) -> Unit {
+async fn wait_for_listen(
+  addr : @socket.Addr,
+  timeout_ms~ : Int32 = 5000,
+) -> Unit {
   let deadline = @async.now() + timeout_ms.to_int64()
   while true {
     let probe = Some(@socket.Tcp::connect(addr)) catch { _ => None }
