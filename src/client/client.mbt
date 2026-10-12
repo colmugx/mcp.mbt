@@ -1,6 +1,6 @@
 ///|
 struct RequestIdCounter {
-  mut next_id : Int
+  mut next_id : Int32
 }
 
 ///|
@@ -9,7 +9,7 @@ fn RequestIdCounter::RequestIdCounter() -> RequestIdCounter {
 }
 
 ///|
-fn RequestIdCounter::next(self : RequestIdCounter) -> Int {
+fn RequestIdCounter::next(self : RequestIdCounter) -> Int32 {
   self.next_id = self.next_id + 1
   self.next_id
 }
@@ -47,7 +47,7 @@ fn MCPClient::MCPClient(
   name~ : String,
   version~ : String,
   transport~ : @transport.AnyTransport,
-  capabilities? : @types.ClientCapabilities = default_capabilities(),
+  capabilities~ : @types.ClientCapabilities = default_capabilities(),
 ) -> MCPClient {
   {
     client_name: name,
@@ -119,9 +119,9 @@ pub async fn MCPClient::connect_http(
   url~ : String,
   name~ : String,
   version~ : String,
-  auth_token? : String = "",
-  extra_headers? : Array[(String, String)] = [],
-  era? : ProtocolEra = Auto,
+  auth_token~ : String = "",
+  extra_headers~ : Array[(String, String)] = [],
+  era~ : ProtocolEra = Auto,
 ) -> Result[MCPClient, @types.MCPError] {
   if era is Legacy {
     return connect_http_legacy(
@@ -224,8 +224,8 @@ async fn connect_http_legacy(
   url~ : String,
   name~ : String,
   version~ : String,
-  auth_token? : String = "",
-  extra_headers? : Array[(String, String)] = [],
+  auth_token~ : String = "",
+  extra_headers~ : Array[(String, String)] = [],
 ) -> Result[MCPClient, @types.MCPError] {
   match
     @legacy.LegacyClient::connect_http(
@@ -260,12 +260,12 @@ async fn connect_http_legacy(
 /// | Modern | yes                     | forbidden (Err) |
 pub async fn MCPClient::connect_stdio(
   cmd~ : String,
-  args? : Array[String] = [],
+  args~ : Array[String] = [],
   name~ : String,
   version~ : String,
-  extra_env? : Map[String, String] = {},
+  extra_env~ : Map[String, String] = {},
   group~ : @async.TaskGroup[Unit],
-  era? : ProtocolEra = Auto,
+  era~ : ProtocolEra = Auto,
 ) -> Result[MCPClient, @types.MCPError] {
   let stdio = @transport.StdioClientTransport::StdioClientTransport(
     cmd~,
@@ -355,7 +355,7 @@ fn default_capabilities() -> @types.ClientCapabilities {
 }
 
 ///|
-pub fn MCPClient::next_request_id(self : MCPClient) -> Int {
+pub fn MCPClient::next_request_id(self : MCPClient) -> Int32 {
   self.id_counter.next()
 }
 
@@ -363,7 +363,7 @@ pub fn MCPClient::next_request_id(self : MCPClient) -> Int {
 /// Build the `_meta` object this client attaches to every modern request.
 fn MCPClient::request_meta(
   self : MCPClient,
-  log_level? : String? = None,
+  log_level~ : String? = None,
 ) -> Json {
   build_request_meta(
     self.client_name,
@@ -481,7 +481,7 @@ async fn MCPClient::notify_cancelled_best_effort(
   reason? : String,
   /// Serialized-writer wait bound; overridable so tests can probe the
   /// bounded-wait property without burning the production budget.
-  wait_ms? : Int = 1000,
+  wait_ms~ : Int32 = 1000,
 ) -> Unit {
   match self.transport {
     @transport.AnyTransport::StdioClient(_) => {
@@ -560,7 +560,7 @@ fn MCPClient::maybe_store_server_info(
 async fn MCPClient::send_with_mrtr(
   self : MCPClient,
   request : String,
-  max_rounds? : Int = 8,
+  max_rounds~ : Int32 = 8,
 ) -> Result[String, @types.MCPError] {
   let mut current_request = request
   let mut rounds = 0
@@ -862,7 +862,7 @@ fn MCPClient::fulfill_input_requests(
 /// `inputResponses` and `requestState`, and assign a new JSON-RPC id.
 fn build_retry_request(
   original : String,
-  new_id : Int,
+  new_id : Int32,
   responses : Map[String, Json],
   request_state : String?,
 ) -> String {
@@ -1034,7 +1034,7 @@ pub async fn MCPClient::discover(
 ///|
 pub async fn MCPClient::list_tools(
   self : MCPClient,
-  cursor? : String = "",
+  cursor~ : String = "",
 ) -> Result[ListToolsResult, @types.MCPError] {
   let id = self.next_request_id()
   let request = build_tools_list_request(id, self.request_meta(), cursor~)
@@ -1103,7 +1103,7 @@ pub async fn MCPClient::list_tools(
 pub async fn MCPClient::call_tool(
   self : MCPClient,
   name : String,
-  arguments? : String = "{}",
+  arguments~ : String = "{}",
   progress_token? : @types.ProgressToken,
 ) -> Result[CallToolResult, @types.MCPError] {
   let id = self.next_request_id()
@@ -1137,7 +1137,7 @@ pub async fn MCPClient::call_tool(
 ///|
 pub async fn MCPClient::list_resources(
   self : MCPClient,
-  cursor? : String = "",
+  cursor~ : String = "",
 ) -> Result[ListResourcesResult, @types.MCPError] {
   let id = self.next_request_id()
   let request = build_resources_list_request(id, self.request_meta(), cursor~)
@@ -1185,7 +1185,7 @@ pub async fn MCPClient::read_resource(
 ///|
 pub async fn MCPClient::list_prompts(
   self : MCPClient,
-  cursor? : String = "",
+  cursor~ : String = "",
 ) -> Result[ListPromptsResult, @types.MCPError] {
   let id = self.next_request_id()
   let request = build_prompts_list_request(id, self.request_meta(), cursor~)
@@ -1210,7 +1210,7 @@ pub async fn MCPClient::list_prompts(
 pub async fn MCPClient::get_prompt(
   self : MCPClient,
   name : String,
-  arguments? : String = "{}",
+  arguments~ : String = "{}",
 ) -> Result[@types.GetPromptResult, @types.MCPError] {
   let id = self.next_request_id()
   let request = build_prompts_get_request(
@@ -1241,7 +1241,7 @@ pub async fn MCPClient::get_prompt(
 ///|
 pub async fn MCPClient::list_resource_templates(
   self : MCPClient,
-  cursor? : String = "",
+  cursor~ : String = "",
 ) -> Result[ListResourceTemplatesResult, @types.MCPError] {
   let id = self.next_request_id()
   let request = build_resources_templates_list_request(
@@ -1431,7 +1431,7 @@ pub fn MCPClient::set_legacy_mode(
 /// to unregister the handler).
 pub fn MCPClient::listen(
   self : MCPClient,
-  filter? : ListenFilter = ListenFilter::default(),
+  filter~ : ListenFilter = ListenFilter::default(),
   handler~ : (Json) -> Unit,
   group~ : @async.TaskGroup[Unit],
 ) -> Result[String, @types.MCPError] {
@@ -1923,7 +1923,7 @@ fn request_id_to_json(id : @types.RequestId) -> Json {
 }
 
 ///|
-fn jsonrpc_error_str(id_json : Json, code : Int, message : String) -> String {
+fn jsonrpc_error_str(id_json : Json, code : Int32, message : String) -> String {
   Json::object({
     "jsonrpc": "2.0",
     "id": id_json,

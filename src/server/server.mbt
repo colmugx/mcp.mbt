@@ -111,7 +111,7 @@ pub struct MCPServer {
   /// does not issue `input_required` results (MRTR disabled).
   request_state_codec : AesGcmStateCodec?
   /// Wall-clock source (unix seconds) for MRTR expiry; tests may inject a fixed clock.
-  clock : () -> Int
+  clock : () -> Int32
   registry : ToolRegistry
   resource_registry : ResourceRegistry
   prompt_registry : PromptRegistry
@@ -123,7 +123,7 @@ pub struct MCPServer {
   /// listen request's JSON-RPC id, stringified).
   subscriptions : Map[String, ActiveSubscription]
   active_requests : Map[String, @runtime.CancellationToken]
-  mut next_scope_id : Int
+  mut next_scope_id : Int32
 }
 
 ///|
@@ -282,7 +282,7 @@ pub async fn MCPServer::handle_request(
   self : MCPServer,
   request_json : String,
   principal? : @runtime.Principal,
-  cancellation_token? : @runtime.CancellationToken = @runtime.CancellationToken::new(),
+  cancellation_token~ : @runtime.CancellationToken = @runtime.CancellationToken::new(),
   progress_reporter? : @runtime.ProgressReporter,
 ) -> String {
   match parse_request_message(request_json) {
@@ -345,7 +345,7 @@ async fn MCPServer::handle_parsed_request(
   self : MCPServer,
   request : @types.JsonRpcRequest,
   principal? : @runtime.Principal,
-  cancellation_token? : @runtime.CancellationToken = @runtime.CancellationToken::new(),
+  cancellation_token~ : @runtime.CancellationToken = @runtime.CancellationToken::new(),
   progress_reporter? : @runtime.ProgressReporter,
 ) -> String {
   cancellation_token.throw_if_cancelled()
@@ -494,8 +494,8 @@ async fn MCPServer::handle_subscriptions_listen(
   self : MCPServer,
   request : @types.JsonRpcRequest,
   reply : @aqueue.Queue[String],
-  scope? : String = "",
-  cancellation_token? : @runtime.CancellationToken = @runtime.CancellationToken::new(),
+  scope~ : String = "",
+  cancellation_token~ : @runtime.CancellationToken = @runtime.CancellationToken::new(),
 ) -> Unit {
   cancellation_token.throw_if_cancelled()
   let filter = self.supported_subscription_filter(
@@ -610,7 +610,7 @@ pub async fn MCPServer::notify_prompts_list_changed(self : MCPServer) -> Unit {
 pub async fn MCPServer::close_subscription(
   self : MCPServer,
   subscription_id : String,
-  scope? : String = "",
+  scope~ : String = "",
 ) -> Unit {
   let id = @types.RequestId::from_json(@validation.parse_json(subscription_id))
   let key = scoped_request_key(scope, id.key())
@@ -650,7 +650,7 @@ pub async fn MCPServer::close_subscription(
 fn MCPServer::handle_inbound_notification(
   self : MCPServer,
   message : String,
-  scope? : String = "",
+  scope~ : String = "",
 ) -> Unit {
   let json = @validation.parse_json(message) catch { _ => return }
   if json is Object(obj) {
@@ -696,9 +696,9 @@ async fn MCPServer::handle_server_request(
   self : MCPServer,
   request : ServerRequest,
   group : @async.TaskGroup[Unit],
-  scope? : String = "",
+  scope~ : String = "",
   principal? : @runtime.Principal,
-  cancellation_token? : @runtime.CancellationToken = @runtime.CancellationToken::new(),
+  cancellation_token~ : @runtime.CancellationToken = @runtime.CancellationToken::new(),
 ) -> Unit {
   if is_notification_message(request.message) {
     self.handle_inbound_notification(request.message, scope~)
@@ -964,8 +964,8 @@ pub fn MCPServer::resource_template(
   self : MCPServer,
   uri_template~ : String,
   name~ : String,
-  description? : String = "",
-  mime_type? : String = "",
+  description~ : String = "",
+  mime_type~ : String = "",
 ) -> MCPServer {
   let description = if description == "" { None } else { Some(description) }
   let mime_type = if mime_type == "" { None } else { Some(mime_type) }
@@ -1071,7 +1071,10 @@ pub fn MCPServer::with_request_state_codec(
 ///|
 /// Inject a wall-clock source (unix seconds) for MRTR `requestState` expiry.
 /// The default uses the system clock; injection is useful for deterministic tests.
-pub fn MCPServer::with_clock(self : MCPServer, clock : () -> Int) -> MCPServer {
+pub fn MCPServer::with_clock(
+  self : MCPServer,
+  clock : () -> Int32,
+) -> MCPServer {
   { ..self, clock, }
 }
 
@@ -1090,8 +1093,8 @@ pub async fn MCPServer::run_stdio(
 ///|
 pub async fn MCPServer::run_http(
   self : MCPServer,
-  port? : Int = 4240,
-  path? : String = "/mcp",
+  port~ : Int32 = 4240,
+  path~ : String = "/mcp",
 ) -> Unit raise @types.TransportError {
   @async.with_task_group(group => {
     let http = @transport.HttpTransport::HttpTransport(

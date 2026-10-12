@@ -8,7 +8,7 @@
 /// the client without trusting the client with its contents or integrity.
 ///
 /// Dependencies (server-only, see MIGRATION-0.15.md §Crypto boundary):
-/// - `@getrandom` — OS entropy for the AES key (once) and each GCM nonce.
+/// - `@env` — OS entropy for the AES key (once) and each GCM nonce.
 /// - `@mooncry` — AES-256-GCM, SHA-256, Base64.
 ///
 /// The sealed blob is base64url-encoded (RFC 4648 §5, no padding) for
@@ -27,7 +27,7 @@ let request_state_aad : Bytes = @utf8.encode("mcp-requeststate-v1")
 ///|
 /// The maximum clock skew tolerated when checking `expires_at` (unix seconds).
 /// Bounded so a blob expiring "now" is still accepted within this window.
-let request_state_clock_skew : Int = 5
+let request_state_clock_skew : Int32 = 5
 
 ///|
 /// What the server seals into a `requestState` blob. All fields except `state`
@@ -39,7 +39,7 @@ pub(all) struct RequestStatePayload {
   /// presented by a different principal.
   principal : String?
   /// Unix-seconds expiry. `open` rejects `now > expires_at + skew`.
-  expires_at : Int
+  expires_at : Int32
   /// Originating request method (e.g. "tools/call"). Binds the blob to the
   /// retry request method.
   request_method : String
@@ -69,16 +69,16 @@ pub(all) struct RequestStateContext {
 pub trait RequestStateCodec {
   /// Serialize + protect `payload` at wall-clock time `now`. Output is a
   /// transport-safe opaque string.
-  fn seal(Self, RequestStatePayload, now~ : Int) -> String
+  fn seal(Self, RequestStatePayload, now~ : Int32) -> String
 
   /// Verify + deserialize at wall-clock time `now`. Returns `None` on any
   /// integrity failure, expiry, principal mismatch, or params mismatch.
-  fn open(Self, String, RequestStateContext, now~ : Int) -> RequestStatePayload?
+  fn open(Self, String, RequestStateContext, now~ : Int32) -> RequestStatePayload?
 }
 
 ///|
 /// AES-256-GCM codec. Holds a 32-byte key only — each `seal` draws a fresh
-/// 12-byte nonce from the OS CSPRNG (`@getrandom`), so there is no counter
+/// 12-byte nonce from the OS CSPRNG (`@env`), so there is no counter
 /// state to synchronize across instances and no risk of nonce reuse.
 pub struct AesGcmStateCodec {
   key : Bytes // 32 bytes (AES-256)
@@ -95,14 +95,14 @@ pub fn AesGcmStateCodec::with_key(key : Bytes) -> AesGcmStateCodec {
 }
 
 ///|
-/// Construct a codec by reading 32 bytes of OS entropy via `@getrandom`.
+/// Construct a codec by reading 32 bytes of OS entropy via `@env`.
 /// Server startup only. Aborts if the OS entropy source is unavailable.
 pub fn AesGcmStateCodec::AesGcmStateCodec() -> AesGcmStateCodec {
-  match @getrandom.getrandom(32) {
-    Ok(k) => AesGcmStateCodec::with_key(k)
-    Err(e) =>
+  match @env.rand(32) {
+    Some(k) => AesGcmStateCodec::with_key(k)
+    None =>
       abort(
-        "AesGcmStateCodec: failed to read OS entropy for requestState key: " + e,
+        "AesGcmStateCodec: secure platform entropy unavailable for requestState key",
       )
   }
 }
@@ -111,17 +111,17 @@ pub fn AesGcmStateCodec::AesGcmStateCodec() -> AesGcmStateCodec {
 impl RequestStateCodec for AesGcmStateCodec with fn seal(
   self,
   payload : RequestStatePayload,
-  now~ : Int,
+  now~ : Int32,
 ) -> String {
   // `now` is unused at seal time; expiry is carried in the payload by the
   // caller. The parameter exists for interface symmetry with `open`.
   ignore(now)
   let plaintext = @utf8.encode(payload_to_json(payload))
   // Fresh random nonce per seal — no counter, no reuse risk.
-  let nonce = match @getrandom.getrandom(12) {
-    Ok(n) => n
-    Err(e) =>
-      abort("AesGcmStateCodec: failed to read OS entropy for nonce: " + e)
+  let nonce = match @env.rand(12) {
+    Some(n) => n
+    None =>
+      abort("AesGcmStateCodec: secure platform entropy unavailable for nonce")
   }
   let (ct, tag) = @mooncry.aes_gcm_encrypt(
     plaintext,
@@ -138,7 +138,7 @@ impl RequestStateCodec for AesGcmStateCodec with fn open(
   self,
   blob : String,
   ctx : RequestStateContext,
-  now~ : Int,
+  now~ : Int32,
 ) -> RequestStatePayload? {
   let raw = base64url_decode(blob)
   // blob = nonce(12) || ciphertext || tag(16); need at least 12+16 bytes.
@@ -203,7 +203,7 @@ fn concat_bytes(parts : Array[Bytes]) -> Bytes {
 
 ///|
 /// Take `len` bytes starting at `start`. Caller ensures the range is in bounds.
-fn slice_bytes(src : Bytes, start : Int, len : Int) -> Bytes {
+fn slice_bytes(src : Bytes, start : Int32, len : Int32) -> Bytes {
   let arr : Array[Byte] = Array::make(len, b'\x00')
   for i in 0..<len {
     arr[i] = src[start + i]
@@ -348,7 +348,7 @@ fn get_field(json : Json, key : String) -> String? {
 
 ///|
 /// Reject fractional and out-of-range timestamp fields rather than narrowing.
-fn get_number_field(json : Json, key : String) -> Int? {
+fn get_number_field(json : Json, key : String) -> Int32? {
   if json is Object(obj) {
     match obj.get(key) {
       Some(value) =>

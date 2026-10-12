@@ -4,7 +4,7 @@
 // out by moon.pkg targets.
 
 ///|
-fn logic_client(name? : String = "t", version? : String = "1") -> MCPClient {
+fn logic_client(name~ : String = "t", version~ : String = "1") -> MCPClient {
   let transport = @transport.AnyTransport::HttpClient(
     @transport.HttpClientTransport::HttpClientTransport("http://unused.invalid"),
   )

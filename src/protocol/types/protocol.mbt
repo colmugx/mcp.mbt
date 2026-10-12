@@ -52,7 +52,7 @@ pub(all) struct PromptCapabilities {
 /// Request ID supporting exact JSON integers and strings. Int is a convenience
 /// constructor; Number retains arbitrary-size wire integers.
 pub(all) enum RequestId {
-  Int(Int)
+  Int(Int32)
   Number(JsonInteger)
   Str(String)
 } derive(Debug)

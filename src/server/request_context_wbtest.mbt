@@ -1,6 +1,6 @@
 ///|
 fn runtime_request(
-  id : Int,
+  id : Int32,
   name : String,
   arguments : Json,
   state? : String,

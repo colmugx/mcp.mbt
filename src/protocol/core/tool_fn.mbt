@@ -9,7 +9,7 @@ pub impl ToToolResult for String with fn to_tool_result(self : String) -> @tool.
 }
 
 ///|
-pub impl ToToolResult for Int with fn to_tool_result(self : Int) -> @tool.ToolResult {
+pub impl ToToolResult for Int32 with fn to_tool_result(self : Int32) -> @tool.ToolResult {
   @tool.ToolResult::text(self.to_string())
 }
 

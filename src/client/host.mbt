@@ -25,8 +25,8 @@ pub async fn MCPHost::connect_http(
   self : MCPHost,
   name~ : String,
   url~ : String,
-  auth_token? : String = "",
-  era? : ProtocolEra = Auto,
+  auth_token~ : String = "",
+  era~ : ProtocolEra = Auto,
 ) -> Result[Unit, @types.MCPError] {
   match
     MCPClient::connect_http(
@@ -52,10 +52,10 @@ pub async fn MCPHost::connect_stdio(
   self : MCPHost,
   name~ : String,
   cmd~ : String,
-  args? : Array[String] = [],
-  extra_env? : Map[String, String] = {},
+  args~ : Array[String] = [],
+  extra_env~ : Map[String, String] = {},
   group~ : @async.TaskGroup[Unit],
-  era? : ProtocolEra = Auto,
+  era~ : ProtocolEra = Auto,
 ) -> Result[Unit, @types.MCPError] {
   match
     MCPClient::connect_stdio(
@@ -116,7 +116,7 @@ fn aggregate_tool_lists(
 pub async fn MCPHost::call_tool(
   self : MCPHost,
   qualified_name : String,
-  arguments? : String = "{}",
+  arguments~ : String = "{}",
 ) -> Result[CallToolResult, @types.MCPError] {
   match qualified_name.split_once(".") {
     Some((connection_view, tool_view)) => {

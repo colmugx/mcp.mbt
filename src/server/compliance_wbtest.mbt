@@ -44,7 +44,7 @@ fn json_get(json : Json, field : String) -> Json {
 
 ///|
 /// Helper: get array length from Json
-fn json_arr_len(json : Json) -> Int {
+fn json_arr_len(json : Json) -> Int32 {
   if json is Array(arr) {
     arr.length()
   } else {
@@ -63,7 +63,7 @@ fn parse_result(response : String) -> Json {
 /// Helper: the `_meta` object every well-formed request must carry in its
 /// `params` (spec basic/index#_meta) — required protocolVersion plus
 /// clientCapabilities (an empty object = no optional capabilities).
-fn valid_request_meta(client_capabilities? : Json = Json::object({})) -> Json {
+fn valid_request_meta(client_capabilities~ : Json = Json::object({})) -> Json {
   Json::object({
     "io.modelcontextprotocol/protocolVersion": Json::string(
       @types.ProtocolVersion,
@@ -701,7 +701,7 @@ test "compliance: inbound notification is routed away from the request path" {
 }
 
 ///|
-fn json_field_int(json : Json, field : String) -> Int {
+fn json_field_int(json : Json, field : String) -> Int32 {
   if json is Object(obj) {
     match obj.get(field) {
       Some(Number(n, ..)) => n.to_int()

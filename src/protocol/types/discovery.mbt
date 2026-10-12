@@ -12,7 +12,7 @@ pub fn DiscoverResult::new(
   supported_versions : Array[String],
   capabilities : ServerCapabilities,
   instructions? : String,
-  metadata? : ResultMetadata = ResultMetadata::empty(),
+  metadata~ : ResultMetadata = ResultMetadata::empty(),
 ) -> DiscoverResult {
   { supported_versions, capabilities, instructions, metadata, }
 }

@@ -42,7 +42,7 @@ pub fn ToolResult::error(message : String) -> ToolResult {
 /// ```
 pub fn ToolResult::structured(
   value : Json,
-  content? : Array[ContentBlock] = [],
+  content~ : Array[ContentBlock] = [],
 ) -> ToolResult {
   { ..ToolResult::success(content), structured_content: Some(value), }
 }

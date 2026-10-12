@@ -3,7 +3,7 @@
 /// These exercise the seal/open round-trip and the spec's integrity/replay
 /// controls: tamper detection, expiry, principal binding, and params binding.
 /// A fixed AES key and fixed wall-clock `now` are used for determinism; the
-/// production constructor reads OS entropy via @getrandom and the caller
+/// production constructor reads OS entropy via @env.rand and the caller
 /// supplies the real clock.
 
 ///|
@@ -15,15 +15,15 @@ fn fixed_key() -> Bytes {
 ///|
 /// Fixed "current time" for tests (unix seconds). Expiry values are
 /// expressed relative to this so tests are clock-independent.
-let test_now : Int = 1_700_000_000
+let test_now : Int32 = 1_700_000_000
 
 ///|
-fn future_expiry() -> Int {
+fn future_expiry() -> Int32 {
   test_now + 3600
 }
 
 ///|
-fn past_expiry() -> Int {
+fn past_expiry() -> Int32 {
   test_now - 3600
 }
 
