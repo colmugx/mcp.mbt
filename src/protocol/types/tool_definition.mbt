@@ -143,7 +143,7 @@ pub impl ToJson for ToolDefinition with fn to_json(self) {
     "name", "title", "description", "inputSchema", "outputSchema", "annotations",
     "icons", "_meta",
   ])
-  fields.set("name", self.name.to_json())
+  fields.set("name", Json(self.name))
   fields.set("inputSchema", self.input_schema)
   wire_put_string(fields, "title", self.title)
   wire_put_string(fields, "description", self.description)

@@ -124,7 +124,7 @@ pub impl ToJson for ToolResultContent with fn to_json(self) {
   ])
   fields.set("type", Json::string("tool_result"))
   fields.set("toolUseId", Json::string(self.tool_use_id))
-  fields.set("content", self.content.to_json())
+  fields.set("content", Json(self.content))
   match self.structured_content {
     Some(value) => fields.set("structuredContent", value)
     None => ()
@@ -180,7 +180,7 @@ pub fn SamplingContent::from_json(
 pub impl ToJson for SamplingContent with fn to_json(self) {
   match self {
     Single(value) => value.to_json()
-    Multiple(values) => values.to_json()
+    Multiple(values) => Json(values)
   }
 }
 

@@ -41,7 +41,7 @@ pub fn DiscoverResult::from_json(value : Json) -> DiscoverResult raise MCPError 
 ///|
 pub impl ToJson for DiscoverResult with fn to_json(self) {
   let fields = self.metadata.to_fields()
-  fields.set("supportedVersions", self.supported_versions.to_json())
+  fields.set("supportedVersions", Json(self.supported_versions))
   fields.set("capabilities", self.capabilities.to_json())
   fields.remove("instructions")
   wire_put_string(fields, "instructions", self.instructions)
