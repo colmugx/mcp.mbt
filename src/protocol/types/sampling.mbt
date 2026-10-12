@@ -107,7 +107,7 @@ pub impl ToJson for CreateMessageRequest with fn to_json(self) {
     "messages", "maxTokens", "modelPreferences", "systemPrompt", "includeContext",
     "temperature", "stopSequences", "metadata", "tools", "toolChoice",
   ])
-  fields.set("messages", self.messages.to_json())
+  fields.set("messages", Json(self.messages))
   fields.set("maxTokens", Json::number(self.max_tokens))
   match self.model_preferences {
     Some(value) => fields.set("modelPreferences", value.to_json())
@@ -120,7 +120,7 @@ pub impl ToJson for CreateMessageRequest with fn to_json(self) {
   }
   wire_put_number(fields, "temperature", self.temperature)
   match self.stop_sequences {
-    Some(value) => fields.set("stopSequences", value.to_json())
+    Some(value) => fields.set("stopSequences", Json(value))
     None => ()
   }
   match self.metadata {
@@ -128,7 +128,7 @@ pub impl ToJson for CreateMessageRequest with fn to_json(self) {
     None => ()
   }
   match self.tools {
-    Some(value) => fields.set("tools", value.to_json())
+    Some(value) => fields.set("tools", Json(value))
     None => ()
   }
   match self.tool_choice {

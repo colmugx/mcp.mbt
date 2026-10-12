@@ -110,7 +110,7 @@ pub impl ToJson for ModelPreferences with fn to_json(self) {
     "hints", "costPriority", "speedPriority", "intelligencePriority",
   ])
   match self.hints {
-    Some(hints) => fields.set("hints", hints.to_json())
+    Some(hints) => fields.set("hints", Json(hints))
     None => ()
   }
   wire_put_number(fields, "costPriority", self.cost_priority)

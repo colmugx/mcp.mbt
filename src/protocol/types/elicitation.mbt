@@ -68,7 +68,7 @@ pub impl ToJson for ElicitationValue with fn to_json(self) {
     String(value) => Json::string(value)
     Number(value) => Json::number(value)
     Boolean(value) => Json::boolean(value)
-    Strings(values) => values.to_json()
+    Strings(values) => Json(values)
   }
 }
 
