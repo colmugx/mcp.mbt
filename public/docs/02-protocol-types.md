@@ -393,7 +393,9 @@ pub(all) struct ElicitationResult {
 pub(all) enum ProgressToken {
   String(String)
   Number(Double)
-} derive(Eq, Debug)
+  ExactNumber(JsonNumber)
+} derive(Debug)
+// Eq compares numeric tokens by exact mathematical value, not wire spelling.
 
 pub(all) struct ProgressNotification {
   progress_token : ProgressToken

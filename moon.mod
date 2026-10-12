@@ -1,11 +1,10 @@
 name = "colmugx/mcp"
 
-version = "0.17.5"
+version = "0.18.0"
 
 import {
   "moonbitlang/async@0.21.0",
   "cc06b/mooncry@0.13.1",
-  "Tigls/mb-getrandom@0.1.0",
   "gmlewis/base64@0.16.11",
   "colmugx/json-schema@0.0.1",
 }
