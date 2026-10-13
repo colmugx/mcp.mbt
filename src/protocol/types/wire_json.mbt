@@ -119,36 +119,64 @@ fn wire_put_meta(fields : Map[String, Json], meta : Map[String, Json]?) -> Unit 
 }
 
 ///|
-fn wire_number(
+/// Exact integer decode: the wire literal decides integrality, so fractional
+/// or contradicting representations fail instead of passing a rounded check.
+fn wire_integer(
   fields : Map[String, Json],
   key : String,
-) -> Double raise MCPError {
+) -> JsonInteger raise MCPError {
   match fields.get(key) {
-    Some(Number(value, ..)) if !value.is_nan() && !value.is_inf() => value
-    _ => raise InvalidParams("Missing or invalid '\{key}' finite number")
+    Some(value) =>
+      JsonInteger::from_json(value) catch {
+        _ => raise InvalidParams("Missing or invalid '\{key}' integer")
+      }
+    None => raise InvalidParams("Missing or invalid '\{key}' integer")
   }
 }
 
 ///|
-fn wire_optional_number(
+/// Exact number decode: literal spellings are retained and non-finite
+/// constructs are rejected rather than narrowed.
+fn wire_exact_number(
   fields : Map[String, Json],
   key : String,
-) -> Double? raise MCPError {
+) -> JsonNumber raise MCPError {
+  match fields.get(key) {
+    Some(value) =>
+      JsonNumber::from_json(value) catch {
+        _ => raise InvalidParams("Missing or invalid '\{key}' finite number")
+      }
+    None => raise InvalidParams("Missing or invalid '\{key}' finite number")
+  }
+}
+
+///|
+fn wire_optional_exact_number(
+  fields : Map[String, Json],
+  key : String,
+) -> JsonNumber? raise MCPError {
   if fields.contains(key) {
-    Some(wire_number(fields, key))
+    Some(wire_exact_number(fields, key))
   } else {
     None
   }
 }
 
 ///|
-fn wire_put_number(
+fn wire_put_exact_number(
   fields : Map[String, Json],
   key : String,
-  value : Double?,
+  value : JsonNumber?,
 ) -> Unit {
   match value {
-    Some(value) => fields.set(key, Json::number(value))
+    Some(value) => fields.set(key, value.to_json())
     None => ()
   }
+}
+
+///|
+/// Exact unit-interval membership on canonical keys; fractional boundary
+/// spellings such as `1.00000000000000000001` or `-1e-400` stay outside.
+fn exact_unit_range(key : String) -> Bool {
+  decimal_key_compare(key, "0e0") >= 0 && decimal_key_compare(key, "1e0") <= 0
 }

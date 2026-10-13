@@ -371,7 +371,7 @@ test "parse_completion_result reads nested completion object" {
   match parse_completion_result(result) {
     Ok(r) => {
       @debug.assert_eq(r.values, ["red", "blue"])
-      assert_eq(r.total, Some(10))
+      assert_eq(r.total, Some(@types.JsonInteger::from_int(10)))
       assert_eq(r.has_more, Some(true))
     }
     Err(_) => panic()

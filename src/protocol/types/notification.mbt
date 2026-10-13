@@ -38,19 +38,20 @@ pub fn resources_updated_notification(uri : String) -> Notification {
 }
 
 ///|
-/// Create progress notification
+/// Create progress notification. Counters keep the exact shortest literal of
+/// each Double; non-finite counters fail instead of emitting invalid JSON.
 pub fn progress_notification(
   token : ProgressToken,
   progress : Double,
   total? : Double,
   message? : String,
-) -> Notification {
+) -> Notification raise {
   let params_map : Map[String, Json] = Default::default()
   params_map.set("progressToken", token.to_json())
   wire_put_string(params_map, "message", message)
-  params_map.set("progress", Json::number(progress))
+  params_map.set("progress", JsonNumber::from_double(progress).to_json())
   match total {
-    Some(t) => params_map.set("total", Json::number(t))
+    Some(t) => params_map.set("total", JsonNumber::from_double(t).to_json())
     None => ()
   }
   {

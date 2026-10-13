@@ -250,7 +250,9 @@ async test "e2e/stdio: direct HTTP calls consume progress then their own respons
     transport=@transport.AnyTransport::HttpClient(transport),
   ).on_notification({
     ..NotificationHandlers::empty(),
-    on_progress: Some(fn(notification) { progress.push(notification.progress) }),
+    on_progress: Some(fn(notification) {
+      progress.push(notification.progress.as_double())
+    }),
   })
   defer client.close()
   @async.with_task_group(group => {

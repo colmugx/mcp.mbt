@@ -5,7 +5,7 @@ pub(all) struct ResourceDefinition {
   title : String?
   description : String?
   mime_type : String?
-  size : Double?
+  size : JsonInteger?
   icons : Array[Icon]?
   metadata : ContentMetadata
 } derive(Debug, Eq)
@@ -17,11 +17,20 @@ pub fn ResourceDefinition::new(
   title? : String,
   description? : String,
   mime_type? : String,
-  size? : Double,
+  size? : Int32,
   icons? : Array[Icon],
   metadata~ : ContentMetadata = ContentMetadata::empty(),
 ) -> ResourceDefinition {
-  { uri, name, title, description, mime_type, size, icons, metadata, }
+  {
+    uri,
+    name,
+    title,
+    description,
+    mime_type,
+    size: size.map(JsonInteger::from_int),
+    icons,
+    metadata,
+  }
 }
 
 ///|

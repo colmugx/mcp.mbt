@@ -14,7 +14,7 @@ test "conformance: client resource reads preserve multiple contents without MIME
     Ok(result) => {
       assert_eq(result.contents.map(@types.ResourceContents::to_json), contents)
       assert_eq(result.contents[1].mime_type, None)
-      assert_eq(result.metadata.ttl_ms, Some(0.0))
+      assert_eq(result.metadata.ttl_ms, Some(@types.JsonInteger::from_int(0)))
       assert_eq(result.metadata.meta, Some(Map([])))
     }
     Err(error) => raise error

@@ -38,9 +38,14 @@ pub impl ToJson for SamplingMessage with fn to_json(self) {
 }
 
 ///|
+/// Ergonomic constructor for exact typed fields: `max_tokens` accepts an
+/// `Int` (counts stay lossless), `temperature` accepts a Double whose
+/// shortest round-trip literal is kept. Non-finite temperatures fail instead
+/// of serializing invalid JSON. Wire-exact values beyond these can be set on
+/// the public record directly.
 pub fn CreateMessageRequest::new(
   messages : Array[SamplingMessage],
-  max_tokens : Double,
+  max_tokens : Int32,
   model_preferences? : ModelPreferences,
   system_prompt? : String,
   include_context? : SamplingContext,
@@ -49,14 +54,14 @@ pub fn CreateMessageRequest::new(
   metadata? : Map[String, Json],
   tools? : Array[ToolDefinition],
   tool_choice? : ToolChoice,
-) -> CreateMessageRequest {
+) -> CreateMessageRequest raise {
   {
     messages,
-    max_tokens,
+    max_tokens: JsonInteger::from_int(max_tokens),
     model_preferences,
     system_prompt,
     include_context,
-    temperature,
+    temperature: temperature.map(JsonNumber::from_double),
     stop_sequences,
     metadata,
     tools,
@@ -81,7 +86,7 @@ pub fn CreateMessageRequest::from_json(
   }
   {
     messages,
-    max_tokens: wire_number(fields, "maxTokens"),
+    max_tokens: wire_integer(fields, "maxTokens"),
     model_preferences: fields
     .get("modelPreferences")
     .map(ModelPreferences::from_json),
@@ -89,7 +94,7 @@ pub fn CreateMessageRequest::from_json(
     include_context: fields
     .get("includeContext")
     .map(SamplingContext::from_json),
-    temperature: wire_optional_number(fields, "temperature"),
+    temperature: wire_optional_exact_number(fields, "temperature"),
     stop_sequences: wire_optional_strings(fields, "stopSequences"),
     metadata: wire_optional_object(fields, "metadata"),
     tools,
@@ -108,7 +113,7 @@ pub impl ToJson for CreateMessageRequest with fn to_json(self) {
     "temperature", "stopSequences", "metadata", "tools", "toolChoice",
   ])
   fields.set("messages", Json(self.messages))
-  fields.set("maxTokens", Json::number(self.max_tokens))
+  fields.set("maxTokens", self.max_tokens.to_json())
   match self.model_preferences {
     Some(value) => fields.set("modelPreferences", value.to_json())
     None => ()
@@ -118,7 +123,7 @@ pub impl ToJson for CreateMessageRequest with fn to_json(self) {
     Some(value) => fields.set("includeContext", value.to_json())
     None => ()
   }
-  wire_put_number(fields, "temperature", self.temperature)
+  wire_put_exact_number(fields, "temperature", self.temperature)
   match self.stop_sequences {
     Some(value) => fields.set("stopSequences", Json(value))
     None => ()

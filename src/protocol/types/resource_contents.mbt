@@ -86,7 +86,7 @@ pub(all) struct ResourceLinkData {
   title : String?
   description : String?
   mime_type : String?
-  size : Double?
+  size : JsonInteger?
   icons : Array[Icon]?
 } derive(Eq, Debug)
 
@@ -100,11 +100,10 @@ pub extend ResourceLinkData with Debug::{to_repr}
 fn ResourceLinkData::from_fields(
   fields : Map[String, Json],
 ) -> ResourceLinkData raise MCPError {
-  let size = match fields.get("size") {
-    None => None
-    Some(Number(n, ..)) if !n.is_inf() && !n.is_nan() && n.trunc() == n =>
-      Some(n)
-    _ => raise InvalidParams("Resource size must be an integer")
+  let size = if fields.contains("size") {
+    Some(wire_integer(fields, "size"))
+  } else {
+    None
   }
   {
     uri: wire_string(fields, "uri"),
@@ -132,7 +131,7 @@ fn ResourceLinkData::put_fields(
   wire_put_string(fields, "description", self.description)
   wire_put_string(fields, "mimeType", self.mime_type)
   match self.size {
-    Some(size) => fields.set("size", Json::number(size))
+    Some(size) => fields.set("size", size.to_json())
     None => ()
   }
   match self.icons {

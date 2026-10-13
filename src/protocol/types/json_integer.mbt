@@ -71,6 +71,13 @@ pub fn JsonInteger::to_json_string(self : JsonInteger) -> String {
 }
 
 ///|
+/// Exact nonnegative test on the canonical identity; never rounds through
+/// Double, so fractional boundary literals stay invalid.
+pub fn JsonInteger::is_nonnegative(self : JsonInteger) -> Bool {
+  !(self.canonical[0] == '-')
+}
+
+///|
 /// Returns None rather than narrowing an out-of-range integer.
 pub fn JsonInteger::as_int(self : JsonInteger) -> Int32? {
   guard self.wire is Number(value, ..) &&

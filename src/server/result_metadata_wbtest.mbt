@@ -49,19 +49,47 @@ test "server cache defaults fill absent hints independently" {
 ///|
 test "server rejects invalid public metadata numeric fields before serializing a success" {
   let server = MCPServer::MCPServer("test", "1")
-  for ttl in [-1.0, 1.5, 0.0 / 0.0, 1.0 / 0.0] {
-    let result = @types.ToolResult::text("done")
-    let result = {
-      ..result,
-      metadata: { ..result.metadata, ttl_ms: Some(ttl), },
-    }
+  // Typed records cannot even hold a fractional ttl; the wire-level invalid
+  // spellings (negative, fractional, non-finite) are rejected pre-serialization.
+  let result = @types.ToolResult::text("done")
+  let result = {
+    ..result,
+    metadata: {
+      ..result.metadata,
+      ttl_ms: Some(@types.JsonInteger::from_int(-1)),
+    },
+  }
+  for
+    response in [
+      jsonrpc_success_str(server, @types.RequestId::Int(1), result.to_json()),
+      jsonrpc_cacheable_success_str(
+        server,
+        @types.RequestId::Int(1),
+        result.to_json(),
+        30000,
+        "private",
+      ),
+    ] {
+    let response = @json.parse(response)
+    assert_eq(
+      json_get(json_get(response, "error"), "code"),
+      Json::number(-32603),
+    )
+    assert_false(json_has(response, "result"))
+  }
+  for ttl_ms in ["1.5", "-1", "0.30000000000000000000001", "9007199254740992.5"] {
+    // The preserving parser keeps every literal, so boundary spellings reach
+    // the typed decoder instead of being rounded away by the core parser.
+    let wire = @validation.parse_json(
+      "{\"content\":[],\"ttlMs\":" + ttl_ms + "}",
+    )
     for
       response in [
-        jsonrpc_success_str(server, @types.RequestId::Int(1), result.to_json()),
+        jsonrpc_success_str(server, @types.RequestId::Int(1), wire),
         jsonrpc_cacheable_success_str(
           server,
           @types.RequestId::Int(1),
-          result.to_json(),
+          wire,
           30000,
           "private",
         ),
@@ -103,7 +131,13 @@ async test "server validates complete handler wire shapes before publication" {
     })
     .resource("memo://invalid", "invalid", "test", "text/plain", _context => {
       let result = @types.ResourceReadResult::text("done", uri="memo://invalid")
-      Ok({ ..result, metadata: { ..result.metadata, ttl_ms: Some(1.5), }, })
+      Ok({
+        ..result,
+        metadata: {
+          ..result.metadata,
+          ttl_ms: Some(@types.JsonInteger::from_int(-1)),
+        },
+      })
     })
     .prompt("invalid", "test", [], (_context, _args) => {
       Ok(
@@ -155,7 +189,7 @@ async test "resource handler cache hints survive the complete runtime path" {
         ..result,
         metadata: {
           ..result.metadata,
-          ttl_ms: Some(0),
+          ttl_ms: Some(@types.JsonInteger::from_int(0)),
           cache_scope: Some(@types.CacheScope::Public),
         },
       })

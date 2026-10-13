@@ -60,14 +60,16 @@ pub(all) struct SamplingMessage {
 } derive(Debug, Eq)
 
 ///|
-/// CreateMessageRequest — server asks client to sample an LLM
+/// CreateMessageRequest — server asks client to sample an LLM.
+/// `max_tokens` keeps the exact integer literal (pinned schema: `integer`);
+/// `temperature` keeps the exact decimal literal (pinned schema: `number`).
 pub(all) struct CreateMessageRequest {
   messages : Array[SamplingMessage]
-  max_tokens : Double
+  max_tokens : JsonInteger
   model_preferences : ModelPreferences?
   system_prompt : String?
   include_context : SamplingContext?
-  temperature : Double?
+  temperature : JsonNumber?
   stop_sequences : Array[String]?
   metadata : Map[String, Json]?
   tools : Array[ToolDefinition]?
@@ -114,11 +116,12 @@ pub(all) struct ElicitationResult {
 } derive(Debug, Eq)
 
 ///|
-/// ProgressNotification — params for `notifications/progress`
+/// ProgressNotification — params for `notifications/progress`.
+/// Counters keep exact decimal literals (pinned schema: `number`).
 pub(all) struct ProgressNotification {
   progress_token : ProgressToken
-  progress : Double
-  total : Double?
+  progress : JsonNumber
+  total : JsonNumber?
   message : String?
   extra_fields : Map[String, Json]
 } derive(Debug, Eq)

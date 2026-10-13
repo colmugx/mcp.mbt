@@ -141,7 +141,12 @@ fn jsonrpc_cacheable_success_str(
   match result {
     Object(obj) => {
       if !obj.contains("ttlMs") {
-        obj.set("ttlMs", Json::number(ttl_ms.to_double()))
+        // ttlMs is schema `integer`: emit the exact Int32 literal instead of
+        // a Double that could gain a fractional wire spelling.
+        obj.set(
+          "ttlMs",
+          Json::number(ttl_ms.to_double(), repr=ttl_ms.to_string()),
+        )
       }
       if !obj.contains("cacheScope") {
         obj.set("cacheScope", Json::string(cache_scope))

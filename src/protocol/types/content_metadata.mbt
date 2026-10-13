@@ -31,9 +31,12 @@ fn Role::from_json(value : Json) -> Role raise MCPError {
 }
 
 ///|
+/// Annotation priority keeps the exact decimal literal (pinned schema:
+/// `number`, minimum 0, maximum 1); the range check never rounds through
+/// Double, so boundary spellings outside the interval stay invalid.
 pub(all) struct Annotations {
   audience : Array[Role]?
-  priority : Double?
+  priority : JsonNumber?
   last_modified : String?
   extensions : Map[String, Json]
 } derive(Eq, Debug)
@@ -52,10 +55,14 @@ pub fn Annotations::from_json(value : Json) -> Annotations raise MCPError {
     Some(Array(roles)) => Some(roles.map(Role::from_json))
     _ => raise InvalidParams("Invalid annotation audience array")
   }
-  let priority = match fields.get("priority") {
-    None => None
-    Some(Number(n, ..)) if n >= 0.0 && n <= 1.0 => Some(n)
-    _ => raise InvalidParams("Annotation priority must be between 0 and 1")
+  let priority = if fields.contains("priority") {
+    let value = wire_exact_number(fields, "priority")
+    guard exact_unit_range(value.key()) else {
+      raise InvalidParams("Annotation priority must be between 0 and 1")
+    }
+    Some(value)
+  } else {
+    None
   }
   {
     audience,
@@ -76,7 +83,7 @@ pub impl ToJson for Annotations with fn to_json(self) {
     None => ()
   }
   match self.priority {
-    Some(n) => fields.set("priority", Json::number(n))
+    Some(value) => fields.set("priority", value.to_json())
     None => ()
   }
   wire_put_string(fields, "lastModified", self.last_modified)

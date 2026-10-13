@@ -13,7 +13,7 @@ test "tools list retains cache hints metadata extensions and pagination" {
     "future": [1],
   }).unwrap()
   assert_eq(result.next_cursor, Some("next"))
-  assert_eq(result.metadata.ttl_ms, Some(500))
+  assert_eq(result.metadata.ttl_ms, Some(@types.JsonInteger::from_int(500)))
   assert_eq(result.metadata.cache_scope, Some(@types.CacheScope::Private))
   assert_eq(result.metadata.extensions.get("future"), Some(Json::array([1])))
   assert_false(result.metadata.extensions.contains("tools"))

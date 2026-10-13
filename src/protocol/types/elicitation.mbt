@@ -6,12 +6,16 @@ pub(all) enum ElicitationAction {
 } derive(Debug, Eq)
 
 ///|
+/// Elicitation form values. Numeric content keeps its wire literal through
+/// `ExactNumber`, mirroring `ProgressToken`; `Number` remains a convenience
+/// constructor for programmatic values.
 pub(all) enum ElicitationValue {
   String(String)
   Number(Double)
+  ExactNumber(JsonNumber)
   Boolean(Bool)
   Strings(Array[String])
-} derive(Debug, Eq)
+} derive(Debug)
 
 ///|
 pub fn ElicitationAction::from_json(
@@ -42,8 +46,7 @@ pub fn ElicitationValue::from_json(
 ) -> ElicitationValue raise MCPError {
   match value {
     String(value) => ElicitationValue::String(value)
-    Number(value, ..) if !value.is_nan() && !value.is_inf() =>
-      ElicitationValue::Number(value)
+    Number(_, ..) => ElicitationValue::ExactNumber(JsonNumber::from_json(value))
     True => ElicitationValue::Boolean(true)
     False => ElicitationValue::Boolean(false)
     Array(values) =>
@@ -67,8 +70,30 @@ pub impl ToJson for ElicitationValue with fn to_json(self) {
   match self {
     String(value) => Json::string(value)
     Number(value) => Json::number(value)
+    ExactNumber(value) => value.to_json()
     Boolean(value) => Json::boolean(value)
     Strings(values) => Json(values)
+  }
+}
+
+///|
+pub impl Eq for ElicitationValue with fn equal(self, other) {
+  match (self, other) {
+    (String(left), String(right)) => left == right
+    (Boolean(left), Boolean(right)) => left == right
+    (Strings(left), Strings(right)) => left == right
+    (Number(_), _) | (_, Number(_)) => {
+      // Convenience doubles compare by exact numeric identity.
+      let left = JsonNumber::from_json(self.to_json()) catch {
+        _ => return false
+      }
+      let right = JsonNumber::from_json(other.to_json()) catch {
+        _ => return false
+      }
+      left == right
+    }
+    (ExactNumber(left), ExactNumber(right)) => left == right
+    _ => false
   }
 }
 

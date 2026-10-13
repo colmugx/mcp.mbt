@@ -6,9 +6,11 @@ pub(all) enum CacheScope {
 
 ///|
 /// Shared result fields retain wire presence; extensions are top-level fields.
+/// `ttl_ms` keeps the exact integer literal the server sent (pinned schema:
+/// `integer`, minimum 0) instead of a rounded Double.
 pub(all) struct ResultMetadata {
   result_type : String?
-  ttl_ms : Double?
+  ttl_ms : JsonInteger?
   cache_scope : CacheScope?
   meta : Map[String, Json]?
   extensions : Map[String, Json]
@@ -32,17 +34,16 @@ pub fn ResultMetadata::from_json(
   body_fields~ : Array[String],
 ) -> ResultMetadata raise MCPError {
   let fields = wire_object(value)
-  let ttl_ms = match fields.get("ttlMs") {
-    None => None
-    Some(Number(n, ..)) => {
-      guard !n.is_nan() && !n.is_inf() && n >= 0 && n.trunc() == n else {
-        raise InvalidParams(
-          "Invalid ttlMs: expected a nonnegative finite integer",
-        )
-      }
-      Some(n)
+  let ttl_ms = if fields.contains("ttlMs") {
+    let ttl = wire_integer(fields, "ttlMs")
+    guard ttl.is_nonnegative() else {
+      raise InvalidParams(
+        "Invalid ttlMs: expected a nonnegative finite integer",
+      )
     }
-    _ => raise InvalidParams("Invalid ttlMs number")
+    Some(ttl)
+  } else {
+    None
   }
   let cache_scope = match fields.get("cacheScope") {
     None => None
@@ -77,7 +78,7 @@ fn ResultMetadata::to_fields(self : ResultMetadata) -> Map[String, Json] {
   ])
   wire_put_string(fields, "resultType", self.result_type)
   match self.ttl_ms {
-    Some(n) => fields.set("ttlMs", Json::number(n))
+    Some(ttl) => fields.set("ttlMs", ttl.to_json())
     None => ()
   }
   match self.cache_scope {

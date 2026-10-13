@@ -26,11 +26,11 @@ test "completion params preserve reference context argument metadata and extensi
 }
 
 ///|
-test "completion result roundtrip retains fractional totals and result metadata" {
+test "completion result roundtrip retains exact integer totals and result metadata" {
   let wire : Json = {
     "completion": {
       "values": ["a", "b"],
-      "total": 2147483648.5,
+      "total": @types.JsonInteger::from_literal("9007199254740993").to_json(),
       "hasMore": false,
       "future": null,
     },
@@ -39,8 +39,36 @@ test "completion result roundtrip retains fractional totals and result metadata"
     "future": [1],
   }
   let result = @types.CompletionResult::from_json(wire)
-  assert_eq(result.total, Some(2147483648.5))
+  assert_eq(
+    result.total,
+    Some(@types.JsonInteger::from_literal("9007199254740993")),
+  )
   assert_eq(result.to_json(), wire)
+  assert_eq(@types.CompletionResult::new(["a"], total=2).to_json(), {
+    "completion": { "values": ["a"], "total": 2 },
+  })
+}
+
+///|
+test "completion totals are integers: fractional wire totals are rejected" {
+  for
+    total in [
+      "2147483648.5", "9007199254740992.5", "1e-1", "2.00000000000000000001",
+    ] {
+    let wire : Json = {
+      "completion": {
+        "values": ["a"],
+        "total": @types.JsonNumber::from_literal(total).to_json(),
+      },
+      "resultType": "complete",
+    }
+    try @types.CompletionResult::from_json(wire) catch {
+      @types.InvalidParams(_) => ()
+      error => raise error
+    } noraise {
+      _ => fail("fractional completion total must be rejected: " + total)
+    }
+  }
 }
 
 ///|
