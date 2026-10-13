@@ -41,8 +41,7 @@ pub fn check_input_response(
   match method_name {
     "elicitation/create" =>
       ElicitationValidator::compile(request).check_response(response)
-    "sampling/createMessage" =>
-      ignore(@types.CreateMessageResult::from_json(response))
+    "sampling/createMessage" => check_sampling_response(request, response)
     "roots/list" => check_roots_response(response)
     _ =>
       raise @types.InvalidParams("Unknown input request method: " + method_name)

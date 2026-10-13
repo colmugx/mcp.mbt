@@ -780,7 +780,7 @@ fn MCPClient::fulfill_input_requests(
             match handler(params) {
               Ok(r) => {
                 let response = sampling_result_to_json(r)
-                ignore(@types.CreateMessageResult::from_json(response)) catch {
+                @validation.check_sampling_response(params, response) catch {
                   e => {
                     error = Some(e)
                     return
@@ -1563,14 +1563,22 @@ fn[T] MCPClient::handle_server_request(
       "sampling/createMessage" =>
         match sampling_h {
           Some(handler) =>
-            match handler(params) {
-              Ok(result) =>
-                Json::object({
-                  "jsonrpc": "2.0",
-                  "id": id_json,
-                  "result": serialize_create_message_result(result),
-                }).stringify()
-              Err(e) => jsonrpc_error_from(id_json, e)
+            try {
+              ignore(@types.CreateMessageRequest::from_json(params))
+              match handler(params) {
+                Ok(result) => {
+                  let wire = serialize_create_message_result(result)
+                  @validation.check_sampling_response(params, wire)
+                  Json::object({
+                    "jsonrpc": "2.0",
+                    "id": id_json,
+                    "result": wire,
+                  }).stringify()
+                }
+                Err(e) => jsonrpc_error_from(id_json, e)
+              }
+            } catch {
+              e => jsonrpc_error_from(id_json, e)
             }
           None => jsonrpc_error_str(id_json, -32601, "sampling not supported")
         }
