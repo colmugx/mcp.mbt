@@ -20,8 +20,12 @@ Bearer tokens, server-side authentication hooks, and protected-resource metadata
 
 ## Installation
 
+Install the published SDK and its async runtime dependency in your MoonBit
+project:
+
 ```bash
-moon add colmugx/mcp
+moon add colmugx/mcp@0.18.0
+moon add moonbitlang/async@0.21.0
 ```
 
 Development can use the workspace's independent `external/json-schema` submodule.
@@ -103,8 +107,8 @@ Host tool names are qualified as `connection.tool` so multiple servers can expos
 | [Client Guide](public/docs/05-client-guide.md) | Connections, MRTR input handlers, notifications, and legacy compatibility |
 | [Architecture](public/docs/06-architecture.md) | Protocol, runtime, transport, application layers |
 | [Host Guide](public/docs/07-host-guide.md) | `MCPHost` named connections and routing |
-| [Migration 0.15](MIGRATION-0.15.md) | 2025-11-25 → 2026-07-28 migration, node by node |
-| [Migration 0.14](MIGRATION-0.14.md) | Breaking changes from 0.13.x |
+| [Conformance notes](docs/conformance.md) | Protocol coverage, remaining gaps, and compatibility notes |
+| [Changelog](CHANGELOG.md) | Release history and breaking changes |
 
 ## API Direction
 
