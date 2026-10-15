@@ -2,7 +2,7 @@
 
 Type-safe [Model Context Protocol](https://modelcontextprotocol.io/) SDK for MoonBit.
 
-**Version**: 0.17.5 · **Protocol**: 2026-07-28 (stateless) · **License**: Apache-2.0
+**Version**: 0.18.0 · **Protocol**: 2026-07-28 (stateless) · **License**: Apache-2.0
 
 ## Protocol support and scope
 
@@ -20,14 +20,31 @@ Bearer tokens, server-side authentication hooks, and protected-resource metadata
 
 ## Installation
 
+Install the published SDK and its async runtime dependency in your MoonBit
+project:
+
 ```bash
-moon add colmugx/mcp
+moon add colmugx/mcp@0.18.0
+moon add moonbitlang/async@0.21.0
 ```
 
-For this development revision, use the workspace and its independent
-`external/json-schema` submodule. The validator dependency must be published and a standalone build verified
-before releasing this SDK revision; the existing published SDK is not evidence that
-these workspace changes are already available through the registry.
+The `0.18.0` release was published with
+`colmugx/json-schema@0.1.0` as a registry dependency. Consumers of the
+published package do not need the repository's Git submodule.
+
+For **source development**, clone with submodules (`git clone
+--recurse-submodules https://github.com/colmugx/mcp.mbt.git`) or run
+`git submodule update --init --recursive` in an existing checkout. The
+`moon.work` workspace includes `external/json-schema`.
+
+## Runnable examples
+
+The repository includes a [STDIO tool server](examples/server/README.mbt.md)
+and a [client/host example](examples/client/README.mbt.md). The client starts
+the STDIO server as a child process; run it from `examples/client` so its
+relative server path resolves correctly. HTTP connection to
+`http://localhost:4240/mcp` is optional and requires a separately running
+HTTP MCP server. See the linked READMEs for commands and expected behavior.
 
 ## Quick Start
 
@@ -109,8 +126,8 @@ Host tool names are qualified as `connection.tool` so multiple servers can expos
 | [Client Guide](public/docs/05-client-guide.md) | Connections, MRTR input handlers, notifications, and legacy compatibility |
 | [Architecture](public/docs/06-architecture.md) | Protocol, runtime, transport, application layers |
 | [Host Guide](public/docs/07-host-guide.md) | `MCPHost` named connections and routing |
-| [Migration 0.15](MIGRATION-0.15.md) | 2025-11-25 → 2026-07-28 migration, node by node |
-| [Migration 0.14](MIGRATION-0.14.md) | Breaking changes from 0.13.x |
+| [Conformance notes](docs/conformance.md) | Protocol coverage, remaining gaps, and compatibility notes |
+| [Changelog](CHANGELOG.md) | Release history and breaking changes |
 
 ## API Direction
 
