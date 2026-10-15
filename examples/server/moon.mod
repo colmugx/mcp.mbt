@@ -3,7 +3,7 @@ name = "colmugx/mcp-example-server"
 version = "0.1.0"
 
 import {
-  "colmugx/mcp@0.15.0",
+  "colmugx/mcp@0.18.0",
   "moonbitlang/async@0.21.0",
 }
 
