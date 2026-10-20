@@ -44,6 +44,9 @@ fn ToolRegistry::register_definition(
     @tool.ToolCallOutcome,
     @types.MCPError,
   ],
+  schema_resources? : Map[String, Json],
+  input_base_uri? : String,
+  output_base_uri? : String,
 ) -> Unit raise @types.MCPError {
   let definition = @types.ToolDefinition::from_json(
     @validation.owned_json(definition.to_json()),
@@ -56,9 +59,16 @@ fn ToolRegistry::register_definition(
   let input_validator = @validation.CompiledSchema::compile(
     definition.input_schema,
     "inputSchema",
+    resources?=schema_resources,
+    base_uri?=input_base_uri,
   )
   let output_validator = definition.output_schema.map(schema => {
-    @validation.CompiledSchema::compile(schema, "outputSchema")
+    @validation.CompiledSchema::compile(
+      schema,
+      "outputSchema",
+      resources?=schema_resources,
+      base_uri?=output_base_uri,
+    )
   })
   self.tools.set(definition.name, {
     definition,

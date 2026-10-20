@@ -197,7 +197,12 @@ pub async fn HttpClientTransport::send(
       let body = client.read_all()
       body.text()
     } catch {
-      _ => ""
+      error => {
+        if @async.is_being_cancelled() {
+          raise error
+        }
+        raise @types.ReadError("Failed to read HTTP error response: \{error}")
+      }
     }
     raise @types.HttpError(response.code, body_str)
   }
@@ -216,12 +221,23 @@ pub async fn HttpClientTransport::send(
     while true {
       let (data_opt, id_opt) = reader.next()
       match sse_event_verdict(data_opt, id_opt) {
-        Message(event_json) =>
+        Message(event_json) => {
+          let kind = check_http_response(
+            event_json,
+            request_id_from_body(message),
+          )
           self.pending_responses.put(event_json) catch {
             _ => ()
           }
+          if kind is FinalResponse {
+            break
+          }
+        }
         Skip => ()
-        Eof => break
+        Eof =>
+          raise @types.ReadError(
+            "HTTP SSE stream ended before a final response",
+          )
       }
     }
   } else {
@@ -241,6 +257,12 @@ pub async fn HttpClientTransport::send(
         } else {
           raise @types.ReadError("Failed to read response body: \{e}")
         }
+    }
+    guard check_http_response(body_str, request_id_from_body(message))
+      is FinalResponse else {
+      raise @types.ReadError(
+        "Single JSON HTTP response must be a final response",
+      )
     }
     self.pending_responses.put(body_str) catch {
       _ => ()

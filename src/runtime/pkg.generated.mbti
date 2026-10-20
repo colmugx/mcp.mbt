@@ -17,14 +17,14 @@ pub fn RequestCancelled::to_repr(Self) -> @debug.Repr
 // Types and methods
 pub struct CancellationRegistration {
   token : CancellationToken
-  id : Int
+  id : Int32
 }
 pub fn CancellationRegistration::dispose(Self) -> Unit
 
 pub struct CancellationToken {
   mut cancelled : Bool
-  callbacks : Map[Int, () -> Unit]
-  mut next_callback_id : Int
+  callbacks : Map[Int32, () -> Unit]
+  mut next_callback_id : Int32
 }
 pub fn CancellationToken::cancel(Self) -> Unit
 pub fn CancellationToken::is_cancelled(Self) -> Bool

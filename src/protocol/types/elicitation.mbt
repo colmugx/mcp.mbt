@@ -145,16 +145,21 @@ pub fn ElicitationRequest::from_json(
         ]),
       )
     }
-    Some(String("url")) =>
+    Some(String("url")) => {
+      let url = wire_string(fields, "url")
+      if !valid_elicitation_url(url) {
+        raise InvalidParams("Elicitation URL must be a valid absolute URL")
+      }
       Url(
         message,
-        url=wire_string(fields, "url"),
+        url~,
         elicitation_id=wire_optional_string(fields, "elicitationId"),
         meta~,
         extensions=wire_extensions(fields, [
           "message", "mode", "url", "elicitationId", "_meta",
         ]),
       )
+    }
     _ => raise InvalidParams("Elicitation mode must be form or url")
   }
 }

@@ -52,7 +52,7 @@ pub(all) suberror TransportError {
   InvalidState(String)
   Unauthorized(String)
   Forbidden(String)
-  HttpError(Int, String)
+  HttpError(Int32, String)
 } derive(Eq, @debug.Debug)
 pub fn TransportError::equal(Self, Self) -> Bool
 pub fn TransportError::not_equal(Self, Self) -> Bool
@@ -172,7 +172,7 @@ pub(all) struct CompletionResult {
 } derive(Eq, @debug.Debug)
 pub fn CompletionResult::equal(Self, Self) -> Bool
 pub fn CompletionResult::from_json(Json) -> Self raise MCPError
-pub fn CompletionResult::new(Array[String], total? : Int, has_more? : Bool, metadata? : ResultMetadata) -> Self
+pub fn CompletionResult::new(Array[String], total? : Int32, has_more? : Bool, metadata? : ResultMetadata) -> Self
 pub fn CompletionResult::not_equal(Self, Self) -> Bool
 pub fn CompletionResult::to_json(Self) -> Json
 pub fn CompletionResult::to_repr(Self) -> @debug.Repr
@@ -192,7 +192,7 @@ pub fn ContentBlock::from_json(Json) -> Self raise MCPError
 pub fn ContentBlock::image(String, mime_type~ : String, metadata? : ContentMetadata) -> Self
 pub fn ContentBlock::not_equal(Self, Self) -> Bool
 pub fn ContentBlock::resource(ResourceContents, metadata? : ContentMetadata) -> Self
-pub fn ContentBlock::resource_link(String, name~ : String, title? : String, description? : String, mime_type? : String, size? : Int, icons? : Array[Icon], metadata? : ContentMetadata) -> Self
+pub fn ContentBlock::resource_link(String, name~ : String, title? : String, description? : String, mime_type? : String, size? : Int32, icons? : Array[Icon], metadata? : ContentMetadata) -> Self
 pub fn ContentBlock::text(String, metadata? : ContentMetadata) -> Self
 pub fn ContentBlock::to_json(Self) -> Json
 pub fn ContentBlock::to_repr(Self) -> @debug.Repr
@@ -223,7 +223,7 @@ pub(all) struct CreateMessageRequest {
 } derive(Eq, @debug.Debug)
 pub fn CreateMessageRequest::equal(Self, Self) -> Bool
 pub fn CreateMessageRequest::from_json(Json) -> Self raise MCPError
-pub fn CreateMessageRequest::new(Array[SamplingMessage], Int, model_preferences? : ModelPreferences, system_prompt? : String, include_context? : SamplingContext, temperature? : Double, stop_sequences? : Array[String], metadata? : Map[String, Json], tools? : Array[ToolDefinition], tool_choice? : ToolChoice) -> Self raise
+pub fn CreateMessageRequest::new(Array[SamplingMessage], Int32, model_preferences? : ModelPreferences, system_prompt? : String, include_context? : SamplingContext, temperature? : Double, stop_sequences? : Array[String], metadata? : Map[String, Json], tools? : Array[ToolDefinition], tool_choice? : ToolChoice) -> Self raise
 pub fn CreateMessageRequest::not_equal(Self, Self) -> Bool
 pub fn CreateMessageRequest::to_json(Self) -> Json
 pub fn CreateMessageRequest::to_repr(Self) -> @debug.Repr
@@ -383,9 +383,9 @@ pub struct JsonInteger {
   wire : Json
   canonical : String
 } derive(@debug.Debug)
-pub fn JsonInteger::as_int(Self) -> Int?
+pub fn JsonInteger::as_int(Self) -> Int32?
 pub fn JsonInteger::equal(Self, Self) -> Bool
-pub fn JsonInteger::from_int(Int) -> Self
+pub fn JsonInteger::from_int(Int32) -> Self
 pub fn JsonInteger::from_json(Json) -> Self raise MCPError
 pub fn JsonInteger::from_literal(String) -> Self raise MCPError
 pub fn JsonInteger::is_nonnegative(Self) -> Bool
@@ -401,7 +401,7 @@ pub struct JsonNumber {
   canonical : String
 } derive(@debug.Debug)
 pub fn JsonNumber::as_double(Self) -> Double
-pub fn JsonNumber::compare(Self, Self) -> Int
+pub fn JsonNumber::compare(Self, Self) -> Int32
 pub fn JsonNumber::equal(Self, Self) -> Bool
 pub fn JsonNumber::from_double(Double) -> Self raise MCPError
 pub fn JsonNumber::from_json(Json) -> Self raise MCPError
@@ -544,7 +544,7 @@ pub fn PromptMessage::to_repr(Self) -> @debug.Repr
 pub impl ToJson for PromptMessage
 
 pub(all) enum RequestId {
-  Int(Int)
+  Int(Int32)
   Number(JsonInteger)
   Str(String)
 } derive(@debug.Debug)
@@ -606,7 +606,7 @@ pub(all) struct ResourceDefinition {
 } derive(Eq, @debug.Debug)
 pub fn ResourceDefinition::equal(Self, Self) -> Bool
 pub fn ResourceDefinition::from_json(Json) -> Self raise MCPError
-pub fn ResourceDefinition::new(String, String, title? : String, description? : String, mime_type? : String, size? : Int, icons? : Array[Icon], metadata? : ContentMetadata) -> Self
+pub fn ResourceDefinition::new(String, String, title? : String, description? : String, mime_type? : String, size? : Int32, icons? : Array[Icon], metadata? : ContentMetadata) -> Self
 pub fn ResourceDefinition::not_equal(Self, Self) -> Bool
 pub fn ResourceDefinition::to_json(Self) -> Json
 pub fn ResourceDefinition::to_repr(Self) -> @debug.Repr

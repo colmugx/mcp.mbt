@@ -450,35 +450,43 @@ fn subscriptions_acknowledged_str(
 ///|
 /// Parse the `notifications` filter from a `subscriptions/listen` request's
 /// params. Absent fields default to false / empty.
-fn parse_subscription_filter(params : Json) -> SubscriptionFilter {
+fn parse_subscription_filter(
+  params : Json,
+) -> SubscriptionFilter raise @types.MCPError {
+  guard params is { "notifications": Object(fields), .. } else {
+    raise @types.InvalidParams(
+      "subscriptions/listen requires a notifications object",
+    )
+  }
   let filter = SubscriptionFilter::empty()
-  if params is Object(obj) {
-    match obj.get("notifications") {
-      Some(Object(n)) => {
-        match n.get("toolsListChanged") {
-          Some(True) => filter.tools_list_changed = true
-          _ => ()
+  for key in ["toolsListChanged", "promptsListChanged", "resourcesListChanged"] {
+    match fields.get(key) {
+      None | Some(False) => ()
+      Some(True) =>
+        match key {
+          "toolsListChanged" => filter.tools_list_changed = true
+          "promptsListChanged" => filter.prompts_list_changed = true
+          _ => filter.resources_list_changed = true
         }
-        match n.get("promptsListChanged") {
-          Some(True) => filter.prompts_list_changed = true
-          _ => ()
-        }
-        match n.get("resourcesListChanged") {
-          Some(True) => filter.resources_list_changed = true
-          _ => ()
-        }
-        match n.get("resourceSubscriptions") {
-          Some(Array(uris)) =>
-            for uri in uris {
-              if uri is String(s) {
-                filter.resource_subscriptions.push(s)
-              }
-            }
-          _ => ()
-        }
-      }
-      _ => ()
+      Some(_) =>
+        raise @types.InvalidParams(
+          "Subscription filter '" + key + "' must be boolean",
+        )
     }
+  }
+  match fields.get("resourceSubscriptions") {
+    None => ()
+    Some(Array(uris)) =>
+      for uri in uris {
+        guard uri is String(uri) else {
+          raise @types.InvalidParams(
+            "resourceSubscriptions must contain URI strings",
+          )
+        }
+        filter.resource_subscriptions.push(uri)
+      }
+    Some(_) =>
+      raise @types.InvalidParams("resourceSubscriptions must be an array")
   }
   filter
 }
@@ -498,11 +506,21 @@ async fn MCPServer::handle_subscriptions_listen(
   cancellation_token~ : @runtime.CancellationToken = @runtime.CancellationToken::new(),
 ) -> Unit {
   cancellation_token.throw_if_cancelled()
-  let filter = self.supported_subscription_filter(
-    parse_subscription_filter(request.params),
-  )
+  let requested = parse_subscription_filter(request.params) catch {
+    error => {
+      reply.put(jsonrpc_error_from(request.id, error))
+      return
+    }
+  }
+  let filter = self.supported_subscription_filter(requested)
   let sub_id = request.id.to_json_string()
   let key = scoped_request_key(scope, request.id.key())
+  if self.active_requests.contains(key) || self.subscriptions.contains(key) {
+    reply.put(
+      jsonrpc_error_str(request.id, -32600, "Duplicate active request id"),
+    )
+    return
+  }
   let cancellation_registration = cancellation_token.on_cancel(fn() {
     self.subscriptions.remove(key)
   })
@@ -868,8 +886,17 @@ pub fn MCPServer::tool_definition(
     @tool.ToolCallOutcome,
     @types.MCPError,
   ],
+  schema_resources? : Map[String, Json],
+  input_base_uri? : String,
+  output_base_uri? : String,
 ) -> MCPServer raise @types.MCPError {
-  self.registry.register_definition(definition, handler)
+  self.registry.register_definition(
+    definition,
+    handler,
+    schema_resources?,
+    input_base_uri?,
+    output_base_uri?,
+  )
   self
 }
 

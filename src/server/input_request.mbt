@@ -8,7 +8,7 @@ fn validate_generated_input(
     @types.ElicitationCreate =>
       ignore(@validation.ElicitationValidator::compile(entry.params))
     @types.SamplingCreateMessage =>
-      ignore(@types.CreateMessageRequest::from_json(entry.params))
+      ignore(@validation.check_sampling_request(entry.params))
     @types.RootsList => @validation.check_roots_request(entry.params)
   }
 }

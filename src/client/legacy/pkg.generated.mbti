@@ -16,7 +16,7 @@ pub struct LegacyClient {
   client_name : String
   client_version : String
   transport : LegacyTransport
-  mut next_id : Int
+  mut next_id : Int32
   mut server_name : String
   mut server_version : String
 }

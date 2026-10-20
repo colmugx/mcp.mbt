@@ -202,7 +202,35 @@ pub async fn HttpTransport::start(
               return
             }
           }
-        let parsed = @json.parse(message) catch { _ => null }
+        let parsed = @validation.parse_json(message) catch {
+          error => {
+            conn.send_response(400, "Bad Request", extra_headers={
+              "Content-Type": "application/json",
+            })
+            conn.write(jsonrpc_error_body(error, body=message))
+            conn.end_response()
+            return
+          }
+        }
+        guard parsed is Object(envelope) &&
+          envelope.get("jsonrpc") == Some(Json::string("2.0")) &&
+          envelope.get("method") is Some(String(_)) &&
+          !envelope.contains("result") &&
+          !envelope.contains("error") else {
+          conn.send_response(400, "Bad Request", extra_headers={
+            "Content-Type": "application/json",
+          })
+          conn.write(
+            jsonrpc_error_body(
+              @types.InvalidRequest(
+                "HTTP POST body must be a single JSON-RPC request or notification",
+              ),
+              body=message,
+            ),
+          )
+          conn.end_response()
+          return
+        }
         let is_notif = is_notification(parsed)
         match self.validate_request_headers(req, message, is_notif~) {
           Err(err_response) => {
@@ -288,12 +316,7 @@ pub async fn HttpTransport::start(
               }
               _ => {
                 // Single JSON response. MethodNotFound (-32601) maps to HTTP 404.
-                let status = if jsonrpc_error_code(first) == Some(-32601) {
-                  404
-                } else {
-                  200
-                }
-                let reason = if status == 404 { "Not Found" } else { "OK" }
+                let (status, reason) = http_response_status(first)
                 conn.send_response(status, reason, extra_headers={
                   "Content-Type": "application/json",
                   "MCP-Protocol-Version": @types.ProtocolVersion,

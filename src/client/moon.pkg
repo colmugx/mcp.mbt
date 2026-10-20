@@ -11,6 +11,7 @@ import {
 }
 
 import {
+  "colmugx/mcp/server",
   "moonbitlang/core/debug",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/async/socket",

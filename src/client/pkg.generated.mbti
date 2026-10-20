@@ -103,7 +103,7 @@ pub async fn MCPClient::list_resource_templates(Self, cursor? : String) -> Resul
 pub async fn MCPClient::list_resources(Self, cursor? : String) -> Result[ListResourcesResult, @types.MCPError]
 pub async fn MCPClient::list_tools(Self, cursor? : String) -> Result[ListToolsResult, @types.MCPError]
 pub fn MCPClient::listen(Self, filter? : ListenFilter, handler~ : (Json) -> Unit, group~ : @async.TaskGroup[Unit]) -> Result[String, @types.MCPError]
-pub fn MCPClient::next_request_id(Self) -> Int
+pub fn MCPClient::next_request_id(Self) -> Int32
 pub fn MCPClient::on_elicitation(Self, (Json) -> Result[@types.ElicitationResult, @types.MCPError], capabilities? : @types.ElicitationCapabilities) -> Self
 pub fn MCPClient::on_notification(Self, NotificationHandlers) -> Self
 pub fn MCPClient::on_roots(Self, () -> Result[Array[@types.Root], @types.MCPError]) -> Self

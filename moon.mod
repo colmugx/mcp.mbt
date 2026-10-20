@@ -6,7 +6,7 @@ import {
   "moonbitlang/async@0.21.0",
   "cc06b/mooncry@0.13.1",
   "gmlewis/base64@0.16.11",
-  "colmugx/json-schema@0.1.1",
+  "colmugx/json-schema@0.1.4",
 }
 
 readme = "README.mbt.md"

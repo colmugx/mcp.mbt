@@ -66,6 +66,44 @@ pub fn jsonrpc_error_code(message : String) -> Int32? {
 }
 
 ///|
+fn check_http_response(
+  message : String,
+  expected : Json?,
+) -> JsonRpcKind raise @types.TransportError {
+  let value = @validation.parse_json(message) catch {
+    _ => raise @types.ReadError("Invalid JSON in HTTP response")
+  }
+  guard value is Object(fields) &&
+    fields.get("jsonrpc") == Some(Json::string("2.0")) else {
+    raise @types.ReadError("HTTP response must be a JSON-RPC 2.0 message")
+  }
+  if fields.get("method") is Some(String(_)) &&
+    !fields.contains("id") &&
+    !fields.contains("result") &&
+    !fields.contains("error") {
+    return Notification
+  }
+  guard !fields.contains("method") &&
+    fields.contains("result") != fields.contains("error") &&
+    fields.get("id") is Some(id) &&
+    expected is Some(expected) else {
+    raise @types.ReadError(
+      "HTTP response stream cannot contain independent requests or malformed responses",
+    )
+  }
+  let matches = (@types.RequestId::from_json(id) ==
+  @types.RequestId::from_json(expected)) catch {
+    _ => false
+  }
+  if !matches {
+    raise @types.ReadError(
+      "HTTP response id does not match its originating request",
+    )
+  }
+  FinalResponse
+}
+
+///|
 /// Format a JSON-RPC payload as one SSE event line.
 pub fn sse_event_line(json : String) -> String {
   "data: " + json + "\n\n"

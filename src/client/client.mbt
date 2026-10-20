@@ -445,6 +445,17 @@ async fn MCPClient::send_request_inner(
           )
           raise error
         }
+        if error is @types.HttpError(status, body) {
+          let peer = http_peer_error(body, request_id) catch {
+            malformed =>
+              return Err(
+                @types.InvalidRequest(
+                  "HTTP \{status} error response: \{Repr(malformed)}",
+                ),
+              )
+          }
+          return Err(peer)
+        }
         return Err(@types.InternalError("Send failed: " + error.to_string()))
       }
     }
@@ -753,7 +764,7 @@ fn MCPClient::fulfill_input_requests(
       "sampling/createMessage" =>
         match self.sampling_handler {
           Some(handler) => {
-            let request = @types.CreateMessageRequest::from_json(params) catch {
+            let request = @validation.check_sampling_request(params) catch {
               e => {
                 error = Some(e)
                 return
@@ -1564,7 +1575,7 @@ fn[T] MCPClient::handle_server_request(
         match sampling_h {
           Some(handler) =>
             try {
-              ignore(@types.CreateMessageRequest::from_json(params))
+              ignore(@validation.check_sampling_request(params))
               match handler(params) {
                 Ok(result) => {
                   let wire = serialize_create_message_result(result)
