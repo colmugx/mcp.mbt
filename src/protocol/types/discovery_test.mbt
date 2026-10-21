@@ -20,7 +20,7 @@ test "discovery round trip preserves versions cache hints and server metadata" {
   let result = @types.DiscoverResult::from_json(wire)
   assert_eq(result.to_json(), wire)
   assert_true(result.metadata.server_info() is Some(_))
-  assert_eq(result.metadata.ttl_ms, Some(1200))
+  assert_eq(result.metadata.ttl_ms, Some(@types.JsonInteger::from_int(1200)))
 }
 
 ///|

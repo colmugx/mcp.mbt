@@ -33,19 +33,10 @@ pub fn ProgressNotification::from_json(
     Some(value) => ProgressToken::from_json(value)
     None => raise InvalidParams("Missing progressToken")
   }
-  let progress = match fields.get("progress") {
-    Some(Number(value, ..)) if !value.is_nan() && !value.is_inf() => value
-    _ => raise InvalidParams("Progress must be a finite number")
-  }
-  let total = match fields.get("total") {
-    None => None
-    Some(Number(value, ..)) if !value.is_nan() && !value.is_inf() => Some(value)
-    _ => raise InvalidParams("Progress total must be a finite number")
-  }
   {
     progress_token: token,
-    progress,
-    total,
+    progress: wire_exact_number(fields, "progress"),
+    total: wire_optional_exact_number(fields, "total"),
     message: wire_optional_string(fields, "message"),
     extra_fields: wire_extensions(fields, [
       "progressToken", "progress", "total", "message",
@@ -57,11 +48,8 @@ pub fn ProgressNotification::from_json(
 pub impl ToJson for ProgressNotification with fn to_json(self) {
   let fields = self.extra_fields.copy()
   fields.set("progressToken", self.progress_token.to_json())
-  fields.set("progress", Json::number(self.progress))
-  match self.total {
-    Some(value) => fields.set("total", Json::number(value))
-    None => ()
-  }
+  fields.set("progress", self.progress.to_json())
+  wire_put_exact_number(fields, "total", self.total)
   wire_put_string(fields, "message", self.message)
   Json::object(fields)
 }

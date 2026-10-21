@@ -72,7 +72,7 @@ pub(open) trait Params {
   fn to_json(Self) -> Json
 }
 pub impl Params for Bool
-pub impl Params for Int
+pub impl Params for Int32
 pub impl Params for Double
 pub impl Params for String
 pub impl[T : Params] Params for T?
@@ -83,7 +83,7 @@ pub trait ToToolResult {
 }
 pub impl ToToolResult for Unit
 pub impl ToToolResult for Bool
-pub impl ToToolResult for Int
+pub impl ToToolResult for Int32
 pub impl ToToolResult for Double
 pub impl ToToolResult for String
 pub impl ToToolResult for @types.ToolResult

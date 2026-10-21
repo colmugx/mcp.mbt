@@ -89,14 +89,15 @@ test "request ids distinguish strings from numbers and preserve integers beyond 
     "id": second.to_json(),
     "method": "tools/list",
   })
-  match @types.JsonRpcRequest::from_json(wire) {
-    Ok(request) => assert_eq(request.id, second)
-    Err(error) => fail("unexpected error: \{Repr(error)}")
-  }
-  assert_true(
+  assert_eq(@types.JsonRpcRequest::from_json(wire).id, second)
+  try
     @types.JsonRpcRequest::from_json(
       Json::object({ "jsonrpc": "2.0", "id": 1.5, "method": "tools/list" }),
     )
-    is Err(@types.InvalidRequest(_)),
-  )
+  catch {
+    @types.InvalidRequest(_) => ()
+    error => fail("unexpected error: \{Repr(error)}")
+  } noraise {
+    _ => fail("expected invalid request ID")
+  }
 }

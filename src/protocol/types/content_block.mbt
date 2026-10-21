@@ -48,12 +48,20 @@ pub fn ContentBlock::resource_link(
   title? : String,
   description? : String,
   mime_type? : String,
-  size? : Double,
+  size? : Int32,
   icons? : Array[Icon],
   metadata~ : ContentMetadata = ContentMetadata::empty(),
 ) -> ContentBlock {
   ResourceLink(
-    { uri, name, title, description, mime_type, size, icons, },
+    {
+      uri,
+      name,
+      title,
+      description,
+      mime_type,
+      size: size.map(JsonInteger::from_int),
+      icons,
+    },
     metadata~,
   )
 }

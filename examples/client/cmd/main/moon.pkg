@@ -1,5 +1,6 @@
 import {
   "colmugx/mcp/client",
+  "colmugx/mcp/protocol/types",
   "moonbitlang/async",
   "moonbitlang/core/debug",
 }

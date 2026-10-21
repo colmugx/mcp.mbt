@@ -21,7 +21,7 @@ test "MRTR elicitation uses the shared enum codec and never serializes absent co
       ),
     ),
   ])
-  let response = client.fulfill_input_requests(inputs).unwrap()
+  let response = client.fulfill_input_requests(inputs)
   assert_eq(response.get("form"), Some(Json::object({ "action": "cancel" })))
 }
 
@@ -52,17 +52,19 @@ test "MRTR URL elicitation is not dispatched to a form-only client handler" {
       ),
     ),
   ])
-  assert_true(
-    client.fulfill_input_requests(inputs)
-    is Err(@types.MissingRequiredClientCapability(_, ..)),
-  )
+  try client.fulfill_input_requests(inputs) catch {
+    @types.MissingRequiredClientCapability(_, ..) => ()
+    error => raise error
+  } noraise {
+    _ => fail("expected protocol error")
+  }
   assert_false(called.val)
   let enabled = client.with_capabilities(
     @types.ClientCapabilities::new(
       elicitation=@types.ElicitationCapabilities::new(form=Map([]), url=Map([])),
     ),
   )
-  assert_true(enabled.fulfill_input_requests(inputs) is Ok(_))
+  ignore(enabled.fulfill_input_requests(inputs))
   assert_true(called.val)
 }
 
@@ -91,9 +93,12 @@ test "MRTR elicitation rejects unsupported form constraints before invoking user
       },
     ),
   }
-  assert_true(
-    client.fulfill_input_requests(inputs) is Err(@types.InvalidParams(_)),
-  )
+  try client.fulfill_input_requests(inputs) catch {
+    @types.InvalidParams(_) => ()
+    error => raise error
+  } noraise {
+    _ => fail("expected protocol error")
+  }
   assert_false(called.val)
 }
 
@@ -129,7 +134,10 @@ test "MRTR elicitation validates returned form data using the pre-handler snapsh
       },
     ),
   }
-  assert_true(
-    client.fulfill_input_requests(inputs) is Err(@types.InvalidParams(_)),
-  )
+  try client.fulfill_input_requests(inputs) catch {
+    @types.InvalidParams(_) => ()
+    error => raise error
+  } noraise {
+    _ => fail("expected protocol error")
+  }
 }

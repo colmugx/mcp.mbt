@@ -12,7 +12,7 @@ test "sampling request round trips model preferences tool choice and open fields
         "future": false,
       },
     ],
-    "maxTokens": 1024.5,
+    "maxTokens": 1024,
     "modelPreferences": {
       "hints": [{ "name": "model", "future": null }, {}],
       "costPriority": 0,

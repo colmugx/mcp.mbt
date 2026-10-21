@@ -29,8 +29,8 @@ test "MCPClient next_id increments" {
 
 ///|
 /// `check_input_required` detects an input_required result and extracts the
-/// requestState + inputRequests; complete results yield Ok(None); an
-/// unrecognized non-empty resultType yields Err(InvalidParams).
+/// requestState + inputRequests; complete results yield None; an
+/// unrecognized non-empty resultType raises InvalidParams.
 fn mrtr_complete_response() -> String {
   "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"resultType\":\"complete\"}}"
 }
@@ -52,26 +52,34 @@ fn mrtr_input_required_response() -> String {
 
 ///|
 test "mrtr: complete response is not input_required" {
-  match logic_client().check_input_required(mrtr_complete_response()) {
-    Ok(None) => ()
+  try logic_client().check_input_required(mrtr_complete_response()) catch {
     _ => panic()
+  } noraise {
+    None => ()
+    _ => fail("expected complete response")
   }
 }
 
 ///|
 test "mrtr: absent resultType is treated as complete" {
-  match logic_client().check_input_required(mrtr_no_result_type_response()) {
-    Ok(None) => ()
+  try
+    logic_client().check_input_required(mrtr_no_result_type_response())
+  catch {
     _ => panic()
+  } noraise {
+    None => ()
+    _ => fail("expected complete response")
   }
 }
 
 ///|
 test "mrtr: unrecognized resultType is an InvalidParams error" {
-  match
-    logic_client().check_input_required(mrtr_unknown_result_type_response()) {
-    Err(@types.InvalidParams(msg)) =>
-      assert_true(msg.contains("partially_done"))
+  try
+    logic_client().check_input_required(mrtr_unknown_result_type_response())
+  catch {
+    @types.InvalidParams(msg) => assert_true(msg.contains("partially_done"))
+    _ => panic()
+  } noraise {
     _ => panic()
   }
 }
@@ -79,23 +87,29 @@ test "mrtr: unrecognized resultType is an InvalidParams error" {
 ///|
 test "mrtr: non-string resultType is an InvalidParams error" {
   let response = "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"resultType\":7}}"
-  match logic_client().check_input_required(response) {
-    Err(@types.InvalidParams(_)) => ()
+  try logic_client().check_input_required(response) catch {
+    @types.InvalidParams(_) => ()
+    _ => panic()
+  } noraise {
     _ => panic()
   }
 }
 
 ///|
 test "mrtr: input_required response extracts requestState and inputRequests" {
-  match logic_client().check_input_required(mrtr_input_required_response()) {
-    Ok(Some(info)) => {
+  try
+    logic_client().check_input_required(mrtr_input_required_response())
+  catch {
+    _ => panic()
+  } noraise {
+    Some(info) => {
       assert_eq(info.request_state, Some("blob"))
       match info.input_requests.get("login") {
         Some((method_name, _)) => assert_eq(method_name, "elicitation/create")
         None => panic()
       }
     }
-    _ => panic()
+    None => fail("expected input_required response")
   }
 }
 

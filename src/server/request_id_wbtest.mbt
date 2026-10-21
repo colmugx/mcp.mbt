@@ -118,7 +118,7 @@ async test "subscription tags and graceful completion retain the original id typ
       jsonrpc: "2.0",
       id,
       method_name: "subscriptions/listen",
-      params: {},
+      params: { "notifications": {} },
     }
     server.handle_subscriptions_listen(request, reply)
     ignore(reply.try_get())

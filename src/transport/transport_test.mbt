@@ -8,77 +8,85 @@
 /// JSON-RPC Validation Tests
 test "validate_jsonrpc_message accepts valid request" {
   let message = "{\"jsonrpc\":\"2.0\",\"method\":\"test\",\"id\":1}"
-  match @transport.validate_jsonrpc_message(message) {
-    Ok(_) => ()
-    Err(_) => panic()
+  try @transport.validate_jsonrpc_message(message) catch {
+    _ => panic()
+  } noraise {
+    _ => ()
   }
 }
 
 ///|
 test "validate_jsonrpc_message accepts valid response" {
   let message = "{\"jsonrpc\":\"2.0\",\"result\":\"success\",\"id\":1}"
-  match @transport.validate_jsonrpc_message(message) {
-    Ok(_) => ()
-    Err(_) => panic()
+  try @transport.validate_jsonrpc_message(message) catch {
+    _ => panic()
+  } noraise {
+    _ => ()
   }
 }
 
 ///|
 test "validate_jsonrpc_message accepts valid error response" {
   let message = "{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32600,\"message\":\"Invalid Request\"},\"id\":1}"
-  match @transport.validate_jsonrpc_message(message) {
-    Ok(_) => ()
-    Err(_) => panic()
+  try @transport.validate_jsonrpc_message(message) catch {
+    _ => panic()
+  } noraise {
+    _ => ()
   }
 }
 
 ///|
 test "validate_jsonrpc_message rejects missing jsonrpc field" {
   let message = "{\"method\":\"test\",\"id\":1}"
-  match @transport.validate_jsonrpc_message(message) {
-    Ok(_) => panic()
-    Err(e) => assert_true(e.message().contains("jsonrpc"))
+  try @transport.validate_jsonrpc_message(message) catch {
+    e => assert_true(e.message().contains("jsonrpc"))
+  } noraise {
+    _ => panic()
   }
 }
 
 ///|
 test "validate_jsonrpc_message rejects invalid jsonrpc version" {
   let message = "{\"jsonrpc\":\"1.0\",\"method\":\"test\",\"id\":1}"
-  match @transport.validate_jsonrpc_message(message) {
-    Ok(_) => panic()
-    Err(_) => ()
+  try @transport.validate_jsonrpc_message(message) catch {
+    _ => ()
+  } noraise {
+    _ => panic()
   }
 }
 
 ///|
 test "validate_jsonrpc_message rejects non-object JSON" {
   let message = "\"just a string\""
-  match @transport.validate_jsonrpc_message(message) {
-    Ok(_) => panic()
-    Err(_) => ()
+  try @transport.validate_jsonrpc_message(message) catch {
+    _ => ()
+  } noraise {
+    _ => panic()
   }
 }
 
 ///|
 test "validate_jsonrpc_message rejects invalid JSON" {
   let message = "{invalid json}"
-  match @transport.validate_jsonrpc_message(message) {
-    Ok(_) => panic()
-    Err(_) => ()
+  try @transport.validate_jsonrpc_message(message) catch {
+    _ => ()
+  } noraise {
+    _ => panic()
   }
 }
 
 ///|
 test "validate_jsonrpc_message rejects message without method/result/error" {
   let message = "{\"jsonrpc\":\"2.0\",\"id\":1}"
-  match @transport.validate_jsonrpc_message(message) {
-    Ok(_) => panic()
-    Err(e) =>
+  try @transport.validate_jsonrpc_message(message) catch {
+    e =>
       assert_true(
         e.message().contains("method") ||
         e.message().contains("result") ||
         e.message().contains("error"),
       )
+  } noraise {
+    _ => panic()
   }
 }
 

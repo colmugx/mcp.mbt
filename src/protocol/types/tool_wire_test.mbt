@@ -186,7 +186,7 @@ test "conformance: cache hints retain zero private scope and extensions" {
   }
   let metadata = @types.ResultMetadata::from_json(wire, body_fields=[])
   assert_eq(metadata.to_json(), wire)
-  assert_eq(metadata.ttl_ms, Some(0.0))
+  assert_eq(metadata.ttl_ms, Some(@types.JsonInteger::from_int(0)))
   assert_eq(metadata.cache_scope, Some(@types.CacheScope::Private))
   assert_eq(metadata.server_info(), None)
 }

@@ -202,7 +202,7 @@ fn transport_error_of(e : Error) -> @types.TransportError {
 async fn send_discover_probe(
   transport : @transport.AnyTransport,
   meta : Json,
-) -> Result[@types.ServerCapabilities, @types.MCPError] {
+) -> @types.ServerCapabilities {
   let id = 1
   let request = build_discover_request(id, meta)
   transport.send(request) catch {
@@ -210,7 +210,7 @@ async fn send_discover_probe(
       if @async.is_being_cancelled() {
         raise e
       } else {
-        return Err(@types.MCPError::TransportError(transport_error_of(e)))
+        raise @types.MCPError::TransportError(transport_error_of(e))
       }
   }
   let response = transport.receive() catch {
@@ -218,25 +218,20 @@ async fn send_discover_probe(
       if @async.is_being_cancelled() {
         raise e
       }
-      return Err(@types.TransportError(transport_error_of(e)))
+      raise @types.TransportError(transport_error_of(e))
     }
   }
   let response_str = match response {
     Some(s) => s
-    None => return Err(@types.TransportError(@types.ConnectionClosed))
+    None => raise @types.TransportError(@types.ConnectionClosed)
   }
   // Recognize modern JSON-RPC errors before the generic parser loses the code.
   match parse_jsonrpc_error(response_str) {
-    Some(modern_err) => return Err(modern_err)
+    Some(modern_err) => raise modern_err
     None => ()
   }
-  match parse_jsonrpc_response(response_str) {
-    Err(e) => Err(e)
-    Ok(result_json) => {
-      let caps = parse_discover_capabilities(result_json) catch {
-        error => return Err(error)
-      }
-      Ok(caps)
-    }
-  }
+  let result_json = parse_jsonrpc_response(response_str)
+
+  let caps = parse_discover_capabilities(result_json)
+  caps
 }

@@ -24,13 +24,16 @@ test "tool registration rejects invalid wire schemas before adding the tool" {
 ///|
 async test "unknown tool returns invalid params" {
   let registry = ToolRegistry::ToolRegistry()
-  match
+  try
     registry.call_tool(
       "unknown",
       @runtime.RequestContext::new(@types.RequestId::Int(1)),
       Json::object({}),
-    ) {
-    Err(@types.InvalidParams(_)) => ()
+    )
+  catch {
+    @types.InvalidParams(_) => ()
+    error => raise error
+  } noraise {
     _ => fail("unknown tools must report InvalidParams")
   }
 }

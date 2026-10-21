@@ -58,28 +58,25 @@ pub fn AnyTransport::close(self : AnyTransport) -> Unit {
 }
 
 ///|
-pub fn validate_jsonrpc_message(
-  message : String,
-) -> Result[Unit, @types.MCPError] {
+pub fn validate_jsonrpc_message(message : String) -> Unit raise @types.MCPError {
   let json = @json.parse(message) catch {
-    _ => return Err(@types.ParseError("Invalid JSON"))
+    _ => raise @types.ParseError("Invalid JSON")
   }
   if json is Object(obj) {
     match obj.get("jsonrpc") {
       Some(String("2.0")) => ()
-      _ =>
-        return Err(@types.InvalidRequest("Missing or invalid 'jsonrpc' field"))
+      _ => raise @types.InvalidRequest("Missing or invalid 'jsonrpc' field")
     }
     let has_method = obj.get("method") is Some(_)
     let has_result = obj.get("result") is Some(_)
     let has_error = obj.get("error") is Some(_)
     if !(has_method || has_result || has_error) {
-      return Err(
-        @types.InvalidRequest("Must have 'method', 'result', or 'error' field"),
+      raise @types.InvalidRequest(
+        "Must have 'method', 'result', or 'error' field",
       )
     }
-    Ok(())
+    ()
   } else {
-    Err(@types.InvalidRequest("JSON-RPC message must be an object"))
+    raise @types.InvalidRequest("JSON-RPC message must be an object")
   }
 }

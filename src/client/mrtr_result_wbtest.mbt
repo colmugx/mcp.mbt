@@ -42,9 +42,12 @@ test "MRTR rejects malformed input_required fields without silently dropping ent
       }),
     ] {
     let response = Json::object({ "jsonrpc": "2.0", "id": 1, "result": result }).stringify()
-    assert_true(
-      client.check_input_required(response) is Err(@types.InvalidParams(_)),
-    )
+    try client.check_input_required(response) catch {
+      @types.InvalidParams(_) => ()
+      error => raise error
+    } noraise {
+      _ => fail("expected protocol error")
+    }
   }
 }
 
@@ -64,7 +67,7 @@ test "MRTR accepts state-only load shedding and roots requests without params" {
       }).stringify(),
     )
     .unwrap()
-    .unwrap()
+
   assert_eq(state.request_state, Some("opaque"))
   assert_true(state.input_requests.is_empty())
   let roots = client
@@ -77,7 +80,7 @@ test "MRTR accepts state-only load shedding and roots requests without params" {
       }).stringify(),
     )
     .unwrap()
-    .unwrap()
+
   assert_eq(roots.request_state, None)
   assert_eq(
     roots.input_requests.get("roots"),
@@ -90,6 +93,6 @@ test "MRTR accepts state-only load shedding and roots requests without params" {
       }).stringify(),
     )
     .unwrap()
-    .unwrap()
+
   assert_true(empty.input_requests.is_empty())
 }

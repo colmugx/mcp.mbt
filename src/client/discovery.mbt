@@ -2,7 +2,7 @@
 /// Fetch discovery without discarding cache hints, instructions or open metadata.
 pub async fn MCPClient::discover_result(
   self : MCPClient,
-) -> Result[@types.DiscoverResult, @types.MCPError] {
+) -> @types.DiscoverResult {
   let request = build_discover_request(
     self.next_request_id(),
     self.request_meta(),
@@ -14,18 +14,9 @@ pub async fn MCPClient::discover_result(
         apply_legacy_meta_to_request(request, build_legacy_meta()),
       )
   }
-  let response = match response {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
-  let value = match parse_jsonrpc_response(response) {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
-  let result = @types.DiscoverResult::from_json(value) catch {
-    error => return Err(error)
-  }
+  let value = parse_jsonrpc_response(response)
+  let result = @types.DiscoverResult::from_json(value)
   self.server_capabilities = Some(result.capabilities)
   self.server_info = parse_server_info_from_result(value)
-  Ok(result)
+  result
 }

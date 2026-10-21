@@ -106,7 +106,7 @@ fn modern_forbids_fallback_error(cause : @types.MCPError) -> @types.MCPError {
 /// |--------|-------------------------|-----------------|
 /// | Auto   | yes (default)           | allowed         |
 /// | Legacy | skipped                 | direct connect  |
-/// | Modern | yes                     | forbidden (Err) |
+/// | Modern | yes                     | forbidden (raises) |
 ///
 /// `extra_headers` are appended to every request this transport issues, after
 /// the built-in headers. Same-name entries override the built-ins (including
@@ -122,7 +122,7 @@ pub async fn MCPClient::connect_http(
   auth_token~ : String = "",
   extra_headers~ : Array[(String, String)] = [],
   era~ : ProtocolEra = Auto,
-) -> Result[MCPClient, @types.MCPError] {
+) -> MCPClient {
   if era is Legacy {
     return connect_http_legacy(
       url~,
@@ -140,38 +140,30 @@ pub async fn MCPClient::connect_http(
     ),
   )
   let client = MCPClient::MCPClient(name~, version~, transport~)
+  errdefer transport.close()
   let meta = client.request_meta()
-  let probe = send_discover_probe(transport, meta)
-  match probe {
-    Ok(caps) => {
-      client.server_capabilities = Some(caps)
-      Ok(client)
-    }
-    Err(e) =>
+  try send_discover_probe(transport, meta) catch {
+    @types.MCPError::_ as e =>
       match classify_probe_error(e) {
         ModernError(modern_err) =>
           // -32022 with supported 2026-07-28: the server is modern but rejected
           // this specific request, so retry once before giving up.
           if supported_contains(modern_err, @types.ProtocolVersion) {
-            match send_discover_probe(transport, meta) {
-              Ok(caps) => {
-                client.server_capabilities = Some(caps)
-                Ok(client)
-              }
-              Err(e2) =>
+            try send_discover_probe(transport, meta) catch {
+              @types.MCPError::_ as e2 =>
                 match classify_probe_error(e2) {
                   ModernError(m2) => {
                     transport.close()
-                    Err(m2)
+                    raise m2
                   }
                   Fatal => {
                     transport.close()
-                    Err(e2)
+                    raise e2
                   }
                   FallbackLegacy => {
                     transport.close()
                     if era is Modern {
-                      Err(modern_forbids_fallback_error(e2))
+                      raise modern_forbids_fallback_error(e2)
                     } else {
                       connect_http_legacy(
                         url~,
@@ -183,19 +175,25 @@ pub async fn MCPClient::connect_http(
                     }
                   }
                 }
+              error => raise error
+            } noraise {
+              caps => {
+                client.server_capabilities = Some(caps)
+                client
+              }
             }
           } else {
             transport.close()
-            Err(modern_err)
+            raise modern_err
           }
         Fatal => {
           transport.close()
-          Err(e)
+          raise e
         }
         FallbackLegacy => {
           transport.close()
           if era is Modern {
-            Err(modern_forbids_fallback_error(e))
+            raise modern_forbids_fallback_error(e)
           } else {
             connect_http_legacy(
               url~,
@@ -207,6 +205,12 @@ pub async fn MCPClient::connect_http(
           }
         }
       }
+    error => raise error
+  } noraise {
+    caps => {
+      client.server_capabilities = Some(caps)
+      client
+    }
   }
 }
 
@@ -226,26 +230,22 @@ async fn connect_http_legacy(
   version~ : String,
   auth_token~ : String = "",
   extra_headers~ : Array[(String, String)] = [],
-) -> Result[MCPClient, @types.MCPError] {
-  match
-    @legacy.LegacyClient::connect_http(
-      url~,
-      name~,
-      version~,
-      auth_token~,
-      extra_headers~,
-    ) {
-    Ok(legacy) => {
-      let dummy = @transport.AnyTransport::Stdio(
-        @transport.StdioTransport::StdioTransport(),
-      )
-      let client = MCPClient::MCPClient(name~, version~, transport=dummy)
-      client.backend = Legacy(legacy)
-      client.legacy_mode = true
-      Ok(client)
-    }
-    Err(e) => Err(e)
-  }
+) -> MCPClient {
+  let legacy = @legacy.LegacyClient::connect_http(
+    url~,
+    name~,
+    version~,
+    auth_token~,
+    extra_headers~,
+  )
+
+  let dummy = @transport.AnyTransport::Stdio(
+    @transport.StdioTransport::StdioTransport(),
+  )
+  let client = MCPClient::MCPClient(name~, version~, transport=dummy)
+  client.backend = Legacy(legacy)
+  client.legacy_mode = true
+  client
 }
 
 ///|
@@ -257,7 +257,7 @@ async fn connect_http_legacy(
 /// |--------|-------------------------|-----------------|
 /// | Auto   | yes (default)           | allowed         |
 /// | Legacy | skipped                 | direct connect  |
-/// | Modern | yes                     | forbidden (Err) |
+/// | Modern | yes                     | forbidden (raises) |
 pub async fn MCPClient::connect_stdio(
   cmd~ : String,
   args~ : Array[String] = [],
@@ -266,15 +266,14 @@ pub async fn MCPClient::connect_stdio(
   extra_env~ : Map[String, String] = {},
   group~ : @async.TaskGroup[Unit],
   era~ : ProtocolEra = Auto,
-) -> Result[MCPClient, @types.MCPError] {
+) -> MCPClient {
   let stdio = @transport.StdioClientTransport::StdioClientTransport(
     cmd~,
     args~,
     extra_env~,
   )
   stdio.start(group) catch {
-    e =>
-      return Err(@types.InternalError("Stdio start failed: " + e.to_string()))
+    e => raise @types.InternalError("Stdio start failed: " + e.to_string())
   }
   let transport = @transport.AnyTransport::StdioClient(stdio)
   if era is Legacy {
@@ -284,7 +283,12 @@ pub async fn MCPClient::connect_stdio(
   let meta = client.request_meta()
   let probe : Result[@types.ServerCapabilities, @types.MCPError]? = Some(
     @async.with_timeout(3000, async fn() {
-      send_discover_probe(transport, meta)
+      try send_discover_probe(transport, meta) catch {
+        @types.MCPError::_ as error => Err(error)
+        error => raise error
+      } noraise {
+        caps => Ok(caps)
+      }
     }),
   ) catch {
     _ => None
@@ -295,29 +299,29 @@ pub async fn MCPClient::connect_stdio(
       let cause = @types.TransportError(@types.Timeout)
       if era is Modern {
         transport.close()
-        Err(modern_forbids_fallback_error(cause))
+        raise modern_forbids_fallback_error(cause)
       } else {
         connect_stdio_legacy(name~, version~, transport~)
       }
     }
     Some(Ok(caps)) => {
       client.server_capabilities = Some(caps)
-      Ok(client)
+      client
     }
     Some(Err(e)) =>
       match classify_probe_error(e) {
         ModernError(modern_err) => {
           transport.close()
-          Err(modern_err)
+          raise modern_err
         }
         Fatal => {
           transport.close()
-          Err(e)
+          raise e
         }
         FallbackLegacy =>
           if era is Modern {
             transport.close()
-            Err(modern_forbids_fallback_error(e))
+            raise modern_forbids_fallback_error(e)
           } else {
             connect_stdio_legacy(name~, version~, transport~)
           }
@@ -330,23 +334,18 @@ async fn connect_stdio_legacy(
   name~ : String,
   version~ : String,
   transport~ : @transport.AnyTransport,
-) -> Result[MCPClient, @types.MCPError] {
+) -> MCPClient {
   let legacy = @legacy.LegacyClient::LegacyClient(name~, version~, transport~)
-  match legacy.initialize() {
-    Ok(_) => {
-      let dummy = @transport.AnyTransport::Stdio(
-        @transport.StdioTransport::StdioTransport(),
-      )
-      let client = MCPClient::MCPClient(name~, version~, transport=dummy)
-      client.backend = Legacy(legacy)
-      client.legacy_mode = true
-      Ok(client)
-    }
-    Err(e) => {
-      transport.close()
-      Err(e)
-    }
-  }
+  errdefer transport.close()
+  let _ = legacy.initialize()
+
+  let dummy = @transport.AnyTransport::Stdio(
+    @transport.StdioTransport::StdioTransport(),
+  )
+  let client = MCPClient::MCPClient(name~, version~, transport=dummy)
+  client.backend = Legacy(legacy)
+  client.legacy_mode = true
+  client
 }
 
 ///|
@@ -374,23 +373,16 @@ fn MCPClient::request_meta(
 }
 
 ///|
-async fn MCPClient::send_request(
-  self : MCPClient,
-  request : String,
-) -> Result[String, @types.MCPError] {
-  let request_id = extract_request_id(request) catch {
-    error => return Err(error)
-  }
+async fn MCPClient::send_request(self : MCPClient, request : String) -> String {
+  let request_id = extract_request_id(request)
   let id = request_id.key()
   if self.request_cancellations.contains(id) {
-    return Err(@types.InvalidRequest("Duplicate active request id"))
+    raise @types.InvalidRequest("Duplicate active request id")
   }
   let explicitly_cancelled = Ref(false)
   let cancellation_reason : Ref[String?] = Ref(None)
   @async.with_task_group(group => {
-    let owned_task : Ref[@async.Task[Result[String, @types.MCPError]]?] = Ref(
-      None,
-    )
+    let owned_task : Ref[@async.Task[String]?] = Ref(None)
     self.request_cancellations.set(id, fn(reason) {
       cancellation_reason.val = reason
       explicitly_cancelled.val = true
@@ -411,7 +403,7 @@ async fn MCPClient::send_request(
     task.wait() catch {
       error =>
         if explicitly_cancelled.val && @async.is_cancellation_error(error) {
-          Err(@types.Cancelled("Request cancelled by client"))
+          raise @types.Cancelled("Request cancelled by client")
         } else {
           raise error
         }
@@ -425,7 +417,7 @@ async fn MCPClient::send_request_inner(
   request : String,
   request_id : @types.RequestId,
   cancellation_reason : Ref[String?],
-) -> Result[String, @types.MCPError] {
+) -> String {
   let id = request_id.key()
   let queue : @aqueue.Queue[String] = @aqueue.Queue(
     kind=@aqueue.Kind::Unbounded,
@@ -445,7 +437,16 @@ async fn MCPClient::send_request_inner(
           )
           raise error
         }
-        return Err(@types.InternalError("Send failed: " + error.to_string()))
+        if error is @types.HttpError(status, body) {
+          let peer = http_peer_error(body, request_id) catch {
+            malformed =>
+              raise @types.InvalidRequest(
+                "HTTP \{status} error response: \{Repr(malformed)}",
+              )
+          }
+          raise peer
+        }
+        raise @types.InternalError("Send failed: " + error.to_string())
       }
     }
     let response = queue.get() catch {
@@ -457,13 +458,13 @@ async fn MCPClient::send_request_inner(
           )
           raise error
         }
-        return Err(
-          @types.InternalError("Response stream closed: " + error.to_string()),
+        raise @types.InternalError(
+          "Response stream closed: " + error.to_string(),
         )
       }
     }
     self.maybe_store_server_info(response)
-    Ok(response)
+    response
   })
 }
 
@@ -509,16 +510,12 @@ async fn MCPClient::notify_cancelled_best_effort(
 async fn[T] legacy_send_and_parse(
   legacy : @legacy.LegacyClient,
   request : String,
-  parse : (Json) -> Result[T, @types.MCPError],
-) -> Result[T, @types.MCPError] {
-  match legacy.send_raw(request) {
-    Err(e) => Err(e)
-    Ok(response_str) =>
-      match parse_jsonrpc_response(response_str) {
-        Err(e) => Err(e)
-        Ok(result_json) => parse(result_json)
-      }
-  }
+  parse : (Json) -> T raise @types.MCPError,
+) -> T {
+  let response_str = legacy.send_raw(request)
+
+  let result_json = parse_jsonrpc_response(response_str)
+  parse(result_json)
 }
 
 ///|
@@ -561,48 +558,41 @@ async fn MCPClient::send_with_mrtr(
   self : MCPClient,
   request : String,
   max_rounds~ : Int32 = 8,
-) -> Result[String, @types.MCPError] {
+) -> String {
   let mut current_request = request
   let mut rounds = 0
   while rounds < max_rounds {
     rounds = rounds + 1
-    match self.send_request(current_request) {
-      Err(e) => return Err(e)
-      Ok(response) =>
-        match self.check_input_required(response) {
-          Err(e) => return Err(e)
-          Ok(None) => return Ok(response)
-          Ok(Some(input_req)) => {
-            if rounds == max_rounds {
-              return Err(@types.InternalError("MRTR exceeded max rounds"))
-            }
-            match self.fulfill_input_requests(input_req.input_requests) {
-              Err(e) => return Err(e)
-              Ok(responses) => {
-                // Build the retry: original params + inputResponses + requestState, new id.
-                let new_id = self.next_request_id()
-                current_request = build_retry_request(
-                  current_request,
-                  new_id,
-                  responses,
-                  input_req.request_state,
-                )
-              }
-            }
-          }
+    let response = self.send_request(current_request)
+    match self.check_input_required(response) {
+      None => return response
+      Some(input_req) => {
+        if rounds == max_rounds {
+          raise @types.InternalError("MRTR exceeded max rounds")
         }
+        let responses = self.fulfill_input_requests(input_req.input_requests)
+
+        // Build the retry: original params + inputResponses + requestState, new id.
+        let new_id = self.next_request_id()
+        current_request = build_retry_request(
+          current_request,
+          new_id,
+          responses,
+          input_req.request_state,
+        )
+      }
     }
   }
-  Err(@types.InternalError("MRTR exceeded max rounds"))
+  raise @types.InternalError("MRTR exceeded max rounds")
 }
 
 ///|
 /// Classify a response for the MRTR loop:
-/// * `Ok(None)` — a `complete` result (a missing `resultType` also means
+/// * `None` — a `complete` result (a missing `resultType` also means
 ///   `complete`, for back-compat with pre-MRTR servers);
-/// * `Ok(Some(info))` — an `input_required` result with the extracted
+/// * `Some(info)` — an `input_required` result with the extracted
 ///   `inputRequests` map and `requestState`;
-/// * `Err(InvalidParams)` — a non-empty `resultType` this SDK cannot
+/// * raises `InvalidParams` — a non-empty `resultType` this SDK cannot
 ///   recognize, which MUST be treated as invalid per the 2026-07-28 spec.
 priv struct InputRequiredInfo {
   input_requests : Map[String, (String, Json)]
@@ -613,32 +603,28 @@ priv struct InputRequiredInfo {
 fn MCPClient::check_input_required(
   self : MCPClient,
   response : String,
-) -> Result[InputRequiredInfo?, @types.MCPError] {
+) -> InputRequiredInfo? raise @types.MCPError {
   ignore(self)
-  let json = @validation.parse_json(response) catch { _ => return Ok(None) }
+  let json = @validation.parse_json(response) catch { _ => return None }
   let result = match json {
     Object(obj) =>
       match obj.get("result") {
         Some(Object(r)) => r
-        _ => return Ok(None) // no result object (e.g. an error response)
-      }
-    _ => return Ok(None)
+        _ => return None
+      } // no result object (e.g. an error response)
+    _ => return None
   }
   match result.get("resultType") {
-    None => return Ok(None) // absent => "complete"
-    Some(String("complete")) => return Ok(None)
+    None => return None // absent => "complete"
+    Some(String("complete")) => return None
     Some(String("input_required")) => ()
     Some(String(other)) =>
-      return Err(
-        @types.InvalidParams("Unrecognized resultType: '" + other + "'"),
-      )
-    Some(_) => return Err(@types.InvalidParams("resultType must be a string"))
+      raise @types.InvalidParams("Unrecognized resultType: '" + other + "'")
+    Some(_) => raise @types.InvalidParams("resultType must be a string")
   }
   if !result.contains("inputRequests") && !result.contains("requestState") {
-    return Err(
-      @types.InvalidParams(
-        "input_required must contain inputRequests or requestState",
-      ),
+    raise @types.InvalidParams(
+      "input_required must contain inputRequests or requestState",
     )
   }
   let reqs : Map[String, (String, Json)] = Map([])
@@ -647,40 +633,33 @@ fn MCPClient::check_input_required(
     Some(Object(map)) =>
       for key, value in map {
         guard value is Object(entry) else {
-          return Err(
-            @types.InvalidParams("Input request '\{key}' must be an object"),
-          )
+          raise @types.InvalidParams("Input request '\{key}' must be an object")
         }
         let method_name = match entry.get("method") {
           Some(String(method_name)) => method_name
           _ =>
-            return Err(
-              @types.InvalidParams(
-                "Input request '\{key}' requires a string method",
-              ),
+            raise @types.InvalidParams(
+              "Input request '\{key}' requires a string method",
             )
         }
         let params = match entry.get("params") {
           Some(Object(fields)) => Json::object(fields)
           None if method_name == "roots/list" => Json::object({})
           _ =>
-            return Err(
-              @types.InvalidParams(
-                "Input request '\{key}' requires object params",
-              ),
+            raise @types.InvalidParams(
+              "Input request '\{key}' requires object params",
             )
         }
         reqs.set(key, (method_name, params))
       }
-    Some(_) =>
-      return Err(@types.InvalidParams("inputRequests must be an object"))
+    Some(_) => raise @types.InvalidParams("inputRequests must be an object")
   }
   let request_state = match result.get("requestState") {
     None => None
     Some(String(state)) => Some(state)
-    Some(_) => return Err(@types.InvalidParams("requestState must be a string"))
+    Some(_) => raise @types.InvalidParams("requestState must be a string")
   }
-  Ok(Some({ input_requests: reqs, request_state, }))
+  Some({ input_requests: reqs, request_state, })
 }
 
 ///|
@@ -689,7 +668,7 @@ fn MCPClient::check_input_required(
 fn MCPClient::fulfill_input_requests(
   self : MCPClient,
   input_requests : Map[String, (String, Json)],
-) -> Result[Map[String, Json], @types.MCPError] {
+) -> Map[String, Json] raise @types.MCPError {
   let responses : Map[String, Json] = Default::default()
   let mut error : @types.MCPError? = None
   input_requests.each(fn(key, entry) {
@@ -753,7 +732,7 @@ fn MCPClient::fulfill_input_requests(
       "sampling/createMessage" =>
         match self.sampling_handler {
           Some(handler) => {
-            let request = @types.CreateMessageRequest::from_json(params) catch {
+            let request = @validation.check_sampling_request(params) catch {
               e => {
                 error = Some(e)
                 return
@@ -780,7 +759,7 @@ fn MCPClient::fulfill_input_requests(
             match handler(params) {
               Ok(r) => {
                 let response = sampling_result_to_json(r)
-                ignore(@types.CreateMessageResult::from_json(response)) catch {
+                @validation.check_sampling_response(params, response) catch {
                   e => {
                     error = Some(e)
                     return
@@ -852,8 +831,8 @@ fn MCPClient::fulfill_input_requests(
     }
   })
   match error {
-    Some(e) => Err(e)
-    None => Ok(responses)
+    Some(e) => raise e
+    None => responses
   }
 }
 
@@ -915,10 +894,8 @@ fn extract_request_id(
   request : String,
 ) -> @types.RequestId raise @types.MCPError {
   let json = @validation.parse_json(request)
-  match @types.JsonRpcRequest::from_json(json) {
-    Ok(request) => request.id
-    Err(error) => raise error
-  }
+  let request = @types.JsonRpcRequest::from_json(json)
+  request.id
 }
 
 ///|
@@ -930,18 +907,16 @@ pub async fn MCPClient::cancel_request(
   self : MCPClient,
   request_id : @types.RequestId,
   reason? : String,
-) -> Result[Unit, @types.MCPError] {
+) -> Unit {
   if self.backend is Legacy(_) {
-    return Err(
-      @types.MethodNotFound(
-        "request cancellation is not supported by the legacy fallback client",
-      ),
+    raise @types.MethodNotFound(
+      "request cancellation is not supported by the legacy fallback client",
     )
   }
   match self.request_cancellations.get(request_id.key()) {
     Some(cancel) => {
       cancel(reason)
-      return Ok(())
+      return ()
     }
     None => ()
   }
@@ -954,25 +929,19 @@ pub async fn MCPClient::cancel_request(
       let t = self.transport
       t.send_notification(notif) catch {
         e =>
-          return Err(
-            @types.InternalError(
-              "Failed to send cancellation: " + e.to_string(),
-            ),
+          raise @types.InternalError(
+            "Failed to send cancellation: " + e.to_string(),
           )
       }
-      Ok(())
+      ()
     }
     @transport.AnyTransport::HttpClient(_) =>
-      Err(
-        @types.InternalError(
-          "No active HTTP request with this id; cancellation requires a request owned by this client",
-        ),
+      raise @types.InternalError(
+        "No active HTTP request with this id; cancellation requires a request owned by this client",
       )
     _ =>
-      Err(
-        @types.InternalError(
-          "request cancellation is not supported for this transport",
-        ),
+      raise @types.InternalError(
+        "request cancellation is not supported for this transport",
       )
   }
 }
@@ -983,9 +952,7 @@ pub async fn MCPClient::cancel_request(
 /// in `server_capabilities` and `server_info` for later use. Optional for
 /// clients per spec, but recommended — and the primary era probe for legacy
 /// fallback.
-pub async fn MCPClient::discover(
-  self : MCPClient,
-) -> Result[@types.ServerCapabilities, @types.MCPError] {
+pub async fn MCPClient::discover(self : MCPClient) -> @types.ServerCapabilities {
   match self.backend {
     Legacy(legacy) => {
       let id = self.next_request_id()
@@ -993,40 +960,26 @@ pub async fn MCPClient::discover(
         build_discover_request(id, self.request_meta()),
         build_legacy_meta(),
       )
-      match legacy.send_raw(request) {
-        Err(e) => Err(e)
-        Ok(response_str) =>
-          match parse_jsonrpc_response(response_str) {
-            Err(e) => Err(e)
-            Ok(result_json) => {
-              let caps = parse_discover_capabilities(result_json) catch {
-                error => return Err(error)
-              }
-              self.server_capabilities = Some(caps)
-              self.server_info = parse_server_info_from_result(result_json)
-              Ok(caps)
-            }
-          }
-      }
+      let response_str = legacy.send_raw(request)
+
+      let result_json = parse_jsonrpc_response(response_str)
+
+      let caps = parse_discover_capabilities(result_json)
+      self.server_capabilities = Some(caps)
+      self.server_info = parse_server_info_from_result(result_json)
+      caps
     }
     Modern => {
       let id = self.next_request_id()
       let request = build_discover_request(id, self.request_meta())
-      match self.send_request(request) {
-        Err(e) => return Err(e)
-        Ok(response_str) =>
-          match parse_jsonrpc_response(response_str) {
-            Err(e) => return Err(e)
-            Ok(result_json) => {
-              let caps = parse_discover_capabilities(result_json) catch {
-                error => return Err(error)
-              }
-              self.server_capabilities = Some(caps)
-              self.server_info = parse_server_info_from_result(result_json)
-              Ok(caps)
-            }
-          }
-      }
+      let response_str = self.send_request(request)
+
+      let result_json = parse_jsonrpc_response(response_str)
+
+      let caps = parse_discover_capabilities(result_json)
+      self.server_capabilities = Some(caps)
+      self.server_info = parse_server_info_from_result(result_json)
+      caps
     }
   }
 }
@@ -1035,7 +988,7 @@ pub async fn MCPClient::discover(
 pub async fn MCPClient::list_tools(
   self : MCPClient,
   cursor~ : String = "",
-) -> Result[ListToolsResult, @types.MCPError] {
+) -> ListToolsResult {
   let id = self.next_request_id()
   let request = build_tools_list_request(id, self.request_meta(), cursor~)
   match self.backend {
@@ -1046,56 +999,45 @@ pub async fn MCPClient::list_tools(
       )
       legacy_send_and_parse(legacy, legacy_request, parse_tools_list)
     }
-    Modern =>
-      match self.send_request(request) {
-        Err(e) => return Err(e)
-        Ok(response_str) =>
-          match parse_jsonrpc_response(response_str) {
-            Err(e) => return Err(e)
-            Ok(result_json) => {
-              let result = parse_tools_list(result_json)
-              match result {
-                Err(e) => Err(e)
-                Ok(list_result) => {
-                  let valid_tools : Array[@types.ToolDefinition] = []
-                  let header_schemas : Map[
-                    String,
-                    Array[(Array[String], String)],
-                  ] = Default::default()
-                  for tool in list_result.tools {
-                    match validate_tool_header_schema(tool.input_schema) {
-                      Valid(entries) => {
-                        valid_tools.push(tool)
-                        if entries.length() > 0 {
-                          header_schemas.set(tool.name, entries)
-                        }
-                      }
-                      Invalid(reason) =>
-                        println(
-                          "WARN: rejecting tool '" +
-                          tool.name +
-                          "' due to invalid x-mcp-header schema: " +
-                          reason,
-                        )
-                    }
-                  }
-                  // Push validated schemas to the HTTP transport so tools/call can
-                  // mirror parameters as Mcp-Param-* headers.
-                  match self.transport {
-                    @transport.AnyTransport::HttpClient(t) =>
-                      t.set_tool_header_schemas(header_schemas)
-                    _ => ()
-                  }
-                  Ok({
-                    tools: valid_tools,
-                    next_cursor: list_result.next_cursor,
-                    metadata: list_result.metadata,
-                  })
-                }
-              }
+    Modern => {
+      let response_str = self.send_request(request)
+
+      let result_json = parse_jsonrpc_response(response_str)
+
+      let list_result = parse_tools_list(result_json)
+
+      let valid_tools : Array[@types.ToolDefinition] = []
+      let header_schemas : Map[String, Array[(Array[String], String)]] = Default::default()
+      for tool in list_result.tools {
+        match validate_tool_header_schema(tool.input_schema) {
+          Valid(entries) => {
+            valid_tools.push(tool)
+            if entries.length() > 0 {
+              header_schemas.set(tool.name, entries)
             }
           }
+          Invalid(reason) =>
+            println(
+              "WARN: rejecting tool '" +
+              tool.name +
+              "' due to invalid x-mcp-header schema: " +
+              reason,
+            )
+        }
       }
+      // Push validated schemas to the HTTP transport so tools/call can
+      // mirror parameters as Mcp-Param-* headers.
+      match self.transport {
+        @transport.AnyTransport::HttpClient(t) =>
+          t.set_tool_header_schemas(header_schemas)
+        _ => ()
+      }
+      {
+        tools: valid_tools,
+        next_cursor: list_result.next_cursor,
+        metadata: list_result.metadata,
+      }
+    }
   }
 }
 
@@ -1105,7 +1047,7 @@ pub async fn MCPClient::call_tool(
   name : String,
   arguments~ : String = "{}",
   progress_token? : @types.ProgressToken,
-) -> Result[CallToolResult, @types.MCPError] {
+) -> CallToolResult {
   let id = self.next_request_id()
   let request = build_tools_call_request(
     id,
@@ -1113,9 +1055,7 @@ pub async fn MCPClient::call_tool(
     self.request_meta(),
     arguments~,
     progress_token?,
-  ) catch {
-    error => return Err(error)
-  }
+  )
   // Legacy backends: plain send/receive, no MRTR (a 2026-07-28 mechanism).
   if self.backend is Legacy(legacy) {
     return legacy_send_and_parse(
@@ -1124,21 +1064,17 @@ pub async fn MCPClient::call_tool(
       parse_call_tool,
     )
   }
-  match self.send_with_mrtr(request) {
-    Err(e) => return Err(e)
-    Ok(response_str) =>
-      match parse_jsonrpc_response(response_str) {
-        Err(e) => return Err(e)
-        Ok(result_json) => parse_call_tool(result_json)
-      }
-  }
+  let response_str = self.send_with_mrtr(request)
+
+  let result_json = parse_jsonrpc_response(response_str)
+  parse_call_tool(result_json)
 }
 
 ///|
 pub async fn MCPClient::list_resources(
   self : MCPClient,
   cursor~ : String = "",
-) -> Result[ListResourcesResult, @types.MCPError] {
+) -> ListResourcesResult {
   let id = self.next_request_id()
   let request = build_resources_list_request(id, self.request_meta(), cursor~)
   if self.backend is Legacy(legacy) {
@@ -1148,21 +1084,17 @@ pub async fn MCPClient::list_resources(
       parse_list_resources,
     )
   }
-  match self.send_request(request) {
-    Err(e) => return Err(e)
-    Ok(response_str) =>
-      match parse_jsonrpc_response(response_str) {
-        Err(e) => return Err(e)
-        Ok(result_json) => parse_list_resources(result_json)
-      }
-  }
+  let response_str = self.send_request(request)
+
+  let result_json = parse_jsonrpc_response(response_str)
+  parse_list_resources(result_json)
 }
 
 ///|
 pub async fn MCPClient::read_resource(
   self : MCPClient,
   uri : String,
-) -> Result[ReadResourceResult, @types.MCPError] {
+) -> ReadResourceResult {
   let id = self.next_request_id()
   let request = build_resources_read_request(id, uri, self.request_meta())
   if self.backend is Legacy(legacy) {
@@ -1172,21 +1104,17 @@ pub async fn MCPClient::read_resource(
       parse_read_resource,
     )
   }
-  match self.send_with_mrtr(request) {
-    Err(e) => return Err(e)
-    Ok(response_str) =>
-      match parse_jsonrpc_response(response_str) {
-        Err(e) => return Err(e)
-        Ok(result_json) => parse_read_resource(result_json)
-      }
-  }
+  let response_str = self.send_with_mrtr(request)
+
+  let result_json = parse_jsonrpc_response(response_str)
+  parse_read_resource(result_json)
 }
 
 ///|
 pub async fn MCPClient::list_prompts(
   self : MCPClient,
   cursor~ : String = "",
-) -> Result[ListPromptsResult, @types.MCPError] {
+) -> ListPromptsResult {
   let id = self.next_request_id()
   let request = build_prompts_list_request(id, self.request_meta(), cursor~)
   if self.backend is Legacy(legacy) {
@@ -1196,14 +1124,10 @@ pub async fn MCPClient::list_prompts(
       parse_list_prompts,
     )
   }
-  match self.send_request(request) {
-    Err(e) => return Err(e)
-    Ok(response_str) =>
-      match parse_jsonrpc_response(response_str) {
-        Err(e) => return Err(e)
-        Ok(result_json) => parse_list_prompts(result_json)
-      }
-  }
+  let response_str = self.send_request(request)
+
+  let result_json = parse_jsonrpc_response(response_str)
+  parse_list_prompts(result_json)
 }
 
 ///|
@@ -1211,16 +1135,14 @@ pub async fn MCPClient::get_prompt(
   self : MCPClient,
   name : String,
   arguments~ : String = "{}",
-) -> Result[@types.GetPromptResult, @types.MCPError] {
+) -> @types.GetPromptResult {
   let id = self.next_request_id()
   let request = build_prompts_get_request(
     id,
     name,
     self.request_meta(),
     arguments~,
-  ) catch {
-    error => return Err(error)
-  }
+  )
   if self.backend is Legacy(legacy) {
     return legacy_send_and_parse(
       legacy,
@@ -1228,21 +1150,17 @@ pub async fn MCPClient::get_prompt(
       parse_get_prompt,
     )
   }
-  match self.send_with_mrtr(request) {
-    Err(e) => return Err(e)
-    Ok(response_str) =>
-      match parse_jsonrpc_response(response_str) {
-        Err(e) => return Err(e)
-        Ok(result_json) => parse_get_prompt(result_json)
-      }
-  }
+  let response_str = self.send_with_mrtr(request)
+
+  let result_json = parse_jsonrpc_response(response_str)
+  parse_get_prompt(result_json)
 }
 
 ///|
 pub async fn MCPClient::list_resource_templates(
   self : MCPClient,
   cursor~ : String = "",
-) -> Result[ListResourceTemplatesResult, @types.MCPError] {
+) -> ListResourceTemplatesResult {
   let id = self.next_request_id()
   let request = build_resources_templates_list_request(
     id,
@@ -1256,14 +1174,10 @@ pub async fn MCPClient::list_resource_templates(
       parse_list_resource_templates,
     )
   }
-  match self.send_request(request) {
-    Err(e) => return Err(e)
-    Ok(response_str) =>
-      match parse_jsonrpc_response(response_str) {
-        Err(e) => return Err(e)
-        Ok(result_json) => parse_list_resource_templates(result_json)
-      }
-  }
+  let response_str = self.send_request(request)
+
+  let result_json = parse_jsonrpc_response(response_str)
+  parse_list_resource_templates(result_json)
 }
 
 ///|
@@ -1274,11 +1188,11 @@ pub async fn MCPClient::complete(
   argument_name~ : String,
   argument_value~ : String,
   context_arguments? : Map[String, String],
-) -> Result[CompletionResult, @types.MCPError] {
+) -> CompletionResult {
   let reference = match ref_type {
     "ref/prompt" => @types.CompletionReference::prompt(ref_name)
     "ref/resource" => @types.CompletionReference::resource(ref_name)
-    _ => return Err(@types.InvalidParams("Unknown completion reference type"))
+    _ => raise @types.InvalidParams("Unknown completion reference type")
   }
   self.complete_reference(
     reference,
@@ -1295,7 +1209,7 @@ pub async fn MCPClient::complete_reference(
   argument_name~ : String,
   argument_value~ : String,
   context_arguments? : Map[String, String],
-) -> Result[CompletionResult, @types.MCPError] {
+) -> CompletionResult {
   let id = self.next_request_id()
   let request = build_completion_reference_request(
     id,
@@ -1312,14 +1226,10 @@ pub async fn MCPClient::complete_reference(
       parse_completion_result,
     )
   }
-  match self.send_request(request) {
-    Err(e) => return Err(e)
-    Ok(response_str) =>
-      match parse_jsonrpc_response(response_str) {
-        Err(e) => return Err(e)
-        Ok(result_json) => parse_completion_result(result_json)
-      }
-  }
+  let response_str = self.send_request(request)
+
+  let result_json = parse_jsonrpc_response(response_str)
+  parse_completion_result(result_json)
 }
 
 ///|
@@ -1425,7 +1335,7 @@ pub fn MCPClient::set_legacy_mode(
 ///|
 /// Start a `subscriptions/listen` request. Returns the subscription id string
 /// on success. The caller must already have started the event loop via `run`;
-/// otherwise a clear error is returned. Notifications carrying the subscription
+/// otherwise a clear error is raised. Notifications carrying the subscription
 /// id in `params._meta` are routed to `handler` until the server closes the
 /// subscription (the final JSON-RPC response causes a background cleanup task
 /// to unregister the handler).
@@ -1434,19 +1344,15 @@ pub fn MCPClient::listen(
   filter~ : ListenFilter = ListenFilter::default(),
   handler~ : (Json) -> Unit,
   group~ : @async.TaskGroup[Unit],
-) -> Result[String, @types.MCPError] {
+) -> String raise @types.MCPError {
   if self.backend is Legacy(_) {
-    return Err(
-      @types.MethodNotFound(
-        "subscriptions/listen is not supported by legacy MCP servers",
-      ),
+    raise @types.MethodNotFound(
+      "subscriptions/listen is not supported by legacy MCP servers",
     )
   }
   if !self.event_loop_started {
-    return Err(
-      @types.InvalidRequest(
-        "event loop not started; call run(...) before listen(...)",
-      ),
+    raise @types.InvalidRequest(
+      "event loop not started; call run(...) before listen(...)",
     )
   }
   let id = self.next_request_id()
@@ -1459,10 +1365,13 @@ pub fn MCPClient::listen(
   let key = @types.RequestId::Int(id).key()
   self.subscription_handlers[key] = handler
   group.spawn_bg(async fn() {
-    let _ = self.send_request(request)
-    self.subscription_handlers.remove(key)
+    defer self.subscription_handlers.remove(key)
+    ignore(self.send_request(request)) catch {
+      @types.Cancelled(_) => ()
+      error => raise error
+    }
   })
-  Ok(id_str)
+  id_str
 }
 
 ///|
@@ -1471,12 +1380,12 @@ pub fn MCPClient::listen(
 pub async fn MCPClient::cancel_listen(
   self : MCPClient,
   subscription_id : String,
-) -> Result[Unit, @types.MCPError] {
+) -> Unit {
   let parsed = @validation.parse_json(subscription_id) catch {
-    _ => return Err(@types.InvalidParams("Invalid subscription id"))
+    _ => raise @types.InvalidParams("Invalid subscription id")
   }
   let id = @types.RequestId::from_json(parsed) catch {
-    _ => return Err(@types.InvalidParams("Invalid subscription id"))
+    _ => raise @types.InvalidParams("Invalid subscription id")
   }
   self.cancel_request(id, reason="client cancelled listen subscription")
 }
@@ -1563,14 +1472,22 @@ fn[T] MCPClient::handle_server_request(
       "sampling/createMessage" =>
         match sampling_h {
           Some(handler) =>
-            match handler(params) {
-              Ok(result) =>
-                Json::object({
-                  "jsonrpc": "2.0",
-                  "id": id_json,
-                  "result": serialize_create_message_result(result),
-                }).stringify()
-              Err(e) => jsonrpc_error_from(id_json, e)
+            try {
+              ignore(@validation.check_sampling_request(params))
+              match handler(params) {
+                Ok(result) => {
+                  let wire = serialize_create_message_result(result)
+                  @validation.check_sampling_response(params, wire)
+                  Json::object({
+                    "jsonrpc": "2.0",
+                    "id": id_json,
+                    "result": wire,
+                  }).stringify()
+                }
+                Err(e) => jsonrpc_error_from(id_json, e)
+              }
+            } catch {
+              e => jsonrpc_error_from(id_json, e)
             }
           None => jsonrpc_error_str(id_json, -32601, "sampling not supported")
         }
@@ -1650,36 +1567,30 @@ fn extract_subscription_id(params : Json?) -> String? {
 }
 
 ///|
-fn parse_jsonrpc_response(
-  response_str : String,
-) -> Result[Json, @types.MCPError] {
+fn parse_jsonrpc_response(response_str : String) -> Json raise @types.MCPError {
   let json = @validation.parse_json(response_str) catch {
-    _ => return Err(@types.ParseError("Invalid JSON response"))
+    _ => raise @types.ParseError("Invalid JSON response")
   }
   match json {
     Object(obj) => {
       match obj.get("error") {
         Some(value) => {
           if obj.contains("result") {
-            return Err(
-              @types.InvalidRequest(
-                "Response must not contain both result and error",
-              ),
+            raise @types.InvalidRequest(
+              "Response must not contain both result and error",
             )
           }
-          let error = @types.MCPError::from_jsonrpc_error(value) catch {
-            error => return Err(error)
-          }
-          return Err(error)
+          let error = @types.MCPError::from_jsonrpc_error(value)
+          raise error
         }
         None => ()
       }
       match obj.get("result") {
-        Some(result_json) => Ok(result_json)
-        None => Err(@types.InvalidRequest("Response missing 'result' field"))
+        Some(result_json) => result_json
+        None => raise @types.InvalidRequest("Response missing 'result' field")
       }
     }
-    _ => Err(@types.ParseError("Response must be a JSON object"))
+    _ => raise @types.ParseError("Response must be a JSON object")
   }
 }
 
@@ -1738,7 +1649,7 @@ fn parse_server_info_from_result(result : Json) -> @types.ServerInfo? {
 ///|
 fn parse_tools_list(
   result_json : Json,
-) -> Result[ListToolsResult, @types.MCPError] {
+) -> ListToolsResult raise @types.MCPError {
   match result_json {
     Object(obj) =>
       match obj.get("tools") {
@@ -1746,38 +1657,30 @@ fn parse_tools_list(
           let next_cursor = match obj.get("nextCursor") {
             Some(String(c)) => Some(c)
             None => None
-            _ => return Err(@types.InvalidParams("Invalid nextCursor string"))
+            _ => raise @types.InvalidParams("Invalid nextCursor string")
           }
-          let tools = tools_json.map(@types.ToolDefinition::from_json) catch {
-            error => return Err(error)
-          }
+          let tools = tools_json.map(@types.ToolDefinition::from_json)
           let metadata = @types.ResultMetadata::from_json(result_json, body_fields=[
             "tools", "nextCursor",
-          ]) catch {
-            error => return Err(error)
-          }
-          Ok({ tools, next_cursor, metadata, })
+          ])
+          { tools, next_cursor, metadata, }
         }
-        _ => Err(@types.InvalidRequest("Missing 'tools' array in result"))
+        _ => raise @types.InvalidRequest("Missing 'tools' array in result")
       }
-    _ => Err(@types.ParseError("Result must be a JSON object"))
+    _ => raise @types.ParseError("Result must be a JSON object")
   }
 }
 
 ///|
-fn parse_call_tool(
-  result_json : Json,
-) -> Result[CallToolResult, @types.MCPError] {
-  let result = @types.ToolResult::from_json(result_json) catch {
-    error => return Err(error)
-  }
-  Ok(result)
+fn parse_call_tool(result_json : Json) -> CallToolResult raise @types.MCPError {
+  let result = @types.ToolResult::from_json(result_json)
+  result
 }
 
 ///|
 fn parse_list_resources(
   result_json : Json,
-) -> Result[ListResourcesResult, @types.MCPError] {
+) -> ListResourcesResult raise @types.MCPError {
   match result_json {
     Object(obj) =>
       match obj.get("resources") {
@@ -1785,40 +1688,34 @@ fn parse_list_resources(
           let next_cursor = match obj.get("nextCursor") {
             Some(String(c)) => Some(c)
             None => None
-            _ => return Err(@types.InvalidParams("Invalid nextCursor string"))
+            _ => raise @types.InvalidParams("Invalid nextCursor string")
           }
           let resources = resources_json.map(
             @types.ResourceDefinition::from_json,
-          ) catch {
-            error => return Err(error)
-          }
+          )
           let metadata = @types.ResultMetadata::from_json(result_json, body_fields=[
             "resources", "nextCursor",
-          ]) catch {
-            error => return Err(error)
-          }
-          Ok({ resources, next_cursor, metadata, })
+          ])
+          { resources, next_cursor, metadata, }
         }
-        _ => Err(@types.InvalidRequest("Missing 'resources' array in result"))
+        _ => raise @types.InvalidRequest("Missing 'resources' array in result")
       }
-    _ => Err(@types.ParseError("Result must be a JSON object"))
+    _ => raise @types.ParseError("Result must be a JSON object")
   }
 }
 
 ///|
 fn parse_read_resource(
   result_json : Json,
-) -> Result[ReadResourceResult, @types.MCPError] {
-  let result = @types.ResourceReadResult::from_json(result_json) catch {
-    error => return Err(error)
-  }
-  Ok({ contents: result.contents, metadata: result.metadata, })
+) -> ReadResourceResult raise @types.MCPError {
+  let result = @types.ResourceReadResult::from_json(result_json)
+  { contents: result.contents, metadata: result.metadata, }
 }
 
 ///|
 fn parse_list_prompts(
   result_json : Json,
-) -> Result[ListPromptsResult, @types.MCPError] {
+) -> ListPromptsResult raise @types.MCPError {
   match result_json {
     Object(obj) =>
       match obj.get("prompts") {
@@ -1826,32 +1723,26 @@ fn parse_list_prompts(
           let next_cursor = match obj.get("nextCursor") {
             Some(String(c)) => Some(c)
             None => None
-            _ => return Err(@types.InvalidParams("Invalid nextCursor string"))
+            _ => raise @types.InvalidParams("Invalid nextCursor string")
           }
-          let prompts = prompts_json.map(@types.PromptDefinition::from_json) catch {
-            error => return Err(error)
-          }
+          let prompts = prompts_json.map(@types.PromptDefinition::from_json)
           let metadata = @types.ResultMetadata::from_json(result_json, body_fields=[
             "prompts", "nextCursor",
-          ]) catch {
-            error => return Err(error)
-          }
-          Ok({ prompts, next_cursor, metadata, })
+          ])
+          { prompts, next_cursor, metadata, }
         }
-        _ => Err(@types.InvalidRequest("Missing 'prompts' array in result"))
+        _ => raise @types.InvalidRequest("Missing 'prompts' array in result")
       }
-    _ => Err(@types.ParseError("Result must be a JSON object"))
+    _ => raise @types.ParseError("Result must be a JSON object")
   }
 }
 
 ///|
 fn parse_get_prompt(
   result_json : Json,
-) -> Result[@types.GetPromptResult, @types.MCPError] {
-  let result = @types.GetPromptResult::from_json(result_json) catch {
-    error => return Err(error)
-  }
-  Ok(result)
+) -> @types.GetPromptResult raise @types.MCPError {
+  let result = @types.GetPromptResult::from_json(result_json)
+  result
 }
 
 ///|
@@ -1873,7 +1764,7 @@ fn parse_resource_template(
 ///|
 fn parse_list_resource_templates(
   result_json : Json,
-) -> Result[ListResourceTemplatesResult, @types.MCPError] {
+) -> ListResourceTemplatesResult raise @types.MCPError {
   match result_json {
     Object(obj) =>
       match obj.get("resourceTemplates") {
@@ -1881,24 +1772,20 @@ fn parse_list_resource_templates(
           let next_cursor = match obj.get("nextCursor") {
             Some(String(c)) => Some(c)
             None => None
-            _ => return Err(@types.InvalidParams("Invalid nextCursor string"))
+            _ => raise @types.InvalidParams("Invalid nextCursor string")
           }
-          let resource_templates = templates_json.map(parse_resource_template) catch {
-            error => return Err(error)
-          }
+          let resource_templates = templates_json.map(parse_resource_template)
           let metadata = @types.ResultMetadata::from_json(result_json, body_fields=[
             "resourceTemplates", "nextCursor",
-          ]) catch {
-            error => return Err(error)
-          }
-          Ok({ resource_templates, next_cursor, metadata, })
+          ])
+          { resource_templates, next_cursor, metadata, }
         }
         _ =>
-          Err(
-            @types.InvalidRequest("Missing 'resourceTemplates' array in result"),
+          raise @types.InvalidRequest(
+            "Missing 'resourceTemplates' array in result",
           )
       }
-    _ => Err(@types.ParseError("Result must be a JSON object"))
+    _ => raise @types.ParseError("Result must be a JSON object")
   }
 }
 
@@ -1909,12 +1796,9 @@ fn parse_list_resource_templates(
 /// InvalidParams error.
 fn parse_completion_result(
   result_json : Json,
-) -> Result[CompletionResult, @types.MCPError] {
-  try @types.CompletionResult::from_json(result_json) catch {
-    error => Err(error)
-  } noraise {
-    result => Ok(result)
-  }
+) -> CompletionResult raise @types.MCPError {
+  let result = @types.CompletionResult::from_json(result_json)
+  result
 }
 
 ///|

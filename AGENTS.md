@@ -28,6 +28,14 @@ moon coverage analyze                      # coverage report (redirect explicitl
 > `http_client.mbt` and `jsonrpc_logic.mbt` are all-target and js runs them for
 > real. Keep new transport code gated the same way instead of `#cfg`.
 
+> **e2e channel naming**: real-I/O end-to-end tests are grouped by channel —
+> test names carry a channel prefix (`e2e/stdio:`, `e2e/http:`, `e2e/sse:`,
+> `e2e/legacy:`) and live in `*_e2e_test.mbt` / `*_e2e_wbtest.mbt` files.
+> Select a channel by test-name glob (`-f` matches names, not paths):
+> `moon test --target native --output-json -f 'e2e/http:*'`. New e2e tests
+> must go into the matching channel file; pure-logic tests never belong in
+> e2e files.
+
 **Pre-commit checklist** (the hook only runs `moon check`, but run all 4):
 ```bash
 moon check --target native --output-json

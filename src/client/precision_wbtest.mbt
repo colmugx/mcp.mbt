@@ -24,15 +24,9 @@ test "tool wire values keep exact decimal literals through build, retry and resp
   let wire = "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"content\":[],\"structuredContent\":" +
     literal +
     ",\"isError\":false,\"resultType\":\"complete\"}}"
-  match parse_jsonrpc_response(wire) {
-    Ok(result) => {
-      let parsed = parse_call_tool(result)
-      match parsed {
-        Ok(result) =>
-          assert_eq(result.structured_content.unwrap().stringify(), literal)
-        Err(error) => raise error
-      }
-    }
-    Err(error) => raise error
-  }
+  let result = parse_jsonrpc_response(wire)
+
+  let parsed = parse_call_tool(result)
+  let result = parsed
+  assert_eq(result.structured_content.unwrap().stringify(), literal)
 }

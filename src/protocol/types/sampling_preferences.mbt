@@ -5,11 +5,13 @@ pub(all) struct ModelHint {
 } derive(Debug, Eq)
 
 ///|
+/// Sampling priorities keep exact decimal literals (pinned schema: `number`
+/// with minimum 0 and maximum 1); range checks never round through Double.
 pub(all) struct ModelPreferences {
   hints : Array[ModelHint]?
-  cost_priority : Double?
-  speed_priority : Double?
-  intelligence_priority : Double?
+  cost_priority : JsonNumber?
+  speed_priority : JsonNumber?
+  intelligence_priority : JsonNumber?
   extensions : Map[String, Json]
 } derive(Debug, Eq)
 
@@ -60,12 +62,12 @@ pub fn ModelPreferences::new(
   cost_priority? : Double,
   speed_priority? : Double,
   intelligence_priority? : Double,
-) -> ModelPreferences {
+) -> ModelPreferences raise {
   {
     hints,
-    cost_priority,
-    speed_priority,
-    intelligence_priority,
+    cost_priority: cost_priority.map(JsonNumber::from_double),
+    speed_priority: speed_priority.map(JsonNumber::from_double),
+    intelligence_priority: intelligence_priority.map(JsonNumber::from_double),
     extensions: Map([]),
   }
 }
@@ -74,12 +76,15 @@ pub fn ModelPreferences::new(
 fn sampling_priority(
   fields : Map[String, Json],
   key : String,
-) -> Double? raise MCPError {
-  let value = wire_optional_number(fields, key)
-  match value {
-    Some(value) if value < 0 || value > 1 =>
-      raise InvalidParams("Sampling '\{key}' must be between 0 and 1")
-    _ => value
+) -> JsonNumber? raise MCPError {
+  match wire_optional_exact_number(fields, key) {
+    Some(value) => {
+      guard exact_unit_range(value.key()) else {
+        raise InvalidParams("Sampling '\{key}' must be between 0 and 1")
+      }
+      Some(value)
+    }
+    None => None
   }
 }
 
@@ -113,9 +118,13 @@ pub impl ToJson for ModelPreferences with fn to_json(self) {
     Some(hints) => fields.set("hints", Json(hints))
     None => ()
   }
-  wire_put_number(fields, "costPriority", self.cost_priority)
-  wire_put_number(fields, "speedPriority", self.speed_priority)
-  wire_put_number(fields, "intelligencePriority", self.intelligence_priority)
+  wire_put_exact_number(fields, "costPriority", self.cost_priority)
+  wire_put_exact_number(fields, "speedPriority", self.speed_priority)
+  wire_put_exact_number(
+    fields,
+    "intelligencePriority",
+    self.intelligence_priority,
+  )
   Json::object(fields)
 }
 

@@ -40,8 +40,8 @@ pub struct AesGcmStateCodec {
   key : Bytes
 }
 pub fn AesGcmStateCodec::AesGcmStateCodec() -> Self
-pub fn AesGcmStateCodec::open(Self, String, RequestStateContext, now~ : Int) -> RequestStatePayload?
-pub fn AesGcmStateCodec::seal(Self, RequestStatePayload, now~ : Int) -> String
+pub fn AesGcmStateCodec::open(Self, String, RequestStateContext, now~ : Int32) -> RequestStatePayload?
+pub fn AesGcmStateCodec::seal(Self, RequestStatePayload, now~ : Int32) -> String
 pub fn AesGcmStateCodec::with_key(Bytes) -> Self
 
 pub struct CompletionRegistry {
@@ -58,7 +58,7 @@ pub struct MCPServer {
   instructions : String?
   auth_config : @transport.AuthConfig?
   request_state_codec : AesGcmStateCodec?
-  clock : () -> Int
+  clock : () -> Int32
   registry : ToolRegistry
   resource_registry : ResourceRegistry
   prompt_registry : PromptRegistry
@@ -68,7 +68,7 @@ pub struct MCPServer {
   prompts_enabled : Bool?
   subscriptions : Map[String, ActiveSubscription]
   active_requests : Map[String, @runtime.CancellationToken]
-  mut next_scope_id : Int
+  mut next_scope_id : Int32
 }
 pub fn MCPServer::MCPServer(String, String) -> Self
 pub fn MCPServer::capabilities(Self) -> @types.ServerCapabilities
@@ -86,12 +86,12 @@ pub fn MCPServer::resource_definition(Self, @types.ResourceDefinition, async (@r
 pub fn MCPServer::resource_mrtr(Self, String, String, String, String, async (@runtime.RequestContext, Json) -> Result[@resource.ResourceReadOutcome, @types.MCPError]) -> Self
 pub fn MCPServer::resource_template(Self, uri_template~ : String, name~ : String, description? : String, mime_type? : String) -> Self
 pub fn MCPServer::resource_template_definition(Self, @types.ResourceTemplateDefinition) -> Self
-pub async fn MCPServer::run_http(Self, port? : Int, path? : String) -> Unit raise @types.TransportError
+pub async fn MCPServer::run_http(Self, port? : Int32, path? : String) -> Unit raise @types.TransportError
 pub async fn MCPServer::run_stdio(Self) -> Unit raise @types.TransportError
 pub fn MCPServer::tool(Self, String, String, Json, async (@runtime.RequestContext, Json) -> Result[@types.ToolResult, @types.MCPError]) -> Self raise @types.MCPError
-pub fn MCPServer::tool_definition(Self, @types.ToolDefinition, async (@runtime.RequestContext, Json) -> Result[@tool.ToolCallOutcome, @types.MCPError]) -> Self raise @types.MCPError
+pub fn MCPServer::tool_definition(Self, @types.ToolDefinition, async (@runtime.RequestContext, Json) -> Result[@tool.ToolCallOutcome, @types.MCPError], schema_resources? : Map[String, Json], input_base_uri? : String, output_base_uri? : String) -> Self raise @types.MCPError
 pub fn MCPServer::with_auth(Self, @transport.AuthConfig) -> Self
-pub fn MCPServer::with_clock(Self, () -> Int) -> Self
+pub fn MCPServer::with_clock(Self, () -> Int32) -> Self
 pub fn MCPServer::with_completions(Self, CompletionRegistry) -> Self
 pub fn MCPServer::with_description(Self, String) -> Self
 pub fn MCPServer::with_instructions(Self, String) -> Self
@@ -116,7 +116,7 @@ pub(all) struct RequestStateContext {
 
 pub(all) struct RequestStatePayload {
   principal : String?
-  expires_at : Int
+  expires_at : Int32
   request_method : String
   params_digest : String
   state : Json
@@ -223,6 +223,6 @@ pub using @tool {trait Tool}
 
 // Traits
 pub trait RequestStateCodec {
-  fn seal(Self, RequestStatePayload, now~ : Int) -> String
-  fn open(Self, String, RequestStateContext, now~ : Int) -> RequestStatePayload?
+  fn seal(Self, RequestStatePayload, now~ : Int32) -> String
+  fn open(Self, String, RequestStateContext, now~ : Int32) -> RequestStatePayload?
 }

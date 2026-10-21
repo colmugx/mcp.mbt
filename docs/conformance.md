@@ -1,6 +1,6 @@
 # MCP 2026-07-28 conformance
 
-This branch is completing the remaining protocol and runtime requirements. **It is not yet a complete MCP 2026-07-28 implementation.** Use the evidence below to distinguish wire-model support from runtime guarantees.
+This checkout implements the protocol/runtime slices below, including external schema resources and the final integration regressions. **This is not an unconditional complete MCP 2026-07-28 conformance claim.** Optional validator profiles, host obligations and the checked-error API migration are explicit below. Wire-model support, runtime guarantees and release readiness are separate acceptance dimensions.
 
 ## Protocol baseline
 
@@ -18,15 +18,16 @@ OAuth authorization client lifecycle, PKCE, dynamic client registration, and tok
 | Full tool registration | Owns a deep snapshot of the definition; compiles schemas before atomic registry replacement | `src/server/tool_wire_wbtest.mbt`; `src/server/schema_validation_wbtest.mbt` |
 | Tool execution validation | Compile-once input checks before handler/MRTR dispatch; successful structured output checked against declared outputSchema; input errors -32602, output-contract failures -32603 | `src/server/schema_validation_wbtest.mbt` |
 | Precise numeric wire values | Argument builders, request parsing, retries/legacy metadata, structured results and mirrored-header comparisons preserve numeric lexemes | `src/client/precision_wbtest.mbt`; schema-validation and header tests |
+| Exact progress identity | Numeric tokens retain arbitrary decimal/exponent literals and compare by exact numeric identity; string tokens remain separate. Decoding returns `ExactNumber(JsonNumber)`; counters use exact `JsonNumber` values | `src/protocol/types/progress_exact_test.mbt`; `src/client/progress_wbtest.mbt` |
 | Server result metadata merge | Preserves handler metadata and extensions; adds server identity without mutating the supplied top-level result/metadata maps | `src/server/tool_wire_wbtest.mbt` |
 | Shared result metadata model | Result type, nonnegative integral TTL, public/private scope, `_meta`, extensions, server-info accessor; integrated into tool calls, resource results, prompt results | Wire-model and client/server codec tests |
 | Resources | Complete definitions/templates; multiple text/blob contents with per-content metadata; strict codecs, no MIME defaults | `src/protocol/types/resource_wire_test.mbt`; resource client/server codec tests |
 | Prompts | Titles, icons, argument titles/optional required, definition/result metadata, message extensions; nonstandard annotations retained as extensions | `src/protocol/types/prompt_wire_test.mbt`; prompt client/server codec tests |
 | RequestContext and authentication | Separate business arguments, trusted principal, input responses, restored continuation state, cancellation and progress; HTTP authentication returns `Principal?` | `src/server/request_context_wbtest.mbt`; HTTP I/O tests |
 | MRTR runtime | Real clock, principal/method/operation binding, expiry/tamper checks; sealed input definitions validate exact response keys and unions before dispatch; stateless valid retries retain original business state | Request-state, request-context and `src/server/input_state_wbtest.mbt` tests |
-| MRTR output and exchange limits | Malformed handler-authored input requests fail with -32603; client exchange limits stop without a final unconsumable interaction | `src/server/input_request_wbtest.mbt`; `src/client/mrtr_rounds_io_wbtest.mbt` |
-| Request cancellation | Scoped server task ownership, no late response after cancellation, local client wait release, typed stdio ids, owned HTTP stream closure | `src/server/cancellation_runtime_wbtest.mbt`; `src/client/request_cancel_io_wbtest.mbt` |
-| SSE disconnect | Single-writer keepalive flushes detect disconnect, close reply queues and cancel handlers; comment-only heartbeats are not EOF | `src/transport/sse_flush_io_test.mbt`; HTTP cancellation test |
+| MRTR output and exchange limits | Malformed handler-authored input requests fail with -32603; client exchange limits stop without a final unconsumable interaction | `src/server/input_request_wbtest.mbt`; `src/client/http_mrtr_rounds_e2e_wbtest.mbt` |
+| Request cancellation | Scoped server task ownership, no late response after cancellation, local client wait release, typed stdio ids, owned HTTP stream closure | `src/server/cancellation_runtime_wbtest.mbt`; `src/client/stdio_request_cancel_e2e_wbtest.mbt` |
+| SSE disconnect | Single-writer keepalive flushes detect disconnect, close reply queues and cancel handlers; comment-only heartbeats are not EOF | `src/transport/sse_flush_e2e_test.mbt`; HTTP cancellation test |
 | Completion | Typed prompt/resource references, context arguments, shared strict result codecs, opt-in server registry and discovery flag | Completion protocol/client/server tests |
 | Capabilities | Experimental, extensions and unknown fields; sampling context/tools, elicitation form/url, server completions/logging; nested MRTR enforcement | Capability protocol/client/server tests |
 | Progress tokens | String and finite numeric identifiers, including fractional values; request metadata and notification codecs preserve their types | Progress protocol/client tests |
@@ -43,16 +44,26 @@ OAuth authorization client lifecycle, PKCE, dynamic client registration, and tok
 | Complete result publication | Known tool/resource/prompt handler wire shapes validated; invalid metadata TTL is rejected before serialization; explicit cache hints preserved and defaults fill omissions | `src/server/result_metadata_wbtest.mbt` |
 | One-shot response routing | Single-reader temporary pumps dispatch progress and id-correlated responses without run(); concurrent/out-of-order HTTP replies cannot cross callers | `src/client/response_pump_wbtest.mbt`; real HTTP client regression tests |
 | SSE byte decoding | Split multi-byte UTF-8 sequences and leading BOM retained across refills; malformed/truncated bytes fail rather than signal EOF | `src/transport/sse_wbtest.mbt` |
-| Stdio frame ownership | Concurrent large requests/notifications serialize as complete frames on native/JS; partial-write failures close the channel; best-effort cancellation has a bounded wait | `src/transport/stdio_frame_io_test.mbt`; client response-pump tests |
+| Stdio frame ownership | Concurrent large requests/notifications serialize as complete frames on native/JS; partial-write failures close the channel; best-effort cancellation has a bounded wait | `src/transport/stdio_frame_e2e_test.mbt`; client response-pump tests |
+| External schema execution | Per-tool registry, separate input/output retrieval bases, compiled ownership, atomic failed replacement; remote anchors/dynamic/unevaluated/custom-dialect execution | `src/server/schema_resources_wbtest.mbt`; real SDK HTTP contract test in `src/client/http_mrtr_rounds_e2e_wbtest.mbt` |
+| Sampling history | Adjacent complete tool-use/result exchanges, role constraints, no mixed tool-result messages, duplicate/missing/extra correlation rejection; shared MRTR/legacy/server validation | `src/validation/sampling_history_test.mbt`; client/server input-request tests |
+| URL syntax | Absolute URL syntax, authority/port/brackets/escape checks before interaction; no implicit fetching or HTTPS-only policy | `src/protocol/types/elicitation_url_test.mbt` |
+| HTTP error and stream ownership | Protocol HTTP 400/404 mapping, exact peer errors from error status responses, id correlation, no modern independent server request, final SSE ends local read ownership | `src/transport/http_status_wbtest.mbt`; `src/transport/http_protocol_wbtest.mbt`; `src/client/http_mrtr_rounds_e2e_wbtest.mbt` |
+| Subscription validation | Required filter object, strict known filter types, duplicate active-id rejection, acknowledgement before subsequent change notification | `src/server/subscription_validation_wbtest.mbt` |
 
 Round-trip checks compare JSON values, not whitespace or object-key order. Top-level map isolation does not imply a deep copy of every nested JSON object.
 
-## Remaining acceptance work
+## Acceptance boundaries and host obligations
 
-- Arbitrary JSON Schema 2020-12 execution beyond the supported validator profile: remote references/resource identifiers, dynamic scope, vocabulary, unevaluated semantics and general ECMA-262 patterns remain unsupported. Registration fails explicitly rather than advertising unenforced constraints.
-- Typed numeric-value precision and remaining open-extension wire edge cases (including convenience models using Double); lossless raw JSON paths do not imply lossless every typed field.
-- Remaining normative sampling/elicitation policies and input-response lifecycle edges beyond the tested wire/constraint/correlation guarantees.
-- Full conformance matrix, remaining transport E2E cases and final documentation review.
+The [155-definition routing index](protocol-definition-index.md) maps every fixed schema definition to its SDK representation, implementation family and test family. It is not 155 independent conformance tests or a formal proof of every MUST.
+
+- The validator supports preloaded remote refs, resource identities/anchors, dynamic scope, unevaluated semantics and standard-vocabulary custom dialects. General ECMA-262 regexes, format assertions and custom keyword plugins remain outside the supported profile. The independent library's 1301/1301 standard result is **not** an MCP protocol test count; optional cases remain 547/1036.
+- The explicitly approved error-API migration replaces failure-returning `Result[T, MCPError]` APIs with checked errors, resolving all 48 Warning 78 (`result_error_return`) diagnostics. Native/JS/Wasm deny-warn checks now pass without suppression or CI changes. Business handler callbacks retain explicit Result outcomes; see the client guide's error-handling section for the breaking call-site migration.
+- Sampling handlers must enforce provider `maxTokens`, protect model access and implement application approval policy. The SDK passes exact values and validates tool-choice/history semantics; it cannot infer actual provider token consumption from returned content.
+- Elicitation hosts must display the server and full URL, obtain consent before navigation, provide decline/cancel and form review, and enforce sensitive-data policy. The SDK does not pre-fetch/open URLs, identify secrets from field labels, or verify a third-party browser session. URL `Accept` is consent, not completion.
+- Deprecated logging is preserved through raw notification callbacks and metadata but is not advertised by the server. No automatic cache, OAuth client lifecycle or single-use replay store is included.
+- Known typed fields are checked and unknown extensions retained; retaining an extension does not implement its semantics. Programmatic Double values cannot recover digits already rounded before entering the SDK.
+- Low-level HTTP server startup/receive APIs still translate task shutdown into their typed transport errors; custom service owners must distinguish expected task cancellation during teardown. Request-local cancellation and no-late-response guarantees are tested separately.
 
 Cancellation is cooperative: asynchronous suspension points allow the runtime to stop work, while CPU-only handlers should check their context token. HTTP disconnect detection is bounded by keepalive writes, not instantaneous.
 
@@ -96,9 +107,14 @@ in the independent submodule and must be included in the published dependency.
 Tool registration compiles input and optional output schemas once using the independent
 `colmugx/json-schema` library. Registration rejects malformed/unsupported schemas before
 changing the registry. Runtime checks support closed objects, arrays, dependencies,
-combinators, precise numeric constraints and same-document static `$ref`/`$defs`,
-including recursive plans with depth budgets. Schema storage and execution use owned
-snapshots; mutating the original definition does not change the registered contract.
+combinators, precise numeric constraints, local/preloaded external `$ref`/`$defs`,
+resource `$id`/anchors, dynamic references, unevaluated constraints and supported
+standard-vocabulary custom dialects. `tool_definition(..., schema_resources?,
+input_base_uri?, output_base_uri?)` supplies an explicit per-registration resource
+registry and separate retrieval bases. Both validators compile before the registry
+entry changes. Owned plans retain neither a live resolver nor mutable source JSON;
+mutating the original definition or resource table does not change the contract.
+Compilation and evaluation never fetch network resources.
 
 Invalid tool arguments never enter the handler. A successful result declaring an
 output schema must contain matching `structuredContent`; absence differs from explicit
@@ -115,10 +131,11 @@ and instance traversal budgets are 128; cyclic references fail with typed errors
 than looping. See the independent [`json-schema.mbt` repository](https://github.com/colmugx/json-schema.mbt) and the checked-out `external/json-schema` submodule for its supported execution profile.
 
 Development uses `moon.work` to resolve the local independent library. The declared
-`colmugx/json-schema@0.0.1` dependency was not found in the registry during verification.
-Before publishing this SDK revision, publish the library revision containing local-ref
-support, update the dependency version if necessary, and verify a standalone SDK build
-without the workspace override. Workspace success is not proof of registry availability.
+`colmugx/json-schema@0.1.3` was verified as published with `moon view`. An isolated
+copy containing only the SDK module (no external-validator workspace member) resolved
+that registry release and passed native check, 409/409 SDK tests and native release
+build. The temporary copy and build artifacts were removed afterwards. This verifies
+historical dependency readiness, not publication of these MCP changes. The current workspace declares validator 0.1.4; the registry-only record below applies to the earlier 0.1.3 revision, not a fresh isolated verification of 0.1.4.
 
 ## Migration: resources and prompts
 
@@ -156,7 +173,7 @@ instances sharing keys and versions during deployment.
 
 ## Migration: sampling and enabled capabilities
 
-- Sampling message/result roles use `Role`; content uses `SamplingContent::Single` or `Multiple` rather than one general `ContentBlock`. Use `CreateMessageResult::text` for simple assistant text and `CreateMessageRequest::new` for requests. `max_tokens` preserves the schema's numeric value as `Double`.
+- Sampling message/result roles use `Role`; content uses `SamplingContent::Single` or `Multiple` rather than one general `ContentBlock`. Use `CreateMessageResult::text` for simple assistant text and `CreateMessageRequest::new` for requests. `max_tokens` preserves the schema integer as `JsonInteger`; `temperature` and model priorities use `JsonNumber`. The convenience request constructor accepts an `Int` token count and a `Double` temperature and now raises on non-finite temperature.
 - Advertise sampling tool support only when your handler supports it. `ToolChoiceMode::Disabled` encodes the wire value `none`; omitted preferences/choice/content metadata remain omitted.
 - Empty server registries no longer advertise capabilities by default. Register entries or call `with_tools`, `with_resources`, or `with_prompts` explicitly for an intentionally empty API. `enabled=false` overrides registration without deleting it; disabled methods return `-32601`.
 - `MCPServer` installs its live schema resolver for HTTP header validation. Custom dispatch owners must install `HttpTransport::set_tool_schema_resolver` before accepting calls. These header checks are distinct from JSON Schema execution validation.
@@ -165,16 +182,29 @@ instances sharing keys and versions during deployment.
 
 Follow `src/transport/moon.pkg`: HTTP server and stdio server I/O are native/wasm; JS has real HTTP and stdio clients. wasm-gc transport stubs are not production transport implementations.
 
-## Validation record: wire models, runtime, completion, capabilities and progress
+## Latest integration validation record
+
+- Workspace native tests: **488/488**; JS tests: **440/440**. These totals include the local independent validator; they are not MCP-only protocol-case counts.
+- Real-I/O channel selection (`moon test --target native --output-json -f 'e2e/*'`): **29/29** across HTTP, stdio, SSE and legacy; JS real-I/O selection: **5/5**.
+- Default `moon check --output-json`, native/JS/Wasm `--deny-warn` checks and native release build: **passed with zero warnings and zero errors**. The 48 Warning 78 diagnostics were removed by the checked-error API migration, not suppressed.
+- New registry error-boundary tests verify unchanged handler-error wire identity and cancellation precedence over returned handler errors. Existing real stdio/HTTP cancellation and cleanup assertions remain enabled; error-observing test tasks use `allow_failure=true` so the caller, not the whole group, handles their raised failures.
+- Historical registry-only isolated SDK check, **409/409** tests and native release build: passed against published `colmugx/json-schema@0.1.3` (without the local validator override), before the checked-error migration and subject to its then-existing warnings. This historical result was not rerun for the current 0.1.4 dependency during the warning cleanup.
+- Fixture SHA-256 checks match the fixed-source README. `moon fmt`, `moon info` and `git diff --check` were run. The 155-definition index records representation/evidence routing, not an automatic complete-conformance proof.
+- One attempted `moon test src ... -f 'e2e/*'` selected zero tests; it is not acceptance evidence. The corrected workspace-wide commands above selected and passed the actual channel tests.
+
+## Historical validation record: wire models, runtime, completion, capabilities and progress
+
+Sampling responses are correlated with the request's tool-selection policy: `required` requires a `tool_use` block; `none` forbids one. The shared check runs for client MRTR responses, legacy sampling callbacks and server validation of bound input responses. Single-block and array content follow the same policy. `includeContext` recommendations remain SHOULD behavior, not a new hard rejection.
 
 After these slices' changes:
 
-- Native check with `--deny-warn`: passed; tests: **456/456**.
-- JS check with `--deny-warn`: passed; tests: **398/398**.
+- Native check with `--deny-warn`: passed; tests: **434/434**.
+- JS check with `--deny-warn`: passed; tests: **392/392**.
+- MRTR timestamps reject fractional/out-of-range values; expiry skew comparison uses widened arithmetic to avoid Int32 overflow.
 - Wasm check with `--deny-warn`: passed (check-only; Wasm tests were not run).
 - Native release build: passed.
 - `moon fmt`, `moon info`, and `git diff --check`: passed.
-- Independent validator package tests: **30/30** on native and **30/30** on JS.
-- Official validator corpus, native release runner: **962/1301** standard cases (0 mismatches, 337 unsupported, 2 rejected); optional cases **535/1036**. Coverage remains incomplete, with the expected runner exit code 1. Counts are unchanged by the syntax-only number parser fix; this is not a full Draft 2020-12 conformance claim.
+- Independent validator package tests after restoring `moonbitlang/regexp@0.3.6`: **33/33** on native and **33/33** on JS. Vendored Unicode tables were removed; necessary private ECMA/General_Category/backreference adapters retain upstream-review markers. Unsupported patterns remain typed errors.
+- Historical official validator corpus record from the core migration, native release runner: **962/1301** standard cases (0 mismatches, 337 unsupported, 2 rejected); optional cases **535/1036**. Coverage remains incomplete, with the expected runner exit code 1. The full corpus and dual-runtime benchmark were not rerun for the regexp 0.3.6 restoration; this is not a fresh coverage or full Draft 2020-12 conformance claim.
 
 These results cover the current slice, not the remaining acceptance work. Checks/tests use `--output-json`; commands run directly with `moon`.

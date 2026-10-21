@@ -48,6 +48,8 @@ options(
     "stdio_client_js_e2e_wbtest.mbt": [ "js" ],
     "stdio_frame_e2e_test.mbt": [ "native", "js" ],
     "http_server.mbt": [ "native", "wasm" ],
+    "http_status.mbt": [ "native", "wasm" ],
+    "http_status_wbtest.mbt": [ "native", "wasm" ],
     "http_client.mbt": [ "native", "js", "wasm" ],
     "cancellation.mbt": [ "native", "js", "wasm" ],
     "http_client_lifecycle_wbtest.mbt": [ "native", "js", "wasm" ],

@@ -163,14 +163,17 @@ async fn ResourceRegistry::read_resource(
   uri : String,
   context : @runtime.RequestContext,
   params : Json,
-) -> Result[@resource.ResourceReadOutcome, @types.MCPError] {
+) -> @resource.ResourceReadOutcome {
   match self.resources.get(uri) {
     Some(entry) => {
       let handler = entry.handler
-      handler(context, params)
+      match handler(context, params) {
+        Ok(outcome) => outcome
+        Err(error) => raise error
+      }
     }
     // Per 2026-07-28 spec, resource-not-found is InvalidParams (-32602),
     // not the old -32002 or MethodNotFound.
-    None => Err(@types.InvalidParams("Resource not found: " + uri))
+    None => raise @types.InvalidParams("Resource not found: " + uri)
   }
 }

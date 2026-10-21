@@ -89,11 +89,35 @@ failures (`ToolResult::error`, `isError: true`) and `InputRequired` are not trea
 successful output needing validation. Without an output schema, structured output is
 still preserved.
 
-The validator supports closed objects, arrays, combinators, exact numeric constraints
-and local static `$ref`/`$defs`, including bounded recursive schemas. It does not yet
-support remote references, `$id`/anchors, dynamic references, unevaluated semantics or
-arbitrary regex patterns; `format` is annotation-only. Registration rejects unsupported
-semantics rather than silently ignoring them. Check the [support contract](../../docs/conformance.md)
+The validator supports closed objects, arrays, combinators, exact numeric constraints,
+local and preloaded external `$ref`, `$id`/anchors, dynamic references,
+`unevaluatedProperties`/`unevaluatedItems`, and custom dialects composed from the
+supported 2020-12 standard vocabularies. `format` is annotation-only; arbitrary
+ECMA-262 patterns and custom keyword plugins are not promised. Unknown required
+vocabularies and unresolved references fail registration explicitly.
+
+Supply external documents per registration, without changing the wire definition:
+
+```moonbit
+let schemas : Map[String, Json] = {
+  "https://schemas.example/count": { "type": "integer", "minimum": 1 },
+}
+let definition = @mcp.ToolDefinition::new("count", {
+  "type": "object",
+  "properties": { "count": { "$ref": "https://schemas.example/count" } },
+})
+let server = @mcp.MCPServer("app", "1.0.0").tool_definition(
+  definition,
+  (_context, _args) => Ok(@mcp.ToolCallOutcome::Complete(@mcp.ToolResult::text("ok"))),
+  schema_resources=schemas,
+)
+```
+
+The same registry is used to compile input and optional output schemas. Compilation
+owns the resulting plans; changing `schemas` afterwards does not change the tool.
+Use schema `$id` for relative references, or pass separate `input_base_uri` and
+`output_base_uri` retrieval bases. There is no runtime network resolver and no global
+mutable schema registry. Check the [support contract](../../docs/conformance.md)
 before exposing a schema from another generator.
 
 Load precise numeric schemas/results with `@mcp.parse_json(text)` instead of first

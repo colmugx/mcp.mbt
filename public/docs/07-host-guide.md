@@ -22,27 +22,25 @@ let host = @mcp.MCPHost(name="my-host", version="1.0.0")
 ## Connect
 
 ```moonbit
-match host.connect_http(name="remote", url="http://localhost:4240/mcp") {
-  Ok(_) => println("[remote] connected")
-  Err(e) => println("[remote] failed: \{e.message()}")
-}
+host.connect_http(name="remote", url="http://localhost:4240/mcp")
+println("[remote] connected")
 ```
 
 ```moonbit
 @async.with_task_group(group => {
-  match
-    host.connect_stdio(
-      name="local",
-      cmd="moon",
-      args=["run", "server"],
-      group~,
-    ) {
-    Ok(_) => println("[local] connected")
-    Err(e) => println("[local] failed: \{e.message()}")
-  }
+  host.connect_stdio(
+    name="local",
+    cmd="moon",
+    args=["run", "server"],
+    group~,
+  )
+  println("[local] connected")
+  // Make local calls while this group is alive.
 })
 ```
 
+Host operations raise on failure; they do not return Result. See the
+[client error-handling guide](05-client-guide.md#error-handling).
 Use unique connection names without `.`: they become the prefix for routed tool names, and the first dot separates the connection from the tool. Keep the task group used by `connect_stdio` alive for the entire period in which you make calls; leaving that group ends its child-process tasks.
 
 Both connect methods accept `era?`: `ProtocolEra::Auto` probes modern discovery and permits legacy fallback, `Modern` rejects fallback, and `Legacy` skips the modern probe. Select `Modern` when your application relies on MRTR and MCP 2026-07-28 semantics.
@@ -50,12 +48,9 @@ Both connect methods accept `era?`: `ProtocolEra::Auto` probes modern discovery 
 ## List tools
 
 ```moonbit
-match host.list_tools() {
-  Ok(result) =>
-    for tool in result.tools {
-      println("\{tool.name}: \{tool.description.unwrap_or(\"\")}")
-    }
-  Err(e) => println(e.message())
+let result = host.list_tools()
+for tool in result.tools {
+  println("\{tool.name}: \{tool.description.unwrap_or(\"\")}")
 }
 ```
 
@@ -66,10 +61,8 @@ The aggregate is not a response from a single server: it has no shared TTL or ca
 ## Call tools
 
 ```moonbit
-match host.call_tool("local.echo", arguments="{\"text\":\"hello\"}") {
-  Ok(result) => println(@debug.to_string(result))
-  Err(e) => println(e.message())
-}
+let result = host.call_tool("local.echo", arguments="{\"text\":\"hello\"}")
+println(@debug.to_string(result))
 ```
 
 Unqualified names are rejected because they are ambiguous.

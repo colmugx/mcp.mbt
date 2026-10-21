@@ -161,13 +161,15 @@ async test "tool validation: owned definition snapshot and failed replacement ar
     }
   }
   let context = @runtime.RequestContext::new(@types.RequestId::Int(1))
-  assert_true(
-    registry.call_tool("owned", context, { "x": "bad" })
-    is Err(@types.InvalidParams(_)),
-  )
+  try registry.call_tool("owned", context, { "x": "bad" }) catch {
+    @types.InvalidParams(_) => ()
+    error => raise error
+  } noraise {
+    _ => fail("expected invalid tool input")
+  }
   assert_true(
     registry.call_tool("owned", context, { "x": 1 })
-    is Ok(@tool.Complete({ content: _, .. })),
+    is @tool.Complete({ content: _, .. }),
   )
   assert_eq(registry.list_tools().length(), 1)
 }

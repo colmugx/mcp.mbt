@@ -18,35 +18,29 @@ import {
 ## Connect
 
 ```moonbit
-let client = match
-  @mcp.MCPClient::connect_http(
-    url="http://localhost:4240/mcp",
-    name="client",
-    version="1.0.0",
-  ) {
-  Ok(c) => c
-  Err(e) => abort("connect failed: \{e.message()}")
-}
+let client = @mcp.MCPClient::connect_http(
+  url="http://localhost:4240/mcp",
+  name="client",
+  version="1.0.0",
+)
+defer client.close()
 ```
 
 Stdio connections need a task group because the child process lifecycle belongs to async supervision:
 
 ```moonbit
 @async.with_task_group(group => {
-  match
-    @mcp.MCPClient::connect_stdio(
-      cmd="moon",
-      args=["run", "server"],
-      name="client",
-      version="1.0.0",
-      group~,
-    ) {
-    Ok(client) => client.close()
-    Err(e) => println(e.message())
-  }
+  let client = @mcp.MCPClient::connect_stdio(
+    cmd="moon",
+    args=["run", "server"],
+    name="client",
+    version="1.0.0",
+    group~,
+  )
+  defer client.close()
+  // Make calls while this group is alive.
 })
 ```
-
 ### Protocol era
 
 Servers speaking the older 2025-11-25 revision are still common. The optional `era~` parameter controls how connect handles them:
@@ -81,12 +75,9 @@ The client methods you will use most:
 - `close()`
 
 ```moonbit
-match client.call_tool("echo", arguments="{\"text\":\"hello\"}") {
-  Ok(result) =>
-    for block in result.content {
-      println(@debug.to_string(block))
-    }
-  Err(e) => println(e.message())
+let result = client.call_tool("echo", arguments="{\"text\":\"hello\"}")
+for block in result.content {
+  println(@debug.to_string(block))
 }
 ```
 
@@ -99,6 +90,35 @@ For HTTP connections, `list_tools` excludes tools with invalid `x-mcp-header` an
 Ordinary JSON-RPC error responses retain the peer's `code`, `message`, and `data` in `MCPError::RemoteError`. Inspect `to_error_code()` and `to_error_data()` to distinguish invalid arguments, unavailable methods and implementation-defined failures; do not classify every peer error as an internal SDK failure.
 
 `read_resource` returns `ReadResourceResult` with a `contents` array of `ResourceContents`. Each entry carries `uri`, optional `mime_type`, `data` (`ResourceData::Text` or `ResourceData::Blob`), its own `_meta`, and extensions. Multiple text/blob entries are retained and a missing MIME type is not replaced with a default. Resource reads/lists/template lists expose result `metadata`, including cache hints and `_meta`. Malformed known entries fail the operation instead of silently disappearing. `list_prompts` similarly preserves full prompt definitions and result metadata; `get_prompt` returns a `GetPromptResult` that retains message extensions and result metadata.
+
+## Error handling
+
+Connection, discovery, list/read/call/get/completion, subscription and cancellation
+APIs return the success value directly, not `Result[T, MCPError]`. `MCPHost` and
+`LegacyClient` follow the same convention. A protocol or SDK failure raises
+`MCPError`; async APIs can also propagate runtime cancellation and other async
+errors. Replace `match ... { Ok(value) => ...; Err(error) => ... }` at call sites
+with a direct call or `try ... catch ... noraise`:
+
+```moonbit
+try client.call_tool("echo", arguments="{\"text\":\"hello\"}") catch {
+  @mcp.MCPError::_ as error => println(error.message())
+  error => raise error // preserve cancellation and non-MCP errors
+} noraise {
+  result => println(@debug.to_string(result))
+}
+```
+
+`JsonRpcRequest::from_json` and `validate_jsonrpc_message` similarly use typed
+checked errors. Handler callbacks (`tool`, `resource`, `prompt`, `on_sampling`,
+`on_roots`, `on_elicitation`) still return explicit Result values: their error
+outcomes are data at the handler boundary. Do not remove those `Ok`/`Err` values.
+`ToolResult.is_error` is also a successful protocol result, not a raised SDK error.
+
+When spawning an operation whose failure you intend to observe with `task.wait()`,
+use `allow_failure=true`; otherwise structured concurrency propagates the task
+failure to the whole group before the waiting caller can handle it. Use `defer`
+for normal connection cleanup and `errdefer` for partially established resources.
 
 ## Notifications and subscriptions
 
@@ -116,13 +136,13 @@ Available hooks: `on_tools_changed`, `on_resources_changed`, `on_prompts_changed
 
 Ordinary calls also route notifications and responses correctly **without** starting `run()`: a temporary, single-reader pump invokes notification handlers and sends each response to its matching request queue. A progress event is never returned as the tool result or left to contaminate the next call. Concurrent calls can complete out of order. The persistent event loop is still required for `listen`, not for one-shot calls or their request-scoped progress.
 
-For multiplexed subscriptions on one long-lived request, start `client.run(group)` before calling `listen(filter?, handler~, group~)`. It returns a subscription id. `cancel_listen(id)` cancels the owned subscription request on stdio or HTTP; it does not send a cross-request HTTP cancellation POST.
+For multiplexed subscriptions on one long-lived request, start `client.run(group)` before calling `listen(filter?, handler~, group~)`. It returns a subscription id. `cancel_listen(id)` cancels the owned subscription request on stdio or HTTP; it does not send a cross-request HTTP cancellation POST. The background subscription always unregisters its handler, including on errors or cancellation. Explicit cancellation is normal completion of that background task; other raised failures propagate to its owning task group instead of being silently ignored.
 
 Cancellation preserves request-id types: use `RequestId::Int(7)` for a small numeric id, not `RequestId::Str("7")`; use `RequestId::Number(JsonInteger::from_literal(...))` for a large numeric id. String ids and integers beyond binary64's exact range have independent response/cancellation ownership. Equivalent numeric spellings such as `42` and `4.2e1` identify the same request. Explicit cancellation returns a local `MCPError::Cancelled` to the waiting caller. Cancelling the calling async task instead propagates the runtime cancellation error. An HTTP id not owned by this client cannot be cancelled through `cancel_request`.
 
-Progress tokens use `ProgressToken::String`, `Number(Double)` for convenient numeric construction, or `ExactNumber(JsonNumber)` for exact literals. For example, `ProgressToken::ExactNumber(JsonNumber::from_literal("9007199254740993"))` preserves a token beyond binary64's exact integer range. Numeric decoding returns `ExactNumber`; update exhaustive matches accordingly. Request metadata and callbacks retain the original spelling, while equality treats equivalent numeric spellings as the same value and keeps strings distinct. Construct precise tokens from literals, not an already-rounded `Double`. Progress counters (`progress` and `total`) remain `Double`.
+Progress tokens use `ProgressToken::String`, `Number(Double)` for convenient numeric construction, or `ExactNumber(JsonNumber)` for exact literals. For example, `ProgressToken::ExactNumber(JsonNumber::from_literal("9007199254740993"))` preserves a token beyond binary64's exact integer range. Numeric decoding returns `ExactNumber`; update exhaustive matches accordingly. Request metadata and callbacks retain the original spelling, while equality treats equivalent numeric spellings as the same value and keeps strings distinct. Construct precise tokens from literals, not an already-rounded `Double`. Progress counters (`progress` and `total`) now use `JsonNumber` and `JsonNumber?`, preserving exact decimal literals. Use `as_double()` only when an explicitly lossy view is acceptable.
 
-Completion results expose `values`, optional numeric `total`, `has_more`, nested completion extensions, and result `metadata`. The protocol defines `total` as a number, so the SDK retains it as `Double?` rather than truncating to an `Int`. For resource templates, `complete(ref_type="ref/resource", ref_name="memo://{id}", ...)` emits a `uri` reference (not `name`). Use the typed `CompletionReference::prompt` / `resource` builders when possible; `context_arguments` supplies already resolved prompt/template variables.
+Completion results expose `values`, optional numeric `total`, `has_more`, nested completion extensions, and result `metadata`. The pinned protocol schema defines `total` as an integer; the SDK retains it as `JsonInteger?`, without an Int32 or binary64 limit. The convenience constructor accepts `total=2`; exact large values can be constructed with `JsonInteger::from_literal`. For resource templates, `complete(ref_type="ref/resource", ref_name="memo://{id}", ...)` emits a `uri` reference (not `name`). Use the typed `CompletionReference::prompt` / `resource` builders when possible; `context_arguments` supplies already resolved prompt/template variables.
 
 ## Client input handlers: modern MRTR and legacy callbacks
 
@@ -140,6 +160,8 @@ let client = client
 
 ```
 
+Sampling handlers must honor `toolChoice`: `required` needs at least one `tool_use` block in the returned content; `none` forbids tool-use blocks. The SDK checks both single-block and array responses before sending them. A plain text result is therefore unsuitable for a `required` request: return tool-use content or an explicit handler error. Policy violations return `InvalidParams` instead of publishing an invalid result; this check applies to modern MRTR and legacy callbacks.
+
 Handler signatures: `on_sampling((Json) -> Result[CreateMessageResult, MCPError])`, `on_roots(() -> Result[Array[Root], MCPError])`, `on_elicitation((Json) -> Result[ElicitationResult, MCPError])`. In modern mode, a missing handler produces `MissingRequiredClientCapability` for the original call; it is not a server-to-client JSON-RPC callback.
 
 For **legacy** servers only, `client.run(group)` routes server-initiated sampling/roots/elicitation requests to those handlers and returns `-32601` when a handler is absent. Modern mode rejects direct server-initiated requests with `-32601` even when an MRTR handler is registered. The event loop is still needed for modern notification/subscription dispatch:
@@ -155,6 +177,8 @@ A new client advertises no sampling, roots, or elicitation support until the cor
 
 Before an elicitation handler runs, the SDK checks the restricted form schema and compiles its constraints into an owned snapshot. `requestedSchema` must contain `type: "object"` and `properties`; properties may be strings, numbers/integers, booleans, or string-enum multi-selects, not nested objects. Unsupported execution constraints fail before presenting a form. For `Accept` in form mode, return a content object matching the schema, including required fields. `Decline`, `Cancel`, and every URL-mode response must omit content. Do not rely on `default` to fill a response: it is an annotation. `format` is also annotation-only; applications should implement any required email/date/URL policy in their interaction layer.
 
+Sampling history is checked before invoking a handler: assistant tool uses must be immediately followed by a user message containing only matching tool results, with no missing, extra or duplicate correlations. Both MRTR and legacy callbacks share this validation. Tool-choice `required`/`none` is also checked on handler responses. The handler remains responsible for obeying `maxTokens`, model selection and any user approval policy; the SDK does not estimate provider token usage from returned text.
+
 The MRTR loop performs at most eight exchanges by default. If the final allowed exchange still requires input, the call fails without invoking another user interaction whose result could not be retried. Returned roots must use `file://` URIs. The server independently validates responses; a malicious or non-SDK client cannot bypass form constraints or substitute input keys.
 
-For URL elicitation, register with `ElicitationCapabilities::new(form=Map([]), url=Map([]))`. Parse raw params with `ElicitationRequest::from_json`: match `Form(message, ..)` or `Url(message, url~, elicitation_id~, ..)`. `elicitation_id` is optional: the 2026-07-28 URL request requires only mode, message, and URL. Build one with `ElicitationRequest::url(message, url)`; retain an optional compatibility identifier with `elicitation_id="id"`. Results use `ElicitationAction::Accept`, `Decline`, or `Cancel`, and optional flat form content values (`ElicitationValue::String`, `Number`, `Boolean`, or `Strings`). Absent content is omitted, never emitted as null. A form-only handler will not be invoked for URL mode. The SDK passes the URL to your interaction handler; it does not automatically open it or implement OAuth client lifecycle. Sampling handlers can parse raw params with `CreateMessageRequest::from_json` to inspect model preferences, multimodal messages, requested tools, and tool choice. Use `on_sampling(handler, capabilities=SamplingCapabilities::new(tools=Map([])))` only when your handler implements tool-aware sampling. Requests containing `tools` or `toolChoice` are rejected before dispatch without that declaration. Handler results are validated before becoming MRTR input responses. Preserve tool-use IDs when constructing `SamplingContent::Multiple`; your handler, not the SDK, owns model selection, tool execution, and user-consent policies.
+For URL elicitation, register with `ElicitationCapabilities::new(form=Map([]), url=Map([]))`. Parse raw params with `ElicitationRequest::from_json`: match `Form(message, ..)` or `Url(message, url~, elicitation_id~, ..)`. `elicitation_id` is optional: the 2026-07-28 URL request requires only mode, message, and URL. Build one with `ElicitationRequest::url(message, url)`; retain an optional compatibility identifier with `elicitation_id="id"`. Results use `ElicitationAction::Accept`, `Decline`, or `Cancel`, and optional flat form content values (`ElicitationValue::String`, `Number`, `Boolean`, or `Strings`). Absent content is omitted, never emitted as null. A form-only handler will not be invoked for URL mode. The SDK validates absolute URL syntax before passing it to your interaction handler; it never pre-fetches the URL or opens it automatically. Show the full URL and requesting server, obtain explicit consent, and open it in a secure external interaction surface. `Accept` signals consent, not completion of the out-of-band operation: the server may return another `input_required` on retry. HTTPS in production and sensitive-data policies are application responsibilities; this does not implement OAuth client lifecycle. Sampling handlers can parse raw params with `CreateMessageRequest::from_json` to inspect model preferences, multimodal messages, requested tools, and tool choice. Use `on_sampling(handler, capabilities=SamplingCapabilities::new(tools=Map([])))` only when your handler implements tool-aware sampling. Requests containing `tools` or `toolChoice` are rejected before dispatch without that declaration. Handler results are validated before becoming MRTR input responses. Preserve tool-use IDs when constructing `SamplingContent::Multiple`; your handler, not the SDK, owns model selection, tool execution, and user-consent policies.

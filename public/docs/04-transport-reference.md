@@ -44,7 +44,7 @@ Every request is Origin-checked to prevent DNS rebinding (see the Streamable HTT
 - `Origin` present without an allowlist: only loopback origins pass (`127.0.0.1`, `localhost`, `[::1]`, any port, `http`/`https`).
 - `AuthConfig` with `allowed_origins` (set via `MCPServer::with_auth`): exact match against the configured list; the allowlist replaces the loopback default.
 
-Invalid origins get `403 Forbidden`.
+Invalid origins get `403 Forbidden`. POST bodies must be single JSON-RPC requests or notifications; client-sent responses and batches are rejected before dispatch. Protocol errors `-32020`, `-32021`, and `-32022` use HTTP 400; method-not-found `-32601` uses HTTP 404. Ordinary argument/handler errors retain their JSON-RPC error codes rather than all becoming HTTP 400.
 
 ### Header/body consistency
 
@@ -60,7 +60,7 @@ See [MCP 2026-07-28 Streamable HTTP](https://modelcontextprotocol.io/specificati
 
 Responses are dispatched by JSON-RPC `id` through the client runtime's pending map, including ordinary calls made before `run()`. Temporary and persistent response pumps share one read owner; request-scoped notifications are dispatched without consuming a pending response slot. Avoid depending on single-slot response cache fields or constructing client transports by hand.
 
-The SSE reader preserves incomplete UTF-8 sequences across arbitrary network chunks, accepts a leading BOM, and rejects malformed/truncated sequences rather than treating them as EOF. Comment-only keepalives do not end the stream.
+The SSE reader preserves incomplete UTF-8 sequences across arbitrary network chunks, accepts a leading BOM, and rejects malformed/truncated sequences rather than treating them as EOF. Comment-only keepalives do not end the stream. Modern HTTP rejects independent server requests on JSON/SSE responses, checks final response IDs against the originating request, and closes its owned stream after the final response instead of waiting indefinitely for peer EOF. HTTP JSON-RPC errors preserve exact code, message, data presence and extensions through the high-level client; malformed or miscorrelated error bodies remain protocol failures. These rules do not remove legacy duplex behavior from explicitly selected legacy transports.
 
 ## Stdio client
 
@@ -70,16 +70,14 @@ The high-level helper starts the process and returns a connected `MCPClient` aft
 
 ```moonbit
 @async.with_task_group(group => {
-  match
+  let client =
     @mcp.MCPClient::connect_stdio(
       cmd="moon",
       args=["run", "server"],
       name="client",
       version="1.0.0",
       group~,
-    ) {
-    Ok(client) => client.close()
-    Err(e) => println(e.message())
-  }
+    )
+  defer client.close()
 })
 ```

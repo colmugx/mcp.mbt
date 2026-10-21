@@ -179,9 +179,11 @@ pub impl ToJson for CompleteRequestParams with fn to_json(self) {
 
 ///|
 /// Complete wire result, including open completion fields and result metadata.
+/// `total` keeps the exact integer literal (pinned schema: `integer`); a
+/// Double total cannot represent the count losslessly.
 pub(all) struct CompletionResult {
   values : Array[String]
-  total : Double?
+  total : JsonInteger?
   has_more : Bool?
   completion_extensions : Map[String, Json]
   metadata : ResultMetadata
@@ -190,11 +192,17 @@ pub(all) struct CompletionResult {
 ///|
 pub fn CompletionResult::new(
   values : Array[String],
-  total? : Double,
+  total? : Int32,
   has_more? : Bool,
   metadata~ : ResultMetadata = ResultMetadata::empty(),
 ) -> CompletionResult {
-  { values, total, has_more, completion_extensions: Map([]), metadata, }
+  {
+    values,
+    total: total.map(JsonInteger::from_int),
+    has_more,
+    completion_extensions: Map([]),
+    metadata,
+  }
 }
 
 ///|
@@ -209,10 +217,10 @@ pub fn CompletionResult::from_json(
   guard values.length() <= 100 else {
     raise InvalidParams("Completion values must not exceed 100 items")
   }
-  let total = match completion.get("total") {
-    None => None
-    Some(Number(total, ..)) if !total.is_nan() && !total.is_inf() => Some(total)
-    _ => raise InvalidParams("Invalid completion total")
+  let total = if completion.contains("total") {
+    Some(wire_integer(completion, "total"))
+  } else {
+    None
   }
   {
     values,
@@ -233,7 +241,7 @@ pub impl ToJson for CompletionResult with fn to_json(self) {
   ])
   completion.set("values", Json::array(self.values.map(Json::string)))
   if self.total is Some(total) {
-    completion.set("total", Json::number(total))
+    completion.set("total", total.to_json())
   }
   wire_put_bool(completion, "hasMore", self.has_more)
   fields.set("completion", Json::object(completion))

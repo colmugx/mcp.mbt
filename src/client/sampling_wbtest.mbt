@@ -20,10 +20,12 @@ test "MRTR sampling tools require advertised nested support before dispatch" {
       ),
     ),
   ])
-  assert_true(
-    client.fulfill_input_requests(inputs)
-    is Err(@types.MissingRequiredClientCapability(_, ..)),
-  )
+  try client.fulfill_input_requests(inputs) catch {
+    @types.MissingRequiredClientCapability(_, ..) => ()
+    error => raise error
+  } noraise {
+    _ => fail("expected protocol error")
+  }
   assert_false(called.val)
   let enabled = client.with_capabilities(
     @types.ClientCapabilities::new(
@@ -31,7 +33,7 @@ test "MRTR sampling tools require advertised nested support before dispatch" {
     ),
   )
   assert_eq(
-    enabled.fulfill_input_requests(inputs).unwrap().get("sampling"),
+    enabled.fulfill_input_requests(inputs).get("sampling"),
     Some(@types.CreateMessageResult::text("test", "done").to_json()),
   )
   assert_true(called.val)
@@ -45,10 +47,12 @@ test "MRTR sampling tools require advertised nested support before dispatch" {
       ),
     ),
   ])
-  assert_true(
-    client.fulfill_input_requests(choice)
-    is Err(@types.MissingRequiredClientCapability(_, ..)),
-  )
+  try client.fulfill_input_requests(choice) catch {
+    @types.MissingRequiredClientCapability(_, ..) => ()
+    error => raise error
+  } noraise {
+    _ => fail("expected protocol error")
+  }
   assert_false(called.val)
 }
 
@@ -74,9 +78,12 @@ test "MRTR sampling rejects malformed requests before invoking the handler" {
       ),
     ),
   ])
-  assert_true(
-    client.fulfill_input_requests(inputs) is Err(@types.InvalidParams(_)),
-  )
+  try client.fulfill_input_requests(inputs) catch {
+    @types.InvalidParams(_) => ()
+    error => raise error
+  } noraise {
+    _ => fail("expected protocol error")
+  }
   assert_false(called.val)
 }
 
@@ -108,7 +115,10 @@ test "MRTR sampling validates handler results before serializing input responses
       ),
     ),
   ])
-  assert_true(
-    client.fulfill_input_requests(inputs) is Err(@types.InvalidParams(_)),
-  )
+  try client.fulfill_input_requests(inputs) catch {
+    @types.InvalidParams(_) => ()
+    error => raise error
+  } noraise {
+    _ => fail("expected protocol error")
+  }
 }

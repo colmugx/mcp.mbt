@@ -135,29 +135,24 @@ pub(all) struct GetPromptResult {
 } derive(Debug, Eq)
 
 ///|
-pub fn JsonRpcRequest::from_json(
-  json : Json,
-) -> Result[JsonRpcRequest, MCPError] {
+pub fn JsonRpcRequest::from_json(json : Json) -> JsonRpcRequest raise MCPError {
   if json is Object(obj) {
     let jsonrpc = match obj.get("jsonrpc") {
       Some(String("2.0")) => "2.0"
-      _ => return Err(InvalidRequest("Missing or invalid 'jsonrpc' field"))
+      _ => raise InvalidRequest("Missing or invalid 'jsonrpc' field")
     }
     let id = match obj.get("id") {
-      Some(value) =>
-        RequestId::from_json(value) catch {
-          error => return Err(error)
-        }
-      None => return Err(InvalidRequest("Missing 'id' field"))
+      Some(value) => RequestId::from_json(value)
+      None => raise InvalidRequest("Missing 'id' field")
     }
     let method_name = match obj.get("method") {
       Some(String(m)) => m
-      _ => return Err(InvalidRequest("Missing or invalid 'method' field"))
+      _ => raise InvalidRequest("Missing or invalid 'method' field")
     }
     let params = obj.get("params").unwrap_or(null)
-    Ok({ jsonrpc, id, method_name, params, })
+    { jsonrpc, id, method_name, params, }
   } else {
-    Err(InvalidRequest("Request must be a JSON object"))
+    raise InvalidRequest("Request must be a JSON object")
   }
 }
 

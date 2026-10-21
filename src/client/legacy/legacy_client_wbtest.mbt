@@ -1,26 +1,29 @@
 ///|
 test "parse_initialize_response extracts server info" {
-  let res = parse_initialize_response(
-    "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"serverInfo\":{\"name\":\"test-server\",\"version\":\"1.2.3\"},\"protocolVersion\":\"2025-11-25\"}}",
-  )
-  match res {
-    Ok(info) => {
+  try
+    parse_initialize_response(
+      "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"serverInfo\":{\"name\":\"test-server\",\"version\":\"1.2.3\"},\"protocolVersion\":\"2025-11-25\"}}",
+    )
+  catch {
+    _ => fail("expected Ok")
+  } noraise {
+    info => {
       @debug.assert_eq(info.name, "test-server")
       @debug.assert_eq(info.version, "1.2.3")
     }
-    Err(_) => fail("expected Ok")
   }
 }
 
 ///|
 test "parse_initialize_response errors when result missing" {
-  let res = parse_initialize_response(
-    "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32603,\"message\":\"boom\"}}",
-  )
-  match res {
-    Ok(_) => fail("expected Err")
-    Err(e) =>
-      @debug.assert_eq(e.message(), "initialize response missing result")
+  try
+    parse_initialize_response(
+      "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32603,\"message\":\"boom\"}}",
+    )
+  catch {
+    e => @debug.assert_eq(e.message(), "initialize response missing result")
+  } noraise {
+    _ => fail("expected Err")
   }
 }
 

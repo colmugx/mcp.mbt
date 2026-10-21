@@ -11,9 +11,9 @@ test "tools list retains cache hints metadata extensions and pagination" {
       "future": null,
     },
     "future": [1],
-  }).unwrap()
+  })
   assert_eq(result.next_cursor, Some("next"))
-  assert_eq(result.metadata.ttl_ms, Some(500))
+  assert_eq(result.metadata.ttl_ms, Some(@types.JsonInteger::from_int(500)))
   assert_eq(result.metadata.cache_scope, Some(@types.CacheScope::Private))
   assert_eq(result.metadata.extensions.get("future"), Some(Json::array([1])))
   assert_false(result.metadata.extensions.contains("tools"))
@@ -34,11 +34,12 @@ test "tool call client result uses the same public protocol owner" {
 
 ///|
 test "JSON-RPC client errors retain the peer code and data instead of becoming InternalError" {
-  match
+  try
     parse_jsonrpc_response(
       "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32602,\"message\":\"unknown tool\",\"data\":{\"name\":\"missing\"}}}",
-    ) {
-    Err(error) => {
+    )
+  catch {
+    error => {
       assert_eq(error.to_error_code().as_int().unwrap(), -32602)
       assert_eq(error.message(), "unknown tool")
       assert_eq(
@@ -46,12 +47,17 @@ test "JSON-RPC client errors retain the peer code and data instead of becoming I
         Some(Json::object({ "name": "missing" })),
       )
     }
-    Ok(_) => fail("error response must not succeed")
+  } noraise {
+    _ => fail("error response must not succeed")
   }
-  assert_true(
+  try
     parse_jsonrpc_response(
       "{\"result\":{},\"error\":{\"code\":-32603,\"message\":\"x\"}}",
     )
-    is Err(@types.InvalidRequest(_)),
-  )
+  catch {
+    @types.InvalidRequest(_) => ()
+    error => raise error
+  } noraise {
+    _ => fail("expected protocol error")
+  }
 }

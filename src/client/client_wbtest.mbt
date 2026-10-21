@@ -368,13 +368,14 @@ test "parse_completion_result reads nested completion object" {
   ) catch {
     _ => panic()
   }
-  match parse_completion_result(result) {
-    Ok(r) => {
+  try parse_completion_result(result) catch {
+    _ => panic()
+  } noraise {
+    r => {
       @debug.assert_eq(r.values, ["red", "blue"])
-      assert_eq(r.total, Some(10))
+      assert_eq(r.total, Some(@types.JsonInteger::from_int(10)))
       assert_eq(r.has_more, Some(true))
     }
-    Err(_) => panic()
   }
 }
 
@@ -383,13 +384,14 @@ test "parse_completion_result with optional fields omitted" {
   let result = @json.parse("{\"completion\":{\"values\":[]}}") catch {
     _ => panic()
   }
-  match parse_completion_result(result) {
-    Ok(r) => {
+  try parse_completion_result(result) catch {
+    _ => panic()
+  } noraise {
+    r => {
       @debug.assert_eq(r.values.length(), 0)
       assert_eq(r.total, None)
       assert_eq(r.has_more, None)
     }
-    Err(_) => panic()
   }
 }
 
@@ -399,8 +401,10 @@ test "parse_completion_result rejects missing completion object" {
   let result = @json.parse("{\"values\":[\"red\"],\"total\":1}") catch {
     _ => panic()
   }
-  match parse_completion_result(result) {
-    Err(@types.InvalidParams(_)) => ()
+  try parse_completion_result(result) catch {
+    @types.InvalidParams(_) => ()
+    _ => panic()
+  } noraise {
     _ => panic()
   }
 }
@@ -408,8 +412,10 @@ test "parse_completion_result rejects missing completion object" {
 ///|
 test "parse_completion_result rejects non-object completion" {
   let result = @json.parse("{\"completion\":[\"red\"]}") catch { _ => panic() }
-  match parse_completion_result(result) {
-    Err(@types.InvalidParams(_)) => ()
+  try parse_completion_result(result) catch {
+    @types.InvalidParams(_) => ()
+    _ => panic()
+  } noraise {
     _ => panic()
   }
 }
@@ -422,9 +428,11 @@ async test "cancel_request rejects an HTTP id not owned by this client" {
     @transport.HttpClientTransport::HttpClientTransport("http://127.0.0.1:9/"),
   )
   let client = MCPClient::MCPClient(name="t", version="1", transport~)
-  match client.cancel_request(@types.RequestId::Int(1)) {
-    Err(@types.InternalError(msg)) =>
+  try client.cancel_request(@types.RequestId::Int(1)) catch {
+    @types.InternalError(msg) =>
       assert_true(msg.contains("No active HTTP request with this id"))
+    _ => panic()
+  } noraise {
     _ => panic()
   }
 }

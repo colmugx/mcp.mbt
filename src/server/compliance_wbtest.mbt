@@ -409,32 +409,42 @@ test "compliance: notification serializes as valid JSON-RPC notification" {
 ///|
 /// =====================================================
 test "compliance: validate_jsonrpc_message accepts valid request" {
-  let result = @transport.validate_jsonrpc_message(
+  @transport.validate_jsonrpc_message(
     "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}",
   )
-  assert_true(result is Ok(_))
 }
 
 ///|
 test "compliance: validate_jsonrpc_message rejects invalid jsonrpc version" {
-  let result = @transport.validate_jsonrpc_message(
-    "{\"jsonrpc\":\"1.0\",\"id\":1,\"method\":\"ping\"}",
-  )
-  assert_true(result is Err(_))
+  try
+    @transport.validate_jsonrpc_message(
+      "{\"jsonrpc\":\"1.0\",\"id\":1,\"method\":\"ping\"}",
+    )
+  catch {
+    _ => ()
+  } noraise {
+    _ => fail("expected invalid JSON-RPC message")
+  }
 }
 
 ///|
 test "compliance: validate_jsonrpc_message rejects non-object" {
-  let result = @transport.validate_jsonrpc_message("42")
-  assert_true(result is Err(_))
+  try @transport.validate_jsonrpc_message("42") catch {
+    _ => ()
+  } noraise {
+    _ => fail("expected invalid JSON-RPC message")
+  }
 }
 
 ///|
 test "compliance: validate_jsonrpc_message rejects missing method/result/error" {
-  let result = @transport.validate_jsonrpc_message(
-    "{\"jsonrpc\":\"2.0\",\"id\":1}",
-  )
-  assert_true(result is Err(_))
+  try
+    @transport.validate_jsonrpc_message("{\"jsonrpc\":\"2.0\",\"id\":1}")
+  catch {
+    _ => ()
+  } noraise {
+    _ => fail("expected invalid JSON-RPC message")
+  }
 }
 
 ///| =====================================================

@@ -10,7 +10,9 @@ async test "temporary client pump routes out-of-order replies and progress witho
     transport=@transport.AnyTransport::HttpClient(transport),
   ).on_notification({
     ..NotificationHandlers::empty(),
-    on_progress: Some(fn(notification) { progress.push(notification.progress) }),
+    on_progress: Some(fn(notification) {
+      progress.push(notification.progress.as_double())
+    }),
   })
   let first : @aqueue.Queue[String] = @aqueue.Queue(kind=Unbounded)
   let second : @aqueue.Queue[String] = @aqueue.Queue(kind=Unbounded)

@@ -25,8 +25,8 @@ fn check_elicitation_property(value : Json) -> Unit raise MCPError {
   match wire_string(fields, "type") {
     "string" => {
       ignore(wire_optional_string(fields, "default"))
-      ignore(wire_optional_number(fields, "minLength"))
-      ignore(wire_optional_number(fields, "maxLength"))
+      ignore(wire_optional_exact_number(fields, "minLength"))
+      ignore(wire_optional_exact_number(fields, "maxLength"))
       match wire_optional_string(fields, "format") {
         None | Some("email" | "uri" | "date" | "date-time") => ()
         Some(_) => raise InvalidParams("Invalid elicitation string format")
@@ -38,14 +38,14 @@ fn check_elicitation_property(value : Json) -> Unit raise MCPError {
       }
     }
     "number" | "integer" => {
-      ignore(wire_optional_number(fields, "minimum"))
-      ignore(wire_optional_number(fields, "maximum"))
-      ignore(wire_optional_number(fields, "default"))
+      ignore(wire_optional_exact_number(fields, "minimum"))
+      ignore(wire_optional_exact_number(fields, "maximum"))
+      ignore(wire_optional_exact_number(fields, "default"))
     }
     "boolean" => ignore(wire_optional_bool(fields, "default"))
     "array" => {
-      ignore(wire_optional_number(fields, "minItems"))
-      ignore(wire_optional_number(fields, "maxItems"))
+      ignore(wire_optional_exact_number(fields, "minItems"))
+      ignore(wire_optional_exact_number(fields, "maxItems"))
       ignore(wire_optional_strings(fields, "default"))
       guard fields.get("items") is Some(Object(items)) else {
         raise InvalidParams("Elicitation multi-select requires items")

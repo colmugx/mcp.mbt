@@ -35,11 +35,11 @@ Parse from JSON:
 
 ```moonbit
 let json = @mcp.parse_json(raw_string)
-match JsonRpcRequest::from_json(json) {
-  Ok(req) => println(req.method_name)
-  Err(e) => println(e.message())
-}
+let req = @mcp.JsonRpcRequest::from_json(json)
+println(req.method_name)
 ```
+
+`JsonRpcRequest::from_json` returns a request directly and raises `MCPError::InvalidRequest` for an invalid envelope.
 
 `@mcp.parse_json` preserves numeric literals for exact schema checks and result
 round-trips. It raises `MCPError::ParseError` on invalid JSON. Built-in `Json` remains
@@ -145,7 +145,7 @@ An empty `annotations`/`_meta` object and an absent one are different states and
 ```moonbit
 pub(all) struct Annotations {
   audience : Array[Role]?      // Role::User / Role::Assistant
-  priority : Double?           // 0.0 ..= 1.0, validated on decode
+  priority : JsonNumber?       // exact 0 ..= 1, validated on decode
   last_modified : String?
   extensions : Map[String, Json]
 } derive(Eq, Debug)
@@ -262,7 +262,7 @@ pub(all) struct ToolResult {
 
 pub(all) struct ResultMetadata {
   result_type : String?
-  ttl_ms : Double?             // nonnegative integral milliseconds
+  ttl_ms : JsonInteger?        // exact nonnegative integral milliseconds
   cache_scope : CacheScope?   // Public / Private
   meta : Map[String, Json]?
   extensions : Map[String, Json]
@@ -344,11 +344,11 @@ pub(all) struct SamplingMessage {
 
 pub(all) struct CreateMessageRequest {
   messages : Array[SamplingMessage]
-  max_tokens : Double          // schema number, not coerced to Int
+  max_tokens : JsonInteger     // exact schema integer
   model_preferences : ModelPreferences?
   system_prompt : String?
   include_context : SamplingContext?
-  temperature : Double?
+  temperature : JsonNumber?
   stop_sequences : Array[String]?
   metadata : Map[String, Json]?
   tools : Array[ToolDefinition]?
@@ -380,6 +380,7 @@ pub(all) enum ElicitationAction {
 pub(all) enum ElicitationValue {
   String(String)
   Number(Double)
+  ExactNumber(JsonNumber)
   Boolean(Bool)
   Strings(Array[String])
 } derive(Eq, Debug)
@@ -399,8 +400,8 @@ pub(all) enum ProgressToken {
 
 pub(all) struct ProgressNotification {
   progress_token : ProgressToken
-  progress : Double
-  total : Double?
+  progress : JsonNumber
+  total : JsonNumber?
   message : String?
   extra_fields : Map[String, Json]
 } derive(Eq, Debug)

@@ -9,8 +9,10 @@ pub struct CompiledSchema {
 pub fn CompiledSchema::compile(
   document : Json,
   label : String,
+  resources? : Map[String, Json],
+  base_uri? : String,
 ) -> CompiledSchema raise @types.MCPError {
-  let plan = @schema.Schema::compile(document) catch {
+  let plan = @schema.Schema::compile(document, resources?, base_uri?) catch {
     error =>
       raise @types.InvalidParams("Cannot compile " + label + ": \{Repr(error)}")
   }
