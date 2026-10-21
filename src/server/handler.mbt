@@ -560,10 +560,16 @@ async fn handle_tools_call(
   ) catch {
     error => return jsonrpc_error_from(id, error)
   }
-  let outcome = server.registry.call_tool(name, context, arguments)
+  let outcome = server.registry.call_tool(name, context, arguments) catch {
+    @types.MCPError::_ as error => {
+      context.cancellation_token.throw_if_cancelled()
+      return jsonrpc_error_from(id, error)
+    }
+    error => raise error
+  }
   context.cancellation_token.throw_if_cancelled()
   match outcome {
-    Ok(@tool.Complete(tool_result)) => {
+    @tool.Complete(tool_result) => {
       let result = tool_result_to_json(tool_result)
       ignore(@types.ToolResult::from_json(result)) catch {
         _ =>
@@ -573,7 +579,7 @@ async fn handle_tools_call(
       }
       jsonrpc_success_str(server, id, result)
     }
-    Ok(@tool.InputRequired(input_requests~, state~)) => {
+    @tool.InputRequired(input_requests~, state~) => {
       match check_required_capabilities(params, input_requests) {
         Some(error) => return jsonrpc_error_from(id, error)
         None => ()
@@ -590,7 +596,6 @@ async fn handle_tools_call(
         request_state=Some(blob),
       )
     }
-    Err(error) => jsonrpc_error_from(id, error)
   }
 }
 
@@ -642,10 +647,16 @@ async fn handle_resources_read(
   }
   let outcome = server.resource_registry.read_resource(
     uri, context, salient_params,
-  )
+  ) catch {
+    @types.MCPError::_ as error => {
+      context.cancellation_token.throw_if_cancelled()
+      return jsonrpc_error_from(id, error)
+    }
+    error => raise error
+  }
   context.cancellation_token.throw_if_cancelled()
   match outcome {
-    Ok(@resource.Complete(result)) => {
+    @resource.Complete(result) => {
       let result = result.to_json()
       ignore(@types.ResourceReadResult::from_json(result)) catch {
         _ =>
@@ -655,7 +666,7 @@ async fn handle_resources_read(
       }
       jsonrpc_cacheable_success_str(server, id, result, 30000, "private")
     }
-    Ok(@resource.InputRequired(input_requests~, state~)) => {
+    @resource.InputRequired(input_requests~, state~) => {
       match check_required_capabilities(params, input_requests) {
         Some(error) => return jsonrpc_error_from(id, error)
         None => ()
@@ -672,7 +683,6 @@ async fn handle_resources_read(
         request_state=Some(blob),
       )
     }
-    Err(error) => jsonrpc_error_from(id, error)
   }
 }
 
@@ -717,10 +727,16 @@ async fn handle_prompts_get(
   ) catch {
     error => return jsonrpc_error_from(id, error)
   }
-  let outcome = server.prompt_registry.get_prompt(name, context, arguments)
+  let outcome = server.prompt_registry.get_prompt(name, context, arguments) catch {
+    @types.MCPError::_ as error => {
+      context.cancellation_token.throw_if_cancelled()
+      return jsonrpc_error_from(id, error)
+    }
+    error => raise error
+  }
   context.cancellation_token.throw_if_cancelled()
   match outcome {
-    Ok(@prompt.Complete(result)) => {
+    @prompt.Complete(result) => {
       let result = result.to_json()
       ignore(@types.GetPromptResult::from_json(result)) catch {
         _ =>
@@ -730,7 +746,7 @@ async fn handle_prompts_get(
       }
       jsonrpc_success_str(server, id, result)
     }
-    Ok(@prompt.InputRequired(input_requests~, state~)) => {
+    @prompt.InputRequired(input_requests~, state~) => {
       match check_required_capabilities(params, input_requests) {
         Some(error) => return jsonrpc_error_from(id, error)
         None => ()
@@ -747,6 +763,5 @@ async fn handle_prompts_get(
         request_state=Some(blob),
       )
     }
-    Err(error) => jsonrpc_error_from(id, error)
   }
 }

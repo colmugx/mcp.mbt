@@ -18,7 +18,7 @@ async test "e2e/http: HTTP compatibility routing isolates large and string ids u
           let message = transport.receive().unwrap()
           let request = @types.JsonRpcRequest::from_json(
             @validation.parse_json(message),
-          ).unwrap()
+          )
           ids.push(request.id)
         }
         for index = ids.length() - 1; index >= 0; index = index - 1 {

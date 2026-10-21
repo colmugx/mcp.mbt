@@ -419,7 +419,7 @@ pub(all) struct JsonRpcRequest {
   params : Json
 } derive(Eq, @debug.Debug)
 pub fn JsonRpcRequest::equal(Self, Self) -> Bool
-pub fn JsonRpcRequest::from_json(Json) -> Result[Self, MCPError]
+pub fn JsonRpcRequest::from_json(Json) -> Self raise MCPError
 pub fn JsonRpcRequest::not_equal(Self, Self) -> Bool
 pub fn JsonRpcRequest::to_repr(Self) -> @debug.Repr
 

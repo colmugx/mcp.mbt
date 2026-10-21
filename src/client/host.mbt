@@ -20,28 +20,24 @@ pub fn MCPHost::MCPHost(name~ : String, version~ : String) -> MCPHost {
 /// |--------|-------------------------|-----------------|
 /// | Auto   | yes (default)           | allowed         |
 /// | Legacy | skipped                 | direct connect  |
-/// | Modern | yes                     | forbidden (Err) |
+/// | Modern | yes                     | forbidden (raises) |
 pub async fn MCPHost::connect_http(
   self : MCPHost,
   name~ : String,
   url~ : String,
   auth_token~ : String = "",
   era~ : ProtocolEra = Auto,
-) -> Result[Unit, @types.MCPError] {
-  match
-    MCPClient::connect_http(
-      url~,
-      name=self.name + "/" + name,
-      version=self.version,
-      auth_token~,
-      era~,
-    ) {
-    Ok(client) => {
-      self.connections[name] = client
-      Ok(())
-    }
-    Err(e) => Err(e)
-  }
+) -> Unit {
+  let client = MCPClient::connect_http(
+    url~,
+    name=self.name + "/" + name,
+    version=self.version,
+    auth_token~,
+    era~,
+  )
+
+  self.connections[name] = client
+  ()
 }
 
 ///|
@@ -56,37 +52,29 @@ pub async fn MCPHost::connect_stdio(
   extra_env~ : Map[String, String] = {},
   group~ : @async.TaskGroup[Unit],
   era~ : ProtocolEra = Auto,
-) -> Result[Unit, @types.MCPError] {
-  match
-    MCPClient::connect_stdio(
-      cmd~,
-      args~,
-      name=self.name + "/" + name,
-      version=self.version,
-      extra_env~,
-      group~,
-      era~,
-    ) {
-    Ok(client) => {
-      self.connections[name] = client
-      Ok(())
-    }
-    Err(e) => Err(e)
-  }
+) -> Unit {
+  let client = MCPClient::connect_stdio(
+    cmd~,
+    args~,
+    name=self.name + "/" + name,
+    version=self.version,
+    extra_env~,
+    group~,
+    era~,
+  )
+
+  self.connections[name] = client
+  ()
 }
 
 ///|
-pub async fn MCPHost::list_tools(
-  self : MCPHost,
-) -> Result[ListToolsResult, @types.MCPError] {
+pub async fn MCPHost::list_tools(self : MCPHost) -> ListToolsResult {
   let results : Map[String, ListToolsResult] = Map([])
   for connection_name, client in self.connections {
-    match client.list_tools() {
-      Ok(result) => results.set(connection_name, result)
-      Err(error) => return Err(error)
-    }
+    let result = client.list_tools()
+    results.set(connection_name, result)
   }
-  Ok(aggregate_tool_lists(results))
+  aggregate_tool_lists(results)
 }
 
 ///|
@@ -117,7 +105,7 @@ pub async fn MCPHost::call_tool(
   self : MCPHost,
   qualified_name : String,
   arguments~ : String = "{}",
-) -> Result[CallToolResult, @types.MCPError] {
+) -> CallToolResult {
   match qualified_name.split_once(".") {
     Some((connection_view, tool_view)) => {
       let connection_name = connection_view.to_owned()
@@ -125,14 +113,14 @@ pub async fn MCPHost::call_tool(
       match self.connections.get(connection_name) {
         Some(client) => client.call_tool(tool_name, arguments~)
         None =>
-          Err(@types.MethodNotFound("Connection not found: " + connection_name))
+          raise @types.MethodNotFound(
+            "Connection not found: " + connection_name,
+          )
       }
     }
     None =>
-      Err(
-        @types.InvalidRequest(
-          "Tool name must be qualified as '<connection>.<tool>'",
-        ),
+      raise @types.InvalidRequest(
+        "Tool name must be qualified as '<connection>.<tool>'",
       )
   }
 }

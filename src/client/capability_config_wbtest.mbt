@@ -51,10 +51,12 @@ test "explicit configuration preserves extension settings and can disable regist
   let inputs : Map[String, (String, Json)] = Map::from_array([
     ("roots", ("roots/list", Json::object({}))),
   ])
-  assert_true(
-    configured.fulfill_input_requests(inputs)
-    is Err(@types.MissingRequiredClientCapability(_, ..)),
-  )
+  try configured.fulfill_input_requests(inputs) catch {
+    @types.MissingRequiredClientCapability(_, ..) => ()
+    error => raise error
+  } noraise {
+    _ => fail("expected protocol error")
+  }
   assert_false(called.val)
 }
 

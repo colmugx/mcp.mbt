@@ -389,10 +389,8 @@ pub async fn StdioClientTransport::send(
     None =>
       raise @types.InvalidState("Transport not started — call start() first")
   }
-  match validate_jsonrpc_message(message) {
-    Err(e) =>
-      raise @types.WriteError("Invalid JSON-RPC message: " + e.message())
-    Ok(_) => ()
+  validate_jsonrpc_message(message) catch {
+    e => raise @types.WriteError("Invalid JSON-RPC message: " + e.message())
   }
   errdefer self.close()
   writer_write(writer, message + "\n").wait() catch {

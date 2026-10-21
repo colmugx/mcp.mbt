@@ -7,20 +7,18 @@ test "conformance: client prompt list and get retain all metadata" {
     "_meta": {},
     "arguments": [{ "name": "name", "title": "Name", "required": false }],
   }
-  match
-    parse_list_prompts({
+  {
+    let result = parse_list_prompts({
       "prompts": [definition],
       "ttlMs": 0,
       "cacheScope": "private",
       "_meta": {},
       "com.example/top": null,
-    }) {
-    Ok(result) => {
-      assert_eq(result.prompts[0].to_json(), definition)
-      assert_eq(result.metadata.meta, Some(Map([])))
-      assert_eq(result.metadata.extensions.get("com.example/top"), Some(null))
-    }
-    Err(error) => raise error
+    })
+
+    assert_eq(result.prompts[0].to_json(), definition)
+    assert_eq(result.metadata.meta, Some(Map([])))
+    assert_eq(result.metadata.extensions.get("com.example/top"), Some(null))
   }
   let wire : Json = {
     "messages": [
@@ -33,16 +31,18 @@ test "conformance: client prompt list and get retain all metadata" {
     "_meta": {},
     "com.example/top": null,
   }
-  match parse_get_prompt(wire) {
-    Ok(result) => assert_eq(result.to_json(), wire)
-    Err(error) => raise error
+  {
+    let result = parse_get_prompt(wire)
+    assert_eq(result.to_json(), wire)
   }
-  match
+  try
     parse_list_prompts({
       "prompts": [definition, { "name": "invalid", "arguments": [null] }],
-    }) {
-    Err(@types.InvalidParams(_)) => ()
-    Err(error) => raise error
-    Ok(_) => fail("expected malformed prompt list to fail")
+    })
+  catch {
+    @types.InvalidParams(_) => ()
+    error => raise error
+  } noraise {
+    _ => fail("expected malformed prompt list to fail")
   }
 }

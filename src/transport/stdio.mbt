@@ -57,10 +57,8 @@ pub async fn StdioTransport::send(
   if self.closed {
     raise @types.InvalidState("Cannot send on closed transport")
   }
-  match validate_jsonrpc_message(message) {
-    Err(e) =>
-      raise @types.WriteError("Invalid JSON-RPC message: " + e.message())
-    Ok(_) => ()
+  validate_jsonrpc_message(message) catch {
+    e => raise @types.WriteError("Invalid JSON-RPC message: " + e.message())
   }
   // Write to buffered writer (batches small writes)
   self.writer.write(message) catch {

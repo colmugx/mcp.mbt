@@ -304,15 +304,14 @@ fn parse_request_message(
   let parsed = @validation.parse_json(request_json) catch {
     _ => return Err(jsonrpc_error_str_no_id(-32700, "Parse error"))
   }
-  match @types.JsonRpcRequest::from_json(parsed) {
-    Ok(request) => Ok(request)
-    Err(e) =>
-      // The message failed structural validation, so its id (if any) is not
-      // trustworthy — respond without an id member (see
-      // `jsonrpc_error_str_no_id`).
+  try @types.JsonRpcRequest::from_json(parsed) catch {
+    // A structurally invalid request cannot supply a trustworthy response id.
+    e =>
       Err(
         Json::object({ "jsonrpc": "2.0", "error": e.to_jsonrpc_error() }).stringify(),
       )
+  } noraise {
+    request => Ok(request)
   }
 }
 

@@ -69,14 +69,18 @@ async test "e2e/http: MRTR maximum rounds bounds exchanges without a final uncon
         client.request_meta(),
         arguments="{\"value\":1}",
       )
-      assert_true(
-        client.send_with_mrtr(request, max_rounds=0)
-        is Err(@types.InternalError(_)),
-      )
+      try client.send_with_mrtr(request, max_rounds=0) catch {
+        @types.InternalError(_) => ()
+        error => raise error
+      } noraise {
+        _ => fail("expected protocol error")
+      }
       assert_true(requests.is_empty())
-      match client.send_with_mrtr(request, max_rounds=3) {
-        Err(@types.InternalError(message)) =>
+      try client.send_with_mrtr(request, max_rounds=3) catch {
+        @types.InternalError(message) =>
           assert_true(message.contains("max rounds"))
+        _ => fail("non-completing MRTR must be bounded")
+      } noraise {
         _ => fail("non-completing MRTR must be bounded")
       }
       assert_eq(requests.length(), 3)
@@ -188,12 +192,17 @@ async test "e2e/http: error fidelity, forbidden duplex requests and final SSE ow
           ),
         )
         defer client.close()
-        let result = client.send_request(
-          build_tools_list_request(
-            client.next_request_id(),
-            client.request_meta(),
+        let result = Ok(
+          client.send_request(
+            build_tools_list_request(
+              client.next_request_id(),
+              client.request_meta(),
+            ),
           ),
-        )
+        ) catch {
+          @types.MCPError::_ as error => Err(error)
+          error => raise error
+        }
         match (index, result) {
           (0, Err(error)) => {
             assert_eq(
@@ -214,7 +223,7 @@ async test "e2e/http: error fidelity, forbidden duplex requests and final SSE ow
           (1, Err(@types.InvalidRequest(_))) => ()
           (2 | 4, Err(@types.InternalError(message))) =>
             assert_true(message.contains("independent"))
-          (3, Ok(_)) => release.put(())
+          (3, _) => release.put(())
           _ => fail("unexpected HTTP result: \{index}")
         }
       }
@@ -305,21 +314,28 @@ async test "e2e/http: registered remote schema contracts and missing capability 
         ),
       )
       defer client.close()
-      assert_true(
-        client.call_tool("remote", arguments="{\"count\":1}") is Ok(_),
-      )
-      match client.call_tool("remote", arguments="{\"count\":0}") {
-        Err(error) => assert_eq(error.to_error_code().as_int(), Some(-32602))
+      ignore(client.call_tool("remote", arguments="{\"count\":1}"))
+      try client.call_tool("remote", arguments="{\"count\":0}") catch {
+        @types.MCPError::_ as error =>
+          assert_eq(error.to_error_code().as_int(), Some(-32602))
+        _ => fail("invalid remote-schema input reached handler")
+      } noraise {
         _ => fail("invalid remote-schema input reached handler")
       }
       assert_eq(calls.val, 1)
       output.val = 0
-      match client.call_tool("remote", arguments="{\"count\":1}") {
-        Err(error) => assert_eq(error.to_error_code().as_int(), Some(-32603))
+      try client.call_tool("remote", arguments="{\"count\":1}") catch {
+        @types.MCPError::_ as error =>
+          assert_eq(error.to_error_code().as_int(), Some(-32603))
+        _ => fail("invalid structured output published")
+      } noraise {
         _ => fail("invalid structured output published")
       }
-      match client.call_tool("needs-input") {
-        Err(error) => assert_eq(error.to_error_code().as_int(), Some(-32021))
+      try client.call_tool("needs-input") catch {
+        @types.MCPError::_ as error =>
+          assert_eq(error.to_error_code().as_int(), Some(-32021))
+        _ => fail("missing capability was not returned as a peer error")
+      } noraise {
         _ => fail("missing capability was not returned as a peer error")
       }
       let raw = @transport.HttpClientTransport::HttpClientTransport(

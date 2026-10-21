@@ -18,14 +18,14 @@ test "conformance: tool result retains audio blob unknown and metadata" {
     },
     { "type": "future", "extra": [null, false] },
   ]
-  match parse_call_tool({ "content": Json::array(items), "isError": false }) {
-    Ok(result) => {
-      assert_eq(result.content.length(), 3)
-      assert_eq(result.content.map(item => item.to_json()), items)
-      assert_eq(result.is_error, Some(false))
-    }
-    Err(error) => raise error
-  }
+  let result = parse_call_tool({
+    "content": Json::array(items),
+    "isError": false,
+  })
+
+  assert_eq(result.content.length(), 3)
+  assert_eq(result.content.map(item => item.to_json()), items)
+  assert_eq(result.is_error, Some(false))
 }
 
 ///|
@@ -37,21 +37,12 @@ test "conformance: client retains structured output and result metadata" {
     "_meta": { "com.example/key": false },
     "com.example/extension": [],
   }
-  match parse_call_tool(wire) {
-    Ok(result) => {
-      assert_eq(result.structured_content, Some(null))
-      assert_eq(result.is_error, None)
-      assert_eq(
-        result.metadata.meta.unwrap().get("com.example/key"),
-        Some(false),
-      )
-      assert_eq(
-        result.metadata.extensions.get("com.example/extension"),
-        Some([]),
-      )
-    }
-    Err(error) => raise error
-  }
+  let result = parse_call_tool(wire)
+
+  assert_eq(result.structured_content, Some(null))
+  assert_eq(result.is_error, None)
+  assert_eq(result.metadata.meta.unwrap().get("com.example/key"), Some(false))
+  assert_eq(result.metadata.extensions.get("com.example/extension"), Some([]))
 }
 
 ///|
@@ -62,10 +53,11 @@ test "conformance: client tool list rejects malformed definitions rather than dr
       { "name": "invalid", "inputSchema": {} },
     ],
   }
-  match parse_tools_list(wire) {
-    Err(@types.InvalidParams(_)) => ()
-    Err(error) => raise error
-    Ok(_) => fail("expected malformed tool definition to fail")
+  try parse_tools_list(wire) catch {
+    @types.InvalidParams(_) => ()
+    error => raise error
+  } noraise {
+    _ => fail("expected malformed tool definition to fail")
   }
   let definition : Json = {
     "name": "valid",
@@ -75,10 +67,8 @@ test "conformance: client tool list rejects malformed definitions rather than dr
     "_meta": {},
     "com.example/key": null,
   }
-  match parse_tools_list({ "tools": [definition] }) {
-    Ok(result) => assert_eq(result.tools[0].to_json(), definition)
-    Err(error) => raise error
-  }
+  let result = parse_tools_list({ "tools": [definition] })
+  assert_eq(result.tools[0].to_json(), definition)
 }
 
 ///|
@@ -91,10 +81,11 @@ test "conformance: invalid tool content fails instead of dropping items" {
     { "content": [], "isError": "false" },
   ]
   for wire in invalid {
-    match parse_call_tool(wire) {
-      Err(@types.InvalidParams(_)) => ()
-      Err(error) => raise error
-      Ok(_) => fail("expected invalid tool content to fail")
+    try parse_call_tool(wire) catch {
+      @types.InvalidParams(_) => ()
+      error => raise error
+    } noraise {
+      _ => fail("expected invalid tool content to fail")
     }
   }
 }
@@ -109,18 +100,12 @@ test "conformance: prompt content uses the same lossless codec" {
   let messages = items.map(content => {
     Json::object({ "role": "assistant", "content": content })
   })
-  match parse_get_prompt({ "messages": Json::array(messages) }) {
-    Ok(result) => {
-      assert_eq(result.messages.length(), 3)
-      assert_eq(
-        result.messages.map(message => message.content.to_json()),
-        items,
-      )
-      for message in result.messages {
-        assert_eq(message.role, "assistant")
-      }
-    }
-    Err(error) => raise error
+  let result = parse_get_prompt({ "messages": Json::array(messages) })
+
+  assert_eq(result.messages.length(), 3)
+  assert_eq(result.messages.map(message => message.content.to_json()), items)
+  for message in result.messages {
+    assert_eq(message.role, "assistant")
   }
 }
 
@@ -136,10 +121,11 @@ test "conformance: invalid prompt messages are not silently filtered" {
     { "messages": [null] },
   ]
   for wire in invalid {
-    match parse_get_prompt(wire) {
-      Err(@types.InvalidParams(_)) => ()
-      Err(error) => raise error
-      Ok(_) => fail("expected invalid prompt message to fail")
+    try parse_get_prompt(wire) catch {
+      @types.InvalidParams(_) => ()
+      error => raise error
+    } noraise {
+      _ => fail("expected invalid prompt message to fail")
     }
   }
 }

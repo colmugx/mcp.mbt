@@ -22,7 +22,10 @@ test "MRTR sampling rejects handler output that violates required tool choice" {
       ),
     ),
   ])
-  assert_true(
-    client.fulfill_input_requests(inputs) is Err(@types.InvalidParams(_)),
-  )
+  try client.fulfill_input_requests(inputs) catch {
+    @types.InvalidParams(_) => ()
+    error => raise error
+  } noraise {
+    _ => fail("expected protocol error")
+  }
 }

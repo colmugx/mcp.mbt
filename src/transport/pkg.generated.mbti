@@ -56,7 +56,7 @@ pub fn sse_event_verdict(String?, String?) -> SseEventVerdict
 
 pub fn unsupported_protocol_version_error(String, body~ : String) -> String
 
-pub fn validate_jsonrpc_message(String) -> Result[Unit, @types.MCPError]
+pub fn validate_jsonrpc_message(String) -> Unit raise @types.MCPError
 
 pub fn validate_tool_header_schema(Json) -> HeaderSchemaValidation
 

@@ -123,12 +123,15 @@ async fn PromptRegistry::get_prompt(
   name : String,
   context : @runtime.RequestContext,
   args : Json,
-) -> Result[@prompt.PromptGetOutcome, @types.MCPError] {
+) -> @prompt.PromptGetOutcome {
   match self.prompts.get(name) {
     Some(entry) => {
       let handler = entry.handler
-      handler(context, args)
+      match handler(context, args) {
+        Ok(outcome) => outcome
+        Err(error) => raise error
+      }
     }
-    None => Err(@types.MethodNotFound("Prompt not found: " + name))
+    None => raise @types.MethodNotFound("Prompt not found: " + name)
   }
 }

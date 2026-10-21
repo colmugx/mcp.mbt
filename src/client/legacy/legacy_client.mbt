@@ -57,9 +57,9 @@ fn LegacyClient::next_request_id(self : LegacyClient) -> Int32 {
 /// Parse the `InitializeResult` response into `ServerInfo`.
 fn parse_initialize_response(
   response : String,
-) -> Result[@types.ServerInfo, @types.MCPError] {
+) -> @types.ServerInfo raise @types.MCPError {
   let json = @json.parse(response) catch {
-    _ => return Err(@types.ParseError("Invalid initialize response"))
+    _ => raise @types.ParseError("Invalid initialize response")
   }
   match json {
     Object(obj) =>
@@ -75,19 +75,19 @@ fn parse_initialize_response(
                 Some(String(v)) => v
                 _ => "unknown"
               }
-              Ok({ name, title: None, version, description: None, })
+              { name, title: None, version, description: None, }
             }
             _ =>
-              Ok({
+              {
                 name: "unknown",
                 title: None,
                 version: "unknown",
                 description: None,
-              })
+              }
           }
-        _ => Err(@types.InvalidRequest("initialize response missing result"))
+        _ => raise @types.InvalidRequest("initialize response missing result")
       }
-    _ => Err(@types.ParseError("initialize response is not an object"))
+    _ => raise @types.ParseError("initialize response is not an object")
   }
 }
 
@@ -99,9 +99,7 @@ fn parse_initialize_response(
 /// The legacy client advertises empty client capabilities: it has no inbound
 /// request handlers (roots/listChanged and sampling are provided by the modern
 /// client after the 2026-07-28 migration), so claiming them here would be a lie.
-pub async fn LegacyClient::initialize(
-  self : LegacyClient,
-) -> Result[@types.ServerInfo, @types.MCPError] {
+pub async fn LegacyClient::initialize(self : LegacyClient) -> @types.ServerInfo {
   let id = self.next_request_id()
   // Build the initialize request body for the 2025-11-25 shape.
   // Capabilities are intentionally empty: this fallback client cannot serve
@@ -123,20 +121,16 @@ pub async fn LegacyClient::initialize(
   // Send + receive (legacy synchronous send/receive on the transport).
   let t = self.transport
   t.send(request) catch {
-    e => return Err(@types.InternalError("Send failed: " + e.to_string()))
+    e => raise @types.InternalError("Send failed: " + e.to_string())
   }
   let response = t.receive() catch {
-    e => return Err(@types.InternalError("Receive failed: " + e.to_string()))
+    e => raise @types.InternalError("Receive failed: " + e.to_string())
   }
   let response_str = match response {
     Some(s) => s
-    None =>
-      return Err(@types.InternalError("Connection closed during initialize"))
+    None => raise @types.InternalError("Connection closed during initialize")
   }
-  let info = match parse_initialize_response(response_str) {
-    Ok(i) => i
-    Err(e) => return Err(e)
-  }
+  let info = parse_initialize_response(response_str)
   self.server_name = info.name
   self.server_version = info.version
   // Send notifications/initialized to complete the handshake.
@@ -145,7 +139,7 @@ pub async fn LegacyClient::initialize(
     params: None,
   }
   let _ = t.send_notification(notification) catch { _ => () }
-  Ok(info)
+  info
 }
 
 ///|
@@ -154,17 +148,17 @@ pub async fn LegacyClient::initialize(
 pub async fn LegacyClient::send_raw(
   self : LegacyClient,
   request : String,
-) -> Result[String, @types.MCPError] {
+) -> String {
   let t = self.transport
   t.send(request) catch {
-    e => return Err(@types.InternalError("Send failed: " + e.to_string()))
+    e => raise @types.InternalError("Send failed: " + e.to_string())
   }
   let response = t.receive() catch {
-    e => return Err(@types.InternalError("Receive failed: " + e.to_string()))
+    e => raise @types.InternalError("Receive failed: " + e.to_string())
   }
   match response {
-    Some(s) => Ok(s)
-    None => Err(@types.InternalError("Connection closed"))
+    Some(s) => s
+    None => raise @types.InternalError("Connection closed")
   }
 }
 
@@ -180,34 +174,28 @@ fn build_ping_request(id : Int32) -> String {
 
 ///|
 /// Send a legacy `ping` request and wait for a response.
-/// Returns `Ok(())` if the response contains no JSON-RPC error.
-pub async fn LegacyClient::ping(
-  self : LegacyClient,
-) -> Result[Unit, @types.MCPError] {
+/// Raises `MCPError` if the response contains a JSON-RPC error.
+pub async fn LegacyClient::ping(self : LegacyClient) -> Unit {
   let id = self.next_request_id()
   let request = build_ping_request(id)
-  let response = self.send_raw(request)
-  match response {
-    Ok(body) => {
-      let json = @json.parse(body) catch {
-        _ => return Err(@types.ParseError("Invalid ping response"))
-      }
-      match json {
-        Object(obj) =>
-          match obj.get("error") {
-            Some(Object(err)) => {
-              let message = match err.get("message") {
-                Some(String(s)) => s
-                _ => "ping failed"
-              }
-              Err(@types.InternalError(message))
-            }
-            _ => Ok(())
+  let body = self.send_raw(request)
+
+  let json = @json.parse(body) catch {
+    _ => raise @types.ParseError("Invalid ping response")
+  }
+  match json {
+    Object(obj) =>
+      match obj.get("error") {
+        Some(Object(err)) => {
+          let message = match err.get("message") {
+            Some(String(s)) => s
+            _ => "ping failed"
           }
-        _ => Err(@types.ParseError("Ping response is not an object"))
+          raise @types.InternalError(message)
+        }
+        _ => ()
       }
-    }
-    Err(e) => Err(e)
+    _ => raise @types.ParseError("Ping response is not an object")
   }
 }
 
@@ -221,7 +209,7 @@ pub async fn LegacyClient::connect_http(
   version~ : String,
   auth_token~ : String = "",
   extra_headers~ : Array[(String, String)] = [],
-) -> Result[LegacyClient, @types.MCPError] {
+) -> LegacyClient {
   let http_transport = LegacyHttpSessionTransport::LegacyHttpSessionTransport(
     url~,
     auth_token~,
@@ -235,10 +223,9 @@ pub async fn LegacyClient::connect_http(
     server_name: "unknown",
     server_version: "unknown",
   }
-  match client.initialize() {
-    Ok(_) => Ok(client)
-    Err(e) => Err(e)
-  }
+  errdefer http_transport.close()
+  ignore(client.initialize())
+  client
 }
 
 ///|

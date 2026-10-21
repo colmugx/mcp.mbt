@@ -175,21 +175,25 @@ async test "e2e/http: era=Legacy connect_http sends initialize first, never disc
     let server_task = group.spawn(async fn() {
       era_fake_server(server, true, methods)
     })
-    match
+    try
       MCPClient::connect_http(
         url="http://127.0.0.1:47361/",
         name="era-test",
         version="0.1",
         era=Legacy,
-      ) {
-      Ok(client) => {
+      )
+    catch {
+      @types.MCPError::_ as e =>
+        fail("era=Legacy connect failed: \{e.message()}")
+      error => raise error
+    } noraise {
+      client => {
         assert_true(methods.length() > 0)
         @debug.assert_eq(methods[0], "initialize")
         assert_false(methods.contains("server/discover"))
         assert_true(client.backend is Legacy(_))
         client.close()
       }
-      Err(e) => fail("era=Legacy connect failed: \{e.message()}")
     }
     server_task.cancel()
   })
@@ -209,19 +213,22 @@ async test "e2e/http: era=Modern connect_http: legacy fallback forbidden, modern
     let server_task = group.spawn(async fn() {
       era_fake_server(legacy_server, true, legacy_methods)
     })
-    match
+    try
       MCPClient::connect_http(
         url="http://127.0.0.1:47362/",
         name="era-test",
         version="0.1",
         era=Modern,
-      ) {
-      Ok(_) => fail("era=Modern unexpectedly connected to a legacy-only server")
-      Err(e) => {
+      )
+    catch {
+      @types.MCPError::_ as e => {
         let msg = e.message()
         assert_true(msg.contains("era=Modern forbids legacy fallback"))
         assert_true(msg.contains("422"))
       }
+      error => raise error
+    } noraise {
+      _ => fail("era=Modern unexpectedly connected to a legacy-only server")
     }
     server_task.cancel()
   })
@@ -236,20 +243,23 @@ async test "e2e/http: era=Modern connect_http: legacy fallback forbidden, modern
     let server_task = group.spawn(async fn() {
       era_fake_server(modern_server, false, modern_methods)
     })
-    match
+    try
       MCPClient::connect_http(
         url="http://127.0.0.1:47363/",
         name="era-test",
         version="0.1",
         era=Modern,
-      ) {
-      Ok(client) => {
+      )
+    catch {
+      @types.MCPError::_ as e =>
+        fail("era=Modern connect to modern server failed: \{e.message()}")
+      error => raise error
+    } noraise {
+      client => {
         @debug.assert_eq(modern_methods[0], "server/discover")
         assert_true(client.backend is Modern)
         client.close()
       }
-      Err(e) =>
-        fail("era=Modern connect to modern server failed: \{e.message()}")
     }
     server_task.cancel()
   })
@@ -268,32 +278,39 @@ async test "e2e/http: era default matches Auto: probe modern, fall back on legac
     let server_task = group.spawn(async fn() {
       era_fake_server(modern_server, false, modern_methods)
     })
-    match
+    try
       MCPClient::connect_http(
         url="http://127.0.0.1:47364/",
         name="era-test",
         version="0.1",
-      ) {
-      Ok(client) => {
+      )
+    catch {
+      @types.MCPError::_ as e =>
+        fail("default-era connect to modern server failed: \{e.message()}")
+      error => raise error
+    } noraise {
+      client => {
         @debug.assert_eq(modern_methods[0], "server/discover")
         assert_true(client.backend is Modern)
         client.close()
       }
-      Err(e) =>
-        fail("default-era connect to modern server failed: \{e.message()}")
     }
-    match
+    try
       MCPClient::connect_http(
         url="http://127.0.0.1:47364/",
         name="era-test",
         version="0.1",
         era=Auto,
-      ) {
-      Ok(client) => {
+      )
+    catch {
+      @types.MCPError::_ as e =>
+        fail("era=Auto connect to modern server failed: \{e.message()}")
+      error => raise error
+    } noraise {
+      client => {
         assert_true(client.backend is Modern)
         client.close()
       }
-      Err(e) => fail("era=Auto connect to modern server failed: \{e.message()}")
     }
     server_task.cancel()
   })
@@ -308,20 +325,23 @@ async test "e2e/http: era default matches Auto: probe modern, fall back on legac
     let server_task = group.spawn(async fn() {
       era_fake_server(legacy_server, true, legacy_methods)
     })
-    match
+    try
       MCPClient::connect_http(
         url="http://127.0.0.1:47365/",
         name="era-test",
         version="0.1",
-      ) {
-      Ok(client) => {
+      )
+    catch {
+      @types.MCPError::_ as e =>
+        fail("default-era connect to legacy server failed: \{e.message()}")
+      error => raise error
+    } noraise {
+      client => {
         @debug.assert_eq(legacy_methods[0], "server/discover")
         @debug.assert_eq(legacy_methods[1], "initialize")
         assert_true(client.backend is Legacy(_))
         client.close()
       }
-      Err(e) =>
-        fail("default-era connect to legacy server failed: \{e.message()}")
     }
     server_task.cancel()
   })
@@ -340,28 +360,35 @@ async test "e2e/http: MCPHost::connect_http passes era through" {
       era_fake_server(server, true, methods)
     })
     let host = MCPHost::MCPHost(name="host", version="0.1")
-    match
+    try
       host.connect_http(
         name="legacy",
         url="http://127.0.0.1:47366/",
         era=Legacy,
-      ) {
-      Ok(_) => {
+      )
+    catch {
+      @types.MCPError::_ as e =>
+        fail("host era=Legacy connect failed: \{e.message()}")
+      error => raise error
+    } noraise {
+      _ => {
         assert_true(methods.length() > 0)
         @debug.assert_eq(methods[0], "initialize")
       }
-      Err(e) => fail("host era=Legacy connect failed: \{e.message()}")
     }
-    match
+    try
       host.connect_http(
         name="modern",
         url="http://127.0.0.1:47366/",
         era=Modern,
-      ) {
-      Ok(_) =>
-        fail("host era=Modern unexpectedly connected to a legacy-only server")
-      Err(e) =>
+      )
+    catch {
+      @types.MCPError::_ as e =>
         assert_true(e.message().contains("era=Modern forbids legacy fallback"))
+      error => raise error
+    } noraise {
+      _ =>
+        fail("host era=Modern unexpectedly connected to a legacy-only server")
     }
     host.close_all()
     server_task.cancel()
@@ -433,21 +460,25 @@ async test "e2e/http: legacy fallback carries extra_headers through initialize" 
         conn.close()
       }
     })
-    match
+    try
       MCPClient::connect_http(
         url="http://127.0.0.1:47367/",
         name="era-test",
         version="0.1",
         extra_headers=[("X-R6-Marker", "marker-value")],
-      ) {
-      Ok(client) => {
+      )
+    catch {
+      @types.MCPError::_ as e =>
+        fail("gated fallback connect failed: \{e.message()}")
+      error => raise error
+    } noraise {
+      client => {
         // The probe rejection (-32601) must have fallen back to the legacy
         // initialize, and that initialize must have carried the marker.
         assert_true(client.backend is Legacy(_))
         assert_true(marker_seen.length() > 0)
         client.close()
       }
-      Err(e) => fail("gated fallback connect failed: \{e.message()}")
     }
     server_task.cancel()
   })
@@ -467,20 +498,23 @@ async test "e2e/http: legacy initialize 4xx error carries the response body" {
         era_gate_handle_conn(conn, [])
       }
     })
-    match
+    try
       MCPClient::connect_http(
         url="http://127.0.0.1:47368/",
         name="era-test",
         version="0.1",
         era=Legacy,
-      ) {
-      Ok(_) => fail("expected the initialize rejection to surface")
-      Err(e) =>
+      )
+    catch {
+      @types.MCPError::_ as e =>
         assert_true(
           e
           .message()
           .contains("Missing or invalid Lody MCP session context headers"),
         )
+      error => raise error
+    } noraise {
+      _ => fail("expected the initialize rejection to surface")
     }
     server_task.cancel()
   })

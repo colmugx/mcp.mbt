@@ -93,37 +93,35 @@ async fn ToolRegistry::call_tool(
   name : String,
   context : @runtime.RequestContext,
   params : Json,
-) -> Result[@tool.ToolCallOutcome, @types.MCPError] {
+) -> @tool.ToolCallOutcome {
   match self.tools.get(name) {
     Some(entry) => {
-      entry.input_validator.check_input(params) catch {
-        error => return Err(error)
-      }
+      entry.input_validator.check_input(params)
       context.cancellation_token.throw_if_cancelled()
       let outcome = (entry.handler)(context, params)
       context.cancellation_token.throw_if_cancelled()
+      let outcome = match outcome {
+        Ok(outcome) => outcome
+        Err(error) => raise error
+      }
       match outcome {
-        Ok(@tool.Complete(result)) => {
+        @tool.Complete(result) => {
           if result.is_error != Some(true) &&
             entry.output_validator is Some(validator) {
             let value = match result.structured_content {
               Some(value) => value
               None =>
-                return Err(
-                  @types.InternalError(
-                    "Tool declared outputSchema but successful result has no structuredContent",
-                  ),
+                raise @types.InternalError(
+                  "Tool declared outputSchema but successful result has no structuredContent",
                 )
             }
-            validator.check_output(value) catch {
-              error => return Err(error)
-            }
+            validator.check_output(value)
           }
           outcome
         }
         _ => outcome
       }
     }
-    None => Err(@types.InvalidParams("Tool not found: " + name))
+    None => raise @types.InvalidParams("Tool not found: " + name)
   }
 }

@@ -59,31 +59,43 @@ async test "raw requests reject invalid ids and canonical duplicates before tran
     transport=@transport.AnyTransport::HttpClient(transport),
   )
   for id in ["null", "true", "1.5", "1.00000000000000000001"] {
-    assert_true(
+    try
       client.send_request(
         "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"method\":\"tools/list\"}",
       )
-      is Err(@types.InvalidRequest(_)),
-    )
+    catch {
+      @types.InvalidRequest(_) => ()
+      error => raise error
+    } noraise {
+      _ => fail("expected protocol error")
+    }
   }
-  assert_true(
+  try
     client.send_request("{\"jsonrpc\":\"2.0\",\"method\":\"tools/list\"}")
-    is Err(@types.InvalidRequest(_)),
-  )
+  catch {
+    @types.InvalidRequest(_) => ()
+    error => raise error
+  } noraise {
+    _ => fail("expected protocol error")
+  }
   assert_true(client.request_cancellations.is_empty())
   assert_true(client.response_map.is_empty())
   let key = @types.RequestId::Int(42).key()
   let cancelled = Ref(false)
   client.request_cancellations.set(key, fn(_) { cancelled.val = true })
-  assert_true(
+  try
     client.send_request(
       "{\"jsonrpc\":\"2.0\",\"id\":4.2e1,\"method\":\"tools/list\"}",
     )
-    is Err(@types.InvalidRequest(_)),
-  )
+  catch {
+    @types.InvalidRequest(_) => ()
+    error => raise error
+  } noraise {
+    _ => fail("expected protocol error")
+  }
   assert_true(client.request_cancellations.contains(key))
   assert_false(cancelled.val)
-  assert_eq(client.cancel_request(@types.RequestId::Int(42)), Ok(()))
+  assert_eq(client.cancel_request(@types.RequestId::Int(42)), ())
   assert_true(cancelled.val)
   client.request_cancellations.clear()
 }

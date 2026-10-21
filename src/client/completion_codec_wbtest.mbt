@@ -26,8 +26,10 @@ test "completion resource request uses uri and includes context arguments" {
 
 ///|
 test "completion client codec rejects nonstring suggestions and retains metadata" {
-  match parse_completion_result({ "completion": { "values": [1] } }) {
-    Err(@types.InvalidParams(_)) => ()
+  try parse_completion_result({ "completion": { "values": [1] } }) catch {
+    @types.InvalidParams(_) => ()
+    _ => fail("invalid suggestions must not be silently dropped")
+  } noraise {
     _ => fail("invalid suggestions must not be silently dropped")
   }
   let result = parse_completion_result({
@@ -35,7 +37,6 @@ test "completion client codec rejects nonstring suggestions and retains metadata
     "_meta": { "trace": "kept" },
     "future": false,
   })
-  guard result is Ok(result) else { fail("expected valid completion") }
   assert_eq(
     result.metadata.meta.unwrap().get("trace"),
     Some(Json::string("kept")),

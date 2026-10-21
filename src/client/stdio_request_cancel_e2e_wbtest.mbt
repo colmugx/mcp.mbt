@@ -49,11 +49,8 @@ async test "e2e/stdio: cancelled send_request re-raises and delivers notificatio
     let request = "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"tools/list\",\"params\":{}}"
     let probe = SendRequestProbe::{ raised: false, }
     let task : @async.Task[Unit] = group.spawn(() => {
-      let _ : Result[String, @types.MCPError] = client.send_request(request) catch {
-        _ => {
-          probe.raised = true
-          Err(@types.InternalError("placeholder, never inspected"))
-        }
+      ignore(client.send_request(request)) catch {
+        _ => probe.raised = true
       }
     })
     // Wait until the request is registered and parked in receive
@@ -106,11 +103,14 @@ async test "e2e/stdio: explicit stdio cancellation releases local wait and prese
       version="1",
       transport=@transport.AnyTransport::StdioClient(transport),
     )
-    let task = group.spawn(() => {
-      client.send_request(
-        "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"tools/list\",\"params\":{}}",
-      )
-    })
+    let task = group.spawn(
+      () => {
+        client.send_request(
+          "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"tools/list\",\"params\":{}}",
+        )
+      },
+      allow_failure=true,
+    )
     wait_until(3000, () => {
       client.request_cancellations.contains(@types.RequestId::Int(8).key())
     })
@@ -119,10 +119,12 @@ async test "e2e/stdio: explicit stdio cancellation releases local wait and prese
     )
     assert_eq(
       client.cancel_request(@types.RequestId::Int(8), reason="user stop"),
-      Ok(()),
+      (),
     )
-    match @async.with_timeout(3000, () => task.wait()) {
-      Err(@types.Cancelled(_)) => ()
+    try @async.with_timeout(3000, () => task.wait()) catch {
+      @types.Cancelled(_) => ()
+      _ => fail("explicit cancellation must release the local request wait")
+    } noraise {
       _ => fail("explicit cancellation must release the local request wait")
     }
     assert_false(
@@ -180,18 +182,23 @@ async test "e2e/stdio: explicit HTTP cancellation closes the owned request strea
       )
       disconnected.put(())
     })
-    let task = group.spawn(() => {
-      client.send_request(
-        "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/list\",\"params\":{}}",
-      )
-    })
+    let task = group.spawn(
+      () => {
+        client.send_request(
+          "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/list\",\"params\":{}}",
+        )
+      },
+      allow_failure=true,
+    )
     ignore(@async.with_timeout(3000, () => started.get()))
     assert_true(
       client.request_cancellations.contains(@types.RequestId::Int(9).key()),
     )
-    assert_eq(client.cancel_request(@types.RequestId::Int(9)), Ok(()))
-    match @async.with_timeout(3000, () => task.wait()) {
-      Err(@types.Cancelled(_)) => ()
+    assert_eq(client.cancel_request(@types.RequestId::Int(9)), ())
+    try @async.with_timeout(3000, () => task.wait()) catch {
+      @types.Cancelled(_) => ()
+      _ => fail("HTTP cancellation must release the caller")
+    } noraise {
       _ => fail("HTTP cancellation must release the caller")
     }
     ignore(@async.with_timeout(3000, () => disconnected.get()))
@@ -213,11 +220,14 @@ async test "e2e/stdio: closing the client cancels its owned stdio request and re
       version="1",
       transport=@transport.AnyTransport::StdioClient(transport),
     )
-    let task = group.spawn(() => {
-      client.send_request(
-        "{\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"tools/list\",\"params\":{}}",
-      )
-    })
+    let task = group.spawn(
+      () => {
+        client.send_request(
+          "{\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"tools/list\",\"params\":{}}",
+        )
+      },
+      allow_failure=true,
+    )
     wait_until(3000, () => {
       client.request_cancellations.contains(@types.RequestId::Int(10).key())
     })
@@ -225,8 +235,10 @@ async test "e2e/stdio: closing the client cancels its owned stdio request and re
       client.request_cancellations.contains(@types.RequestId::Int(10).key()),
     )
     client.close()
-    match @async.with_timeout(3000, () => task.wait()) {
-      Err(@types.Cancelled(_)) => ()
+    try @async.with_timeout(3000, () => task.wait()) catch {
+      @types.Cancelled(_) => ()
+      error => raise error
+    } noraise {
       result => fail("closing client must release request: \{Repr(result)}")
     }
     assert_true(client.request_cancellations.is_empty())
@@ -294,8 +306,8 @@ async test "e2e/stdio: direct HTTP calls consume progress then their own respons
       }).stringify()
       let response = @async.with_timeout(3000, () => {
         client.send_request(request)
-      }).unwrap()
-      let result = parse_jsonrpc_response(response).unwrap()
+      })
+      let result = parse_jsonrpc_response(response)
       assert_true(
         result is Object(fields) &&
         fields.get("marker") == Some(Json::number(id.to_double())),
@@ -376,9 +388,9 @@ async test "e2e/stdio: concurrent direct HTTP calls correlate out-of-order repli
     let first = group.spawn(() => client.send_request(request1))
     @async.with_timeout(3000, () => first_started.get())
     let second = group.spawn(() => client.send_request(request2))
-    assert_eq(@async.with_timeout(3000, () => second.wait()), Ok(response2))
+    assert_eq(@async.with_timeout(3000, () => second.wait()), response2)
     second_consumed.put(())
-    assert_eq(@async.with_timeout(3000, () => first.wait()), Ok(response1))
+    assert_eq(@async.with_timeout(3000, () => first.wait()), response1)
   })
   assert_true(client.response_map.is_empty())
   assert_true(client.request_cancellations.is_empty())
@@ -401,17 +413,25 @@ async test "e2e/stdio: owned stdio cancellation releases string and large numeri
           transport=@transport.AnyTransport::StdioClient(transport),
         )
         let id = @types.RequestId::from_json(@validation.parse_json(literal))
-        let task = group.spawn(() => {
-          client.send_request(
-            "{\"jsonrpc\":\"2.0\",\"id\":" +
-            literal +
-            ",\"method\":\"tools/list\",\"params\":{}}",
-          )
-        })
+        let task = group.spawn(
+          () => {
+            client.send_request(
+              "{\"jsonrpc\":\"2.0\",\"id\":" +
+              literal +
+              ",\"method\":\"tools/list\",\"params\":{}}",
+            )
+          },
+          allow_failure=true,
+        )
         wait_until(3000, () => client.request_cancellations.contains(id.key()))
         assert_true(client.request_cancellations.contains(id.key()))
-        assert_eq(client.cancel_request(id, reason="stop"), Ok(()))
-        assert_true(task.wait() is Err(@types.Cancelled(_)))
+        assert_eq(client.cancel_request(id, reason="stop"), ())
+        try task.wait() catch {
+          @types.Cancelled(_) => ()
+          error => raise error
+        } noraise {
+          _ => fail("expected protocol error")
+        }
         assert_true(client.response_map.is_empty())
         assert_true(client.request_cancellations.is_empty())
         let notification = @validation.parse_json(transport.receive().unwrap())
@@ -422,4 +442,33 @@ async test "e2e/stdio: owned stdio cancellation releases string and large numeri
       })
     })
   }
+}
+
+///|
+async test "e2e/stdio: cancelling listen cleans its handler without failing the task group" {
+  @async.with_timeout(5000, () => {
+    @async.with_task_group(group => {
+      let transport = @transport.StdioClientTransport::StdioClientTransport(
+        cmd="sh",
+        args=["-c", "read x; cat"],
+      )
+      transport.start(group)
+      let client = MCPClient::MCPClient(
+        name="test",
+        version="1",
+        transport=@transport.AnyTransport::StdioClient(transport),
+      )
+      defer client.close()
+      group.spawn_bg(() => client.run(group), no_wait=true)
+      wait_until(3000, () => client.event_loop_started)
+      let id = client.listen(handler=_ => (), group~)
+      let key = @types.RequestId::from_json(@validation.parse_json(id)).key()
+      wait_until(3000, () => client.request_cancellations.contains(key))
+      client.cancel_listen(id)
+      wait_until(3000, () => !client.subscription_handlers.contains(key))
+      assert_true(client.request_cancellations.is_empty())
+      assert_true(client.response_map.is_empty())
+      assert_true(client.event_loop_started)
+    })
+  })
 }
