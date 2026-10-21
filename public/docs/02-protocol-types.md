@@ -35,11 +35,11 @@ Parse from JSON:
 
 ```moonbit
 let json = @mcp.parse_json(raw_string)
-match JsonRpcRequest::from_json(json) {
-  Ok(req) => println(req.method_name)
-  Err(e) => println(e.message())
-}
+let req = @mcp.JsonRpcRequest::from_json(json)
+println(req.method_name)
 ```
+
+`JsonRpcRequest::from_json` returns a request directly and raises `MCPError::InvalidRequest` for an invalid envelope.
 
 `@mcp.parse_json` preserves numeric literals for exact schema checks and result
 round-trips. It raises `MCPError::ParseError` on invalid JSON. Built-in `Json` remains

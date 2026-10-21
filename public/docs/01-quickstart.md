@@ -61,45 +61,35 @@ Prefer HTTP? Replace the last line with:
 ```moonbit
 ///|
 async fn main {
-  match
-    @mcp.MCPClient::connect_http(
-      url="http://localhost:4240/mcp",
-      name="quickstart-client",
-      version="1.0.0",
-    ) {
-    Ok(client) => {
-      match client.call_tool("echo", arguments="{\"text\":\"hello\"}") {
-        Ok(result) =>
-          for block in result.content {
-            println(@debug.to_string(block))
-          }
-        Err(e) => println("call failed: \{e.message()}")
-      }
-      client.close()
-    }
-    Err(e) => println("connect failed: \{e.message()}")
-  }
+  let client = @mcp.MCPClient::connect_http(
+    url="http://localhost:4240/mcp",
+    name="quickstart-client",
+    version="1.0.0",
+  )
+  defer client.close()
+  let result = client.call_tool("echo", arguments="{\"text\":\"hello\"}")
+  for block in result.content { println(@debug.to_string(block)) }
 }
 ```
+
+Failures raise checked errors rather than returning `Err`. See the
+[client error-handling guide](05-client-guide.md#error-handling) for local recovery.
 
 For a local child-process server, wrap the connection in a task group — the child process belongs to async supervision:
 
 ```moonbit
 @async.with_task_group(group => {
-  match
-    @mcp.MCPClient::connect_stdio(
-      cmd="moon",
-      args=["run", "server"],
-      name="quickstart-client",
-      version="1.0.0",
-      group~,
-    ) {
-    Ok(client) => client.close()
-    Err(e) => println("connect failed: \{e.message()}")
-  }
+  let client = @mcp.MCPClient::connect_stdio(
+    cmd="moon",
+    args=["run", "server"],
+    name="quickstart-client",
+    version="1.0.0",
+    group~,
+  )
+  defer client.close()
+  // Make calls while this group is alive.
 })
 ```
-
 ## Host
 
 A host fans out to several servers and namespaces their tools as `connection.tool`:
@@ -109,6 +99,7 @@ A host fans out to several servers and namespaces their tools as `connection.too
 async fn main {
   let host = @mcp.MCPHost(name="quickstart-host", version="1.0.0")
   @async.with_task_group(group => {
+    defer host.close_all()
     let _ = host.connect_stdio(
       name="local",
       cmd="moon",
@@ -118,7 +109,6 @@ async fn main {
     let _ = host.connect_http(name="remote", url="http://localhost:4240/mcp")
     let _ = host.list_tools()
     let _ = host.call_tool("local.echo", arguments="{\"text\":\"hello\"}")
-    host.close_all()
   })
 }
 ```
