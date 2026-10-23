@@ -28,5 +28,6 @@ options(
     "unimplemented.mbt": [ "wasm-gc" ],
     "http_cancellation_e2e_wbtest.mbt": [ "native" ],
     "legacy_client_logic_wbtest.mbt": [ "native", "js", "wasm" ],
+    "legacy_client_js_stdio_e2e_wbtest.mbt": [ "js" ],
   },
 )
