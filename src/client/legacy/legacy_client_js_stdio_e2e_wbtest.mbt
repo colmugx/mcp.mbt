@@ -14,11 +14,11 @@ let legacy_delayed_echo_script : String =
   #|process.stdin.on('data', (chunk) => {
   #|  pending += chunk.toString();
   #|  let end;
-  #|  while ((end = pending.indexOf('\\n')) >= 0) {
+  #|  while ((end = pending.indexOf('\n')) >= 0) {
   #|    const line = pending.slice(0, end);
   #|    pending = pending.slice(end + 1);
   #|    if (line.trim()) {
-  #|      setTimeout(() => process.stdout.write(line + '\\n'), 150);
+  #|      setTimeout(() => process.stdout.write(line + '\n'), 150);
   #|    }
   #|  }
   #|});
