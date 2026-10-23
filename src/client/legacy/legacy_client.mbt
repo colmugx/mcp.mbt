@@ -26,6 +26,10 @@ pub struct LegacyClient {
   client_name : String
   client_version : String
   transport : LegacyTransport
+  /// Legacy exchanges have no response-id dispatcher: a full send/receive
+  /// pair must own the transport, or two concurrent requests can both read
+  /// the same stdio pipe (and receive each other's responses).
+  request_mutex : @async.Mutex
   mut next_id : Int32
   mut server_name : String
   mut server_version : String
@@ -41,6 +45,7 @@ pub fn LegacyClient::LegacyClient(
     client_name: name,
     client_version: version,
     transport: LegacyTransport::Wrapped(transport),
+    request_mutex: @async.Mutex::Mutex(),
     next_id: 0,
     server_name: "unknown",
     server_version: "unknown",
@@ -100,6 +105,8 @@ fn parse_initialize_response(
 /// request handlers (roots/listChanged and sampling are provided by the modern
 /// client after the 2026-07-28 migration), so claiming them here would be a lie.
 pub async fn LegacyClient::initialize(self : LegacyClient) -> @types.ServerInfo {
+  self.request_mutex.acquire()
+  defer self.request_mutex.release()
   let id = self.next_request_id()
   // Build the initialize request body for the 2025-11-25 shape.
   // Capabilities are intentionally empty: this fallback client cannot serve
@@ -149,6 +156,8 @@ pub async fn LegacyClient::send_raw(
   self : LegacyClient,
   request : String,
 ) -> String {
+  self.request_mutex.acquire()
+  defer self.request_mutex.release()
   let t = self.transport
   t.send(request) catch {
     e => raise @types.InternalError("Send failed: " + e.to_string())
@@ -219,6 +228,7 @@ pub async fn LegacyClient::connect_http(
     client_name: name,
     client_version: version,
     transport: LegacyTransport::HttpSession(http_transport),
+    request_mutex: @async.Mutex::Mutex(),
     next_id: 0,
     server_name: "unknown",
     server_version: "unknown",
