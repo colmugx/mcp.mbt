@@ -41,11 +41,17 @@ async test "legacy stdio serializes concurrent send_raw calls and preserves resp
     let first_request = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}"
     let second_request = "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"ping\"}"
 
-    let first = group.spawn(() => client.send_raw(first_request), allow_failure=true)
+    let first = group.spawn(
+      () => client.send_raw(first_request),
+      allow_failure=true,
+    )
     // The first request has entered read_until and is waiting for the child.
     // Before the fix, the second concurrent receive hit PipeRead's guard!.
     @async.sleep(25)
-    let second = group.spawn(() => client.send_raw(second_request), allow_failure=true)
+    let second = group.spawn(
+      () => client.send_raw(second_request),
+      allow_failure=true,
+    )
 
     let first_response = @async.with_timeout(5000, () => first.wait())
     let second_response = @async.with_timeout(5000, () => second.wait())
