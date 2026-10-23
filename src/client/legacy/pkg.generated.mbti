@@ -4,6 +4,7 @@ package "colmugx/mcp/client/legacy"
 import {
   "colmugx/mcp/protocol/types",
   "colmugx/mcp/transport",
+  "moonbitlang/async",
   "moonbitlang/async/aqueue",
 }
 
@@ -16,6 +17,7 @@ pub struct LegacyClient {
   client_name : String
   client_version : String
   transport : LegacyTransport
+  request_mutex : @async.Mutex
   mut next_id : Int32
   mut server_name : String
   mut server_version : String
