@@ -4,14 +4,16 @@ package "colmugx/mcp/runtime"
 import {
   "colmugx/mcp/protocol/types",
   "moonbitlang/core/debug",
+  "moonbitlang/core/json",
 }
 
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror RequestCancelled {
   RequestCancelled
-} derive(@debug.Debug)
+}
 pub fn RequestCancelled::to_repr(Self) -> @debug.Repr
 
 // Types and methods
@@ -32,13 +34,14 @@ pub fn CancellationToken::new() -> Self
 pub fn CancellationToken::on_cancel(Self, () -> Unit) -> CancellationRegistration
 pub fn CancellationToken::throw_if_cancelled(Self) -> Unit raise RequestCancelled
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Principal {
   id : String
   scopes : Array[String]
-  attributes : Map[String, Json]
-} derive(Eq, @debug.Debug)
+  attributes : Map[String, @json.Json]
+}
 pub fn Principal::equal(Self, Self) -> Bool
-pub fn Principal::new(String, scopes? : Array[String], attributes? : Map[String, Json]) -> Self
+pub fn Principal::new(String, scopes? : Array[String], attributes? : Map[String, @json.Json]) -> Self
 pub fn Principal::not_equal(Self, Self) -> Bool
 pub fn Principal::to_repr(Self) -> @debug.Repr
 
@@ -51,14 +54,14 @@ pub async fn ProgressReporter::report(Self, Double, total? : Double, message? : 
 
 pub(all) struct RequestContext {
   request_id : @types.RequestId
-  meta : Map[String, Json]
+  meta : Map[String, @json.Json]
   principal : Principal?
-  input_responses : Map[String, Json]
-  continuation_state : Json?
+  input_responses : Map[String, @json.Json]
+  continuation_state : @json.Json?
   cancellation_token : CancellationToken
   progress_reporter : ProgressReporter
 }
-pub fn RequestContext::new(@types.RequestId, meta? : Map[String, Json], principal? : Principal, input_responses? : Map[String, Json], continuation_state? : Json, cancellation_token? : CancellationToken, progress_reporter? : ProgressReporter) -> Self
+pub fn RequestContext::new(@types.RequestId, meta? : Map[String, @json.Json], principal? : Principal, input_responses? : Map[String, @json.Json], continuation_state? : @json.Json, cancellation_token? : CancellationToken, progress_reporter? : ProgressReporter) -> Self
 
 // Type aliases
 

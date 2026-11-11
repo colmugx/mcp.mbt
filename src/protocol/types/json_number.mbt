@@ -1,10 +1,11 @@
 ///|
 /// Exact JSON numeric identity and wire spelling, including fractional tokens.
 /// This is not an arithmetic API; conversion to Double is explicitly lossy.
+#derive(Debug)
 pub struct JsonNumber {
   wire : Json
   canonical : String
-} derive(Debug)
+}
 
 ///|
 pub fn JsonNumber::from_json(value : Json) -> JsonNumber raise MCPError {

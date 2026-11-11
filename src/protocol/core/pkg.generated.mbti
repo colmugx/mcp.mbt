@@ -6,6 +6,7 @@ import {
   "colmugx/mcp/protocol/types",
   "colmugx/mcp/runtime",
   "moonbitlang/core/debug",
+  "moonbitlang/core/json",
 }
 
 // Values
@@ -19,7 +20,7 @@ pub fn num_schema(desc? : String) -> JsonSchema
 
 pub fn obj_schema(Map[String, JsonSchema], Array[String], desc? : String) -> JsonSchema
 
-pub fn simple_tool(String, String, (@runtime.RequestContext, Json) -> @types.ToolResult) -> ToolWrapper
+pub fn simple_tool(String, String, (@runtime.RequestContext, @json.Json) -> @types.ToolResult) -> ToolWrapper
 
 pub fn str_schema(desc? : String) -> JsonSchema
 
@@ -31,15 +32,16 @@ pub suberror ToolError {
 }
 
 // Types and methods
+#derive(@debug.Debug)
 pub struct JsonSchema {
   type_name : String
   description : String
   properties : Map[String, JsonSchema]?
   required : Array[String]?
   items : JsonSchema?
-  default : Json?
-} derive(@debug.Debug)
-pub fn JsonSchema::to_json(Self) -> Json
+  default : @json.Json?
+}
+pub fn JsonSchema::to_json(Self) -> @json.Json
 pub fn JsonSchema::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ParamKind {
@@ -55,10 +57,10 @@ pub(all) struct ToolWrapper {
   name_impl : () -> String
   description_impl : () -> String
   params_impl : () -> Array[@tool.ParamDef]
-  execute_impl : (@runtime.RequestContext, Json) -> @types.ToolResult
+  execute_impl : (@runtime.RequestContext, @json.Json) -> @types.ToolResult
 }
 pub fn ToolWrapper::description(Self) -> String
-pub async fn ToolWrapper::execute(Self, @runtime.RequestContext, Json) -> @tool.ToolCallOutcome
+pub async fn ToolWrapper::execute(Self, @runtime.RequestContext, @json.Json) -> @tool.ToolCallOutcome
 pub fn ToolWrapper::name(Self) -> String
 pub fn ToolWrapper::params(Self) -> Array[@tool.ParamDef]
 pub impl @tool.Tool for ToolWrapper
@@ -68,8 +70,8 @@ pub impl @tool.Tool for ToolWrapper
 // Traits
 pub(open) trait Params {
   fn schema() -> JsonSchema
-  fn from_json(Json) -> Self raise ToolError
-  fn to_json(Self) -> Json
+  fn from_json(@json.Json) -> Self raise ToolError
+  fn to_json(Self) -> @json.Json
 }
 pub impl Params for Bool
 pub impl Params for Int32

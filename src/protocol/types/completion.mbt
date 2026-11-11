@@ -1,8 +1,9 @@
 ///|
+#derive(Eq, Debug)
 pub(all) enum CompletionReference {
   Prompt(name~ : String, title~ : String?, extensions~ : Map[String, Json])
   Resource(uri~ : String, extensions~ : Map[String, Json])
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn CompletionReference::prompt(
@@ -58,11 +59,12 @@ pub impl ToJson for CompletionReference with fn to_json(self) {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct CompletionArgument {
   name : String
   value : String
   extensions : Map[String, Json]
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn CompletionArgument::new(
@@ -73,10 +75,11 @@ pub fn CompletionArgument::new(
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct CompletionContext {
   arguments : Map[String, String]?
   extensions : Map[String, Json]
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn CompletionContext::new(
@@ -86,13 +89,14 @@ pub fn CompletionContext::new(
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct CompleteRequestParams {
   reference : CompletionReference
   argument : CompletionArgument
   context : CompletionContext?
   meta : Map[String, Json]?
   extensions : Map[String, Json]
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn CompleteRequestParams::new(
@@ -181,13 +185,14 @@ pub impl ToJson for CompleteRequestParams with fn to_json(self) {
 /// Complete wire result, including open completion fields and result metadata.
 /// `total` keeps the exact integer literal (pinned schema: `integer`); a
 /// Double total cannot represent the count losslessly.
+#derive(Eq, Debug)
 pub(all) struct CompletionResult {
   values : Array[String]
   total : JsonInteger?
   has_more : Bool?
   completion_extensions : Map[String, Json]
   metadata : ResultMetadata
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn CompletionResult::new(

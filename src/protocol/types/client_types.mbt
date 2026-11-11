@@ -1,13 +1,15 @@
 ///|
 /// Client Info — sent during initialization
+#derive(Debug, Eq)
 pub(all) struct ClientInfo {
   name : String
   title : String?
   version : String
-} derive(Debug, Eq)
+}
 
 ///|
 /// Client Capabilities — declared during initialization
+#derive(Debug, Eq)
 pub(all) struct ClientCapabilities {
   experimental : Map[String, Json]?
   roots : RootCapabilities?
@@ -18,51 +20,57 @@ pub(all) struct ClientCapabilities {
   /// extension identifiers (following `_meta` key naming rules) to
   /// per-extension settings objects.
   extensions : Map[String, Json]?
-} derive(Debug, Eq)
+}
 
 ///|
 /// Root Capabilities — client can provide filesystem roots
+#derive(Debug, Eq)
 pub(all) struct RootCapabilities {
   list_changed : Bool?
   extra_fields : Map[String, Json]
-} derive(Debug, Eq)
+}
 
 ///|
 /// Sampling Capabilities — client supports LLM sampling requests
+#derive(Debug, Eq)
 pub(all) struct SamplingCapabilities {
   context : Map[String, Json]?
   tools : Map[String, Json]?
   extra_fields : Map[String, Json]
-} derive(Debug, Eq)
+}
 
 ///|
 /// Elicitation Capabilities — client supports user interaction requests
+#derive(Debug, Eq)
 pub(all) struct ElicitationCapabilities {
   form : Map[String, Json]?
   url : Map[String, Json]?
   extra_fields : Map[String, Json]
-} derive(Debug, Eq)
+}
 
 ///|
 /// Root — a filesystem root exposed by the client for `roots/list`
+#derive(Debug, Eq)
 pub(all) struct Root {
   uri : String
   name : String?
-} derive(Debug, Eq)
+}
 
 ///|
 /// SamplingMessage — a message within a sampling/createMessage request
+#derive(Debug, Eq)
 pub(all) struct SamplingMessage {
   role : Role
   content : SamplingContent
   meta : Map[String, Json]?
   extensions : Map[String, Json]
-} derive(Debug, Eq)
+}
 
 ///|
 /// CreateMessageRequest — server asks client to sample an LLM.
 /// `max_tokens` keeps the exact integer literal (pinned schema: `integer`);
 /// `temperature` keeps the exact decimal literal (pinned schema: `number`).
+#derive(Debug, Eq)
 pub(all) struct CreateMessageRequest {
   messages : Array[SamplingMessage]
   max_tokens : JsonInteger
@@ -75,10 +83,11 @@ pub(all) struct CreateMessageRequest {
   tools : Array[ToolDefinition]?
   tool_choice : ToolChoice?
   extensions : Map[String, Json]
-} derive(Debug, Eq)
+}
 
 ///|
 /// CreateMessageResult — client's response to a sampling request
+#derive(Debug, Eq)
 pub(all) struct CreateMessageResult {
   role : Role
   model : String
@@ -86,10 +95,11 @@ pub(all) struct CreateMessageResult {
   stop_reason : String?
   meta : Map[String, Json]?
   extensions : Map[String, Json]
-} derive(Debug, Eq)
+}
 
 ///|
 /// ElicitationRequest — server asks client to interact with the user
+#derive(Debug, Eq)
 pub(all) enum ElicitationRequest {
   Form(
     String,
@@ -105,39 +115,43 @@ pub(all) enum ElicitationRequest {
     meta~ : Map[String, Json]?,
     extensions~ : Map[String, Json]
   )
-} derive(Debug, Eq)
+}
 
 ///|
 /// ElicitationResult — client's response to an elicitation request
+#derive(Debug, Eq)
 pub(all) struct ElicitationResult {
   action : ElicitationAction
   content : Map[String, ElicitationValue]?
   extensions : Map[String, Json]
-} derive(Debug, Eq)
+}
 
 ///|
 /// ProgressNotification — params for `notifications/progress`.
 /// Counters keep exact decimal literals (pinned schema: `number`).
+#derive(Debug, Eq)
 pub(all) struct ProgressNotification {
   progress_token : ProgressToken
   progress : JsonNumber
   total : JsonNumber?
   message : String?
   extra_fields : Map[String, Json]
-} derive(Debug, Eq)
+}
 
 ///|
 /// CancelledNotification — params for `notifications/cancelled`
+#derive(Debug, Eq)
 pub(all) struct CancelledNotification {
   request_id : RequestId
   reason : String?
-} derive(Debug, Eq)
+}
 
 ///|
 /// ResourceUpdatedNotification — params for `notifications/resources/updated`
+#derive(Debug, Eq)
 pub(all) struct ResourceUpdatedNotification {
   uri : String
-} derive(Debug, Eq)
+}
 
 ///|
 /// Explicit trait method promotion for current MoonBit toolchains.

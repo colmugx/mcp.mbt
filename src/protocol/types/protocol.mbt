@@ -7,14 +7,16 @@
 pub const ProtocolVersion : String = "2026-07-28"
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ServerInfo {
   name : String
   title : String?
   version : String
   description : String?
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ServerCapabilities {
   experimental : Map[String, Json]?
   logging : Map[String, Json]?
@@ -27,35 +29,39 @@ pub(all) struct ServerCapabilities {
   /// extension identifiers (following `_meta` key naming rules) to
   /// per-extension settings objects.
   extensions : Map[String, Json]?
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ToolCapabilities {
   list_changed : Bool?
   extra_fields : Map[String, Json]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ResourceCapabilities {
   subscribe : Bool?
   list_changed : Bool?
   extra_fields : Map[String, Json]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct PromptCapabilities {
   list_changed : Bool?
   extra_fields : Map[String, Json]
-} derive(Debug, Eq)
+}
 
 ///|
 /// Request ID supporting exact JSON integers and strings. Int is a convenience
 /// constructor; Number retains arbitrary-size wire integers.
+#derive(Debug)
 pub(all) enum RequestId {
   Int(Int32)
   Number(JsonInteger)
   Str(String)
-} derive(Debug)
+}
 
 ///|
 /// Convert RequestId to its JSON string representation
@@ -104,35 +110,39 @@ pub impl Eq for RequestId with fn equal(self, other) {
 }
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct JsonRpcRequest {
   jsonrpc : String
   id : RequestId
   method_name : String
   params : Json
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct PromptArgument {
   name : String
   title : String?
   description : String?
   required : Bool?
   extensions : Map[String, Json]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct PromptMessage {
   role : String
   content : ContentBlock
   extensions : Map[String, Json]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct GetPromptResult {
   description : String?
   messages : Array[PromptMessage]
   metadata : ResultMetadata
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn JsonRpcRequest::from_json(json : Json) -> JsonRpcRequest raise MCPError {
@@ -168,19 +178,21 @@ pub fn JsonRpcRequest::from_json(json : Json) -> JsonRpcRequest raise MCPError {
 ///|
 /// The three server→client input request methods. Servers MUST NOT send an
 /// input request the client did not declare support for in its capabilities.
+#derive(Eq, Debug)
 pub(all) enum InputRequestKind {
   ElicitationCreate
   SamplingCreateMessage
   RootsList
-} derive(Eq, Debug)
+}
 
 ///|
 /// One entry in an `inputRequests` map: a server-assigned key plus the
 /// request method and params the client must fulfill.
+#derive(Eq, Debug)
 pub(all) struct InputRequestEntry {
   method_name : InputRequestKind
   params : Json
-} derive(Eq, Debug)
+}
 
 ///|
 /// Convert an `InputRequestKind` to its JSON-RPC method string.
@@ -195,6 +207,7 @@ pub fn InputRequestKind::to_method(self : InputRequestKind) -> String {
 ///|
 /// Which kind of change notification a subscription filter should match.
 /// Used internally by the server to route notifications to the right streams.
+#derive(Eq, Debug)
 pub(all) enum SubscriptionNotificationKind {
   ToolsListChanged
   PromptsListChanged
@@ -202,7 +215,7 @@ pub(all) enum SubscriptionNotificationKind {
   /// A specific subscribed resource changed; matched against the
   /// subscription's `resourceSubscriptions` URI list.
   ResourceUpdated(uri~ : String)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Explicit trait method promotion for current MoonBit toolchains.

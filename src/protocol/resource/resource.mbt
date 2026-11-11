@@ -9,13 +9,14 @@ pub using @types {
 
 ///|
 /// A resource read completes with multiple contents or suspends for client input.
+#derive(Eq, Debug)
 pub(all) enum ResourceReadOutcome {
   Complete(ResourceReadResult)
   InputRequired(
     input_requests~ : Map[String, @types.InputRequestEntry],
     state~ : Json
   )
-} derive(Eq, Debug)
+}
 
 ///|
 pub(open) trait Resource {

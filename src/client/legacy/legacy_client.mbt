@@ -212,6 +212,7 @@ pub async fn LegacyClient::ping(self : LegacyClient) -> Unit {
 /// Create a legacy client connected over the 2025-11-25 Streamable HTTP session
 /// transport and complete the `initialize` handshake. `extra_headers` are
 /// applied to every request, mirroring the modern `HttpClientTransport`.
+#warnings("-cancellable_defer")
 pub async fn LegacyClient::connect_http(
   url~ : String,
   name~ : String,
@@ -233,7 +234,7 @@ pub async fn LegacyClient::connect_http(
     server_name: "unknown",
     server_version: "unknown",
   }
-  errdefer http_transport.close()
+  errdefer @async.protect_from_cancel(() => http_transport.close())
   ignore(client.initialize())
   client
 }

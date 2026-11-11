@@ -1,10 +1,11 @@
 ///|
 /// Opaque progress identifier. Numeric tokens are not coerced to strings or integers.
+#derive(Debug)
 pub(all) enum ProgressToken {
   String(String)
   Number(Double)
   ExactNumber(JsonNumber)
-} derive(Debug)
+}
 
 ///|
 pub fn ProgressToken::from_json(value : Json) -> ProgressToken raise MCPError {

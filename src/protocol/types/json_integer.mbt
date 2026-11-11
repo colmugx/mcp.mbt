@@ -1,10 +1,11 @@
 ///|
 /// A mathematical JSON integer retaining its wire literal, without an Int32 or
 /// binary64 limit. Equivalent decimal/exponent spellings have the same key.
+#derive(Debug)
 pub struct JsonInteger {
   wire : Json
   canonical : String
-} derive(Debug)
+}
 
 ///|
 pub fn JsonInteger::from_json(value : Json) -> JsonInteger raise MCPError {

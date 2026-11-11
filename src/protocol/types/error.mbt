@@ -1,6 +1,7 @@
 ///|
 /// Transport-level errors
 /// These occur at the communication layer (network, IO, etc.)
+#derive(Debug, Eq)
 pub(all) suberror TransportError {
   /// Connection has been closed (clean shutdown)
   ConnectionClosed
@@ -21,7 +22,7 @@ pub(all) suberror TransportError {
   /// (UnsupportedProtocolVersion / MissingRequiredClientCapability /
   /// HeaderMismatch) before deciding on a legacy fallback.
   HttpError(Int32, String)
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for TransportError with fn to_string(self) -> String {
@@ -46,6 +47,7 @@ pub impl Show for TransportError with fn to_string(self) -> String {
 /// - `-32700`, `-32600`..`-32603`: standard JSON-RPC 2.0
 /// - `-32000`..`-32019`: legacy/implementation-defined (no new allocations)
 /// - `-32020`..`-32099`: reserved for the MCP specification
+#derive(Debug, Eq)
 pub(all) suberror MCPError {
   /// Failed to parse JSON-RPC request (-32700)
   ParseError(String)
@@ -85,7 +87,7 @@ pub(all) suberror MCPError {
     supported~ : Array[String],
     requested~ : String
   )
-} derive(Debug, Eq)
+}
 
 ///|
 /// Exact JSON-RPC error code. Use as_int() only when an Int32 projection is needed.

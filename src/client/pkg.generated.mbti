@@ -8,6 +8,7 @@ import {
   "moonbitlang/async",
   "moonbitlang/async/aqueue",
   "moonbitlang/core/debug",
+  "moonbitlang/core/json",
 }
 
 // Values
@@ -20,48 +21,53 @@ pub enum ClientBackend {
   Legacy(@legacy.LegacyClient)
 }
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ListPromptsResult {
   prompts : Array[@types.PromptDefinition]
   next_cursor : String?
   metadata : @types.ResultMetadata
-} derive(Eq, @debug.Debug)
+}
 pub fn ListPromptsResult::equal(Self, Self) -> Bool
 pub fn ListPromptsResult::not_equal(Self, Self) -> Bool
 pub fn ListPromptsResult::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ListResourceTemplatesResult {
   resource_templates : Array[ResourceTemplate]
   next_cursor : String?
   metadata : @types.ResultMetadata
-} derive(Eq, @debug.Debug)
+}
 pub fn ListResourceTemplatesResult::equal(Self, Self) -> Bool
 pub fn ListResourceTemplatesResult::not_equal(Self, Self) -> Bool
 pub fn ListResourceTemplatesResult::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ListResourcesResult {
   resources : Array[@types.ResourceDefinition]
   next_cursor : String?
   metadata : @types.ResultMetadata
-} derive(Eq, @debug.Debug)
+}
 pub fn ListResourcesResult::equal(Self, Self) -> Bool
 pub fn ListResourcesResult::not_equal(Self, Self) -> Bool
 pub fn ListResourcesResult::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ListToolsResult {
   tools : Array[@types.ToolDefinition]
   next_cursor : String?
   metadata : @types.ResultMetadata
-} derive(Eq, @debug.Debug)
+}
 pub fn ListToolsResult::equal(Self, Self) -> Bool
 pub fn ListToolsResult::not_equal(Self, Self) -> Bool
 pub fn ListToolsResult::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ListenFilter {
   tools_list_changed : Bool
   prompts_list_changed : Bool
   resources_list_changed : Bool
   resource_subscriptions : Array[String]
-} derive(Eq, @debug.Debug)
+}
 pub fn ListenFilter::default() -> Self
 pub fn ListenFilter::equal(Self, Self) -> Bool
 pub fn ListenFilter::not_equal(Self, Self) -> Bool
@@ -76,10 +82,10 @@ pub struct MCPClient {
   mut server_capabilities : @types.ServerCapabilities?
   mut server_info : @types.ServerInfo?
   notification_handlers : NotificationHandlers
-  subscription_handlers : Map[String, (Json) -> Unit]
-  sampling_handler : ((Json) -> Result[@types.CreateMessageResult, @types.MCPError])?
+  subscription_handlers : Map[String, (@json.Json) -> Unit]
+  sampling_handler : ((@json.Json) -> Result[@types.CreateMessageResult, @types.MCPError])?
   roots_handler : (() -> Result[Array[@types.Root], @types.MCPError])?
-  elicitation_handler : ((Json) -> Result[@types.ElicitationResult, @types.MCPError])?
+  elicitation_handler : ((@json.Json) -> Result[@types.ElicitationResult, @types.MCPError])?
   response_map : Map[String, @aqueue.Queue[String]]
   request_cancellations : Map[String, (String?) -> Unit]
   receive_mutex : @async.Mutex
@@ -102,12 +108,12 @@ pub async fn MCPClient::list_prompts(Self, cursor? : String) -> ListPromptsResul
 pub async fn MCPClient::list_resource_templates(Self, cursor? : String) -> ListResourceTemplatesResult
 pub async fn MCPClient::list_resources(Self, cursor? : String) -> ListResourcesResult
 pub async fn MCPClient::list_tools(Self, cursor? : String) -> ListToolsResult
-pub fn MCPClient::listen(Self, filter? : ListenFilter, handler~ : (Json) -> Unit, group~ : @async.TaskGroup[Unit]) -> String raise @types.MCPError
+pub fn MCPClient::listen(Self, filter? : ListenFilter, handler~ : (@json.Json) -> Unit, group~ : @async.TaskGroup[Unit]) -> String raise @types.MCPError
 pub fn MCPClient::next_request_id(Self) -> Int32
-pub fn MCPClient::on_elicitation(Self, (Json) -> Result[@types.ElicitationResult, @types.MCPError], capabilities? : @types.ElicitationCapabilities) -> Self
+pub fn MCPClient::on_elicitation(Self, (@json.Json) -> Result[@types.ElicitationResult, @types.MCPError], capabilities? : @types.ElicitationCapabilities) -> Self
 pub fn MCPClient::on_notification(Self, NotificationHandlers) -> Self
 pub fn MCPClient::on_roots(Self, () -> Result[Array[@types.Root], @types.MCPError]) -> Self
-pub fn MCPClient::on_sampling(Self, (Json) -> Result[@types.CreateMessageResult, @types.MCPError], capabilities? : @types.SamplingCapabilities) -> Self
+pub fn MCPClient::on_sampling(Self, (@json.Json) -> Result[@types.CreateMessageResult, @types.MCPError], capabilities? : @types.SamplingCapabilities) -> Self
 pub async fn MCPClient::read_resource(Self, String) -> ReadResourceResult
 pub async fn MCPClient::run(Self, @async.TaskGroup[Unit]) -> Unit
 pub fn MCPClient::set_legacy_mode(Self, Bool) -> Self
@@ -132,28 +138,31 @@ pub(all) struct NotificationHandlers {
   on_progress : ((@types.ProgressNotification) -> Unit)?
   on_cancelled : ((@types.CancelledNotification) -> Unit)?
   on_resource_updated : ((@types.ResourceUpdatedNotification) -> Unit)?
-  on_message : ((String, Json?) -> Unit)?
+  on_message : ((String, @json.Json?) -> Unit)?
 }
 pub fn NotificationHandlers::empty() -> Self
 
+#derive(Eq)
 pub(all) enum ProtocolEra {
   Auto
   Legacy
   Modern
-} derive(Eq)
+}
 pub fn ProtocolEra::equal(Self, Self) -> Bool
 pub fn ProtocolEra::not_equal(Self, Self) -> Bool
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ReadResourceResult {
   contents : Array[@types.ResourceContents]
   metadata : @types.ResultMetadata
-} derive(Eq, @debug.Debug)
+}
 pub fn ReadResourceResult::equal(Self, Self) -> Bool
 pub fn ReadResourceResult::not_equal(Self, Self) -> Bool
 pub fn ReadResourceResult::to_repr(Self) -> @debug.Repr
 
 type RequestIdCounter
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ResourceTemplate {
   uri_template : String
   name : String
@@ -162,7 +171,7 @@ pub(all) struct ResourceTemplate {
   mime_type : String?
   icons : Array[@types.Icon]?
   metadata : @types.ContentMetadata
-} derive(Eq, @debug.Debug)
+}
 pub fn ResourceTemplate::equal(Self, Self) -> Bool
 pub fn ResourceTemplate::not_equal(Self, Self) -> Bool
 pub fn ResourceTemplate::to_repr(Self) -> @debug.Repr

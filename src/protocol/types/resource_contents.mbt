@@ -1,8 +1,9 @@
 ///|
+#derive(Eq, Debug)
 pub(all) enum ResourceData {
   Text(String)
   Blob(String)
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend ResourceData with Eq::{equal, not_equal}
@@ -11,13 +12,14 @@ pub extend ResourceData with Eq::{equal, not_equal}
 pub extend ResourceData with Debug::{to_repr}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct ResourceContents {
   uri : String
   mime_type : String?
   data : ResourceData
   meta : Map[String, Json]?
   extensions : Map[String, Json]
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend ResourceContents with Eq::{equal, not_equal}
@@ -80,6 +82,7 @@ pub impl ToJson for ResourceContents with fn to_json(self) {
 pub extend ResourceContents with ToJson::{to_json}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct ResourceLinkData {
   uri : String
   name : String
@@ -88,7 +91,7 @@ pub(all) struct ResourceLinkData {
   mime_type : String?
   size : JsonInteger?
   icons : Array[Icon]?
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend ResourceLinkData with Eq::{equal, not_equal}

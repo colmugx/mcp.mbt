@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 pub(all) struct ResourceDefinition {
   uri : String
   name : String
@@ -8,7 +9,7 @@ pub(all) struct ResourceDefinition {
   size : JsonInteger?
   icons : Array[Icon]?
   metadata : ContentMetadata
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ResourceDefinition::new(
@@ -81,6 +82,7 @@ pub extend ResourceDefinition with Debug::{to_repr}
 pub extend ResourceDefinition with ToJson::{to_json}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ResourceTemplateDefinition {
   uri_template : String
   name : String
@@ -89,7 +91,7 @@ pub(all) struct ResourceTemplateDefinition {
   mime_type : String?
   icons : Array[Icon]?
   metadata : ContentMetadata
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ResourceTemplateDefinition::new(

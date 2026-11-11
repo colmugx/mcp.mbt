@@ -1,11 +1,12 @@
 ///| MCP Host Example using the high-level 2026-07-28 API.
 
 ///|
+#warnings("-cancellable_defer")
 async fn main {
   let host = @client.MCPHost::MCPHost(name="example-host", version="1.0.0")
 
   @async.with_task_group(group => {
-    defer host.close_all()
+    defer @async.protect_from_cancel(() => host.close_all())
     try
       host.connect_stdio(
         name="local",

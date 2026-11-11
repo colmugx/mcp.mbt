@@ -1,10 +1,11 @@
 ///|
+#derive(Debug, Eq)
 pub(all) struct ToolResult {
   content : Array[ContentBlock]
   structured_content : Json?
   is_error : Bool?
   metadata : ResultMetadata
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ToolResult::success(content : Array[ContentBlock]) -> ToolResult {

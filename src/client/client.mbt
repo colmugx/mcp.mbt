@@ -73,6 +73,7 @@ fn MCPClient::MCPClient(
 
 ///|
 /// Protocol era a client should assume when connecting.
+#derive(Eq)
 pub(all) enum ProtocolEra {
   /// Probe with `server/discover` and silently fall back to the legacy
   /// 2025-11-25 client when the probe signals a legacy-era server. The
@@ -84,7 +85,7 @@ pub(all) enum ProtocolEra {
   /// Probe with `server/discover`, but treat any legacy-fallback signal as a
   /// connection error instead of silently downgrading.
   Modern
-} derive(Eq)
+}
 
 ///|
 /// Error returned when `era=Modern` receives a legacy-fallback signal from

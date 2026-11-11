@@ -1,4 +1,5 @@
 ///|
+#derive(Eq, Debug)
 pub(all) enum ContentBlock {
   Text(String, metadata~ : ContentMetadata)
   Image(String, mime_type~ : String, metadata~ : ContentMetadata)
@@ -7,7 +8,7 @@ pub(all) enum ContentBlock {
   EmbeddedResource(ResourceContents, metadata~ : ContentMetadata)
   /// A future content type, retained without interpreting its fields.
   Unknown(Json)
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend ContentBlock with Eq::{equal, not_equal}

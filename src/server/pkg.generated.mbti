@@ -10,18 +10,19 @@ import {
   "colmugx/mcp/runtime",
   "colmugx/mcp/transport",
   "moonbitlang/async/aqueue",
+  "moonbitlang/core/json",
 }
 
 // Values
-pub fn get_number(Json, String) -> Result[Double, @types.ToolResult]
+pub fn get_number(@json.Json, String) -> Result[Double, @types.ToolResult]
 
-pub fn get_optional_number(Json, String) -> Result[Double?, @types.ToolResult]
+pub fn get_optional_number(@json.Json, String) -> Result[Double?, @types.ToolResult]
 
-pub fn get_optional_string(Json, String) -> Result[String?, @types.ToolResult]
+pub fn get_optional_string(@json.Json, String) -> Result[String?, @types.ToolResult]
 
-pub fn get_string(Json, String) -> Result[String, @types.ToolResult]
+pub fn get_string(@json.Json, String) -> Result[String, @types.ToolResult]
 
-pub fn simple_tool(String, String, (@runtime.RequestContext, Json) -> @types.ToolResult) -> @core.ToolWrapper
+pub fn simple_tool(String, String, (@runtime.RequestContext, @json.Json) -> @types.ToolResult) -> @core.ToolWrapper
 
 pub fn[Args : @core.Params, Ret : @core.ToToolResult] tool_fn((@runtime.RequestContext, Args) -> Ret, name~ : String, description~ : String) -> @core.ToolWrapper
 
@@ -78,18 +79,18 @@ pub async fn MCPServer::notify_prompts_list_changed(Self) -> Unit
 pub async fn MCPServer::notify_resource_updated(Self, String) -> Unit
 pub async fn MCPServer::notify_resources_list_changed(Self) -> Unit
 pub async fn MCPServer::notify_tools_list_changed(Self) -> Unit
-pub fn MCPServer::prompt(Self, String, String, Array[@types.PromptArgument], async (@runtime.RequestContext, Json) -> Result[@types.GetPromptResult, @types.MCPError]) -> Self
-pub fn MCPServer::prompt_definition(Self, @types.PromptDefinition, async (@runtime.RequestContext, Json) -> Result[@prompt.PromptGetOutcome, @types.MCPError]) -> Self
-pub fn MCPServer::prompt_mrtr(Self, String, String, Array[@types.PromptArgument], async (@runtime.RequestContext, Json) -> Result[@prompt.PromptGetOutcome, @types.MCPError]) -> Self
+pub fn MCPServer::prompt(Self, String, String, Array[@types.PromptArgument], async (@runtime.RequestContext, @json.Json) -> Result[@types.GetPromptResult, @types.MCPError]) -> Self
+pub fn MCPServer::prompt_definition(Self, @types.PromptDefinition, async (@runtime.RequestContext, @json.Json) -> Result[@prompt.PromptGetOutcome, @types.MCPError]) -> Self
+pub fn MCPServer::prompt_mrtr(Self, String, String, Array[@types.PromptArgument], async (@runtime.RequestContext, @json.Json) -> Result[@prompt.PromptGetOutcome, @types.MCPError]) -> Self
 pub fn MCPServer::resource(Self, String, String, String, String, async (@runtime.RequestContext) -> Result[@types.ResourceReadResult, @types.MCPError]) -> Self
-pub fn MCPServer::resource_definition(Self, @types.ResourceDefinition, async (@runtime.RequestContext, Json) -> Result[@resource.ResourceReadOutcome, @types.MCPError]) -> Self
-pub fn MCPServer::resource_mrtr(Self, String, String, String, String, async (@runtime.RequestContext, Json) -> Result[@resource.ResourceReadOutcome, @types.MCPError]) -> Self
+pub fn MCPServer::resource_definition(Self, @types.ResourceDefinition, async (@runtime.RequestContext, @json.Json) -> Result[@resource.ResourceReadOutcome, @types.MCPError]) -> Self
+pub fn MCPServer::resource_mrtr(Self, String, String, String, String, async (@runtime.RequestContext, @json.Json) -> Result[@resource.ResourceReadOutcome, @types.MCPError]) -> Self
 pub fn MCPServer::resource_template(Self, uri_template~ : String, name~ : String, description? : String, mime_type? : String) -> Self
 pub fn MCPServer::resource_template_definition(Self, @types.ResourceTemplateDefinition) -> Self
 pub async fn MCPServer::run_http(Self, port? : Int32, path? : String) -> Unit raise @types.TransportError
 pub async fn MCPServer::run_stdio(Self) -> Unit raise @types.TransportError
-pub fn MCPServer::tool(Self, String, String, Json, async (@runtime.RequestContext, Json) -> Result[@types.ToolResult, @types.MCPError]) -> Self raise @types.MCPError
-pub fn MCPServer::tool_definition(Self, @types.ToolDefinition, async (@runtime.RequestContext, Json) -> Result[@tool.ToolCallOutcome, @types.MCPError], schema_resources? : Map[String, Json], input_base_uri? : String, output_base_uri? : String) -> Self raise @types.MCPError
+pub fn MCPServer::tool(Self, String, String, @json.Json, async (@runtime.RequestContext, @json.Json) -> Result[@types.ToolResult, @types.MCPError]) -> Self raise @types.MCPError
+pub fn MCPServer::tool_definition(Self, @types.ToolDefinition, async (@runtime.RequestContext, @json.Json) -> Result[@tool.ToolCallOutcome, @types.MCPError], schema_resources? : Map[String, @json.Json], input_base_uri? : String, output_base_uri? : String) -> Self raise @types.MCPError
 pub fn MCPServer::with_auth(Self, @transport.AuthConfig) -> Self
 pub fn MCPServer::with_clock(Self, () -> Int32) -> Self
 pub fn MCPServer::with_completions(Self, CompletionRegistry) -> Self
@@ -111,7 +112,7 @@ type PromptRegistry
 pub(all) struct RequestStateContext {
   principal : String?
   request_method : String
-  params : Json
+  params : @json.Json
 }
 
 pub(all) struct RequestStatePayload {
@@ -119,7 +120,7 @@ pub(all) struct RequestStatePayload {
   expires_at : Int32
   request_method : String
   params_digest : String
-  state : Json
+  state : @json.Json
 }
 
 type ResourceRegistry

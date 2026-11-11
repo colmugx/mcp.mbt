@@ -1,10 +1,11 @@
 ///|
 /// Identity established by a trusted server-side authenticator, never by request metadata.
+#derive(Eq, Debug)
 pub(all) struct Principal {
   id : String
   scopes : Array[String]
   attributes : Map[String, Json]
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Principal with Eq::{equal, not_equal}
@@ -83,9 +84,10 @@ pub fn CancellationToken::cancel(self : CancellationToken) -> Unit {
 }
 
 ///|
+#derive(Debug)
 pub(all) suberror RequestCancelled {
   RequestCancelled
-} derive(Debug)
+}
 
 ///|
 pub extend RequestCancelled with @moonbitlang/core/debug.Debug::{to_repr}

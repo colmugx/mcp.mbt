@@ -5,10 +5,11 @@
 ///|
 /// Server notification sent to clients
 /// Follows MCP spec notification format
+#derive(Eq, Debug)
 pub(all) struct Notification {
   method_name : String
   params : Json?
-} derive(Eq, Debug)
+}
 
 ///|
 /// Create tools list changed notification

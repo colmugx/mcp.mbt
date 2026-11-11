@@ -8,20 +8,21 @@ import {
   "colmugx/mcp/protocol/types",
   "colmugx/mcp/runtime",
   "colmugx/mcp/server",
+  "moonbitlang/core/json",
 }
 
 // Values
-pub fn get_number(Json, String) -> Result[Double, @types.ToolResult]
+pub fn get_number(@json.Json, String) -> Result[Double, @types.ToolResult]
 
-pub fn get_optional_number(Json, String) -> Result[Double?, @types.ToolResult]
+pub fn get_optional_number(@json.Json, String) -> Result[Double?, @types.ToolResult]
 
-pub fn get_optional_string(Json, String) -> Result[String?, @types.ToolResult]
+pub fn get_optional_string(@json.Json, String) -> Result[String?, @types.ToolResult]
 
-pub fn get_string(Json, String) -> Result[String, @types.ToolResult]
+pub fn get_string(@json.Json, String) -> Result[String, @types.ToolResult]
 
-pub fn parse_json(StringView) -> Json raise @types.MCPError
+pub fn parse_json(StringView) -> @json.Json raise @types.MCPError
 
-pub fn simple_tool(String, String, (@runtime.RequestContext, Json) -> @types.ToolResult) -> @core.ToolWrapper
+pub fn simple_tool(String, String, (@runtime.RequestContext, @json.Json) -> @types.ToolResult) -> @core.ToolWrapper
 
 pub fn[Args : @core.Params, Ret : @core.ToToolResult] tool_fn((@runtime.RequestContext, Args) -> Ret, name~ : String, description~ : String) -> @core.ToolWrapper
 

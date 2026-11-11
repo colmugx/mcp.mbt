@@ -1,20 +1,22 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum CacheScope {
   Public
   Private
-} derive(Debug, Eq)
+}
 
 ///|
 /// Shared result fields retain wire presence; extensions are top-level fields.
 /// `ttl_ms` keeps the exact integer literal the server sent (pinned schema:
 /// `integer`, minimum 0) instead of a rounded Double.
+#derive(Debug, Eq)
 pub(all) struct ResultMetadata {
   result_type : String?
   ttl_ms : JsonInteger?
   cache_scope : CacheScope?
   meta : Map[String, Json]?
   extensions : Map[String, Json]
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ResultMetadata::empty() -> ResultMetadata {

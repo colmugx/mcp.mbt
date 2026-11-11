@@ -1,34 +1,39 @@
 ///|
+#derive(Debug, Eq)
 pub(all) struct ListToolsResult {
   tools : Array[@types.ToolDefinition]
   next_cursor : String?
   metadata : @types.ResultMetadata
-} derive(Debug, Eq)
+}
 
 ///|
 pub type CallToolResult = @types.ToolResult
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ListResourcesResult {
   resources : Array[@resource.ResourceDefinition]
   next_cursor : String?
   metadata : @types.ResultMetadata
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ReadResourceResult {
   contents : Array[@types.ResourceContents]
   metadata : @types.ResultMetadata
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ListPromptsResult {
   prompts : Array[@prompt.PromptDefinition]
   next_cursor : String?
   metadata : @types.ResultMetadata
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ResourceTemplate {
   uri_template : String
   name : String
@@ -37,14 +42,15 @@ pub(all) struct ResourceTemplate {
   mime_type : String?
   icons : Array[@types.Icon]?
   metadata : @types.ContentMetadata
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ListResourceTemplatesResult {
   resource_templates : Array[ResourceTemplate]
   next_cursor : String?
   metadata : @types.ResultMetadata
-} derive(Debug, Eq)
+}
 
 ///|
 pub using @types {
@@ -60,12 +66,13 @@ pub using @types {
 /// Filter for a `subscriptions/listen` request. Controls which server
 /// notification channels the client wants multiplexed onto this single
 /// long-lived request.
+#derive(Debug, Eq)
 pub(all) struct ListenFilter {
   tools_list_changed : Bool
   prompts_list_changed : Bool
   resources_list_changed : Bool
   resource_subscriptions : Array[String]
-} derive(Debug, Eq)
+}
 
 ///|
 /// Default filter: subscribe only to list-change notifications, with no

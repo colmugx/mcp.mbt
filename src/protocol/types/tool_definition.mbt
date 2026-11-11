@@ -1,5 +1,6 @@
 ///|
 /// Advisory hints, not an authorization or safety policy.
+#derive(Debug, Eq)
 pub(all) struct ToolAnnotations {
   title : String?
   read_only_hint : Bool?
@@ -7,7 +8,7 @@ pub(all) struct ToolAnnotations {
   idempotent_hint : Bool?
   open_world_hint : Bool?
   extensions : Map[String, Json]
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ToolAnnotations::new(
@@ -58,6 +59,7 @@ pub impl ToJson for ToolAnnotations with fn to_json(self) {
 }
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ToolDefinition {
   name : String
   title : String?
@@ -68,7 +70,7 @@ pub(all) struct ToolDefinition {
   icons : Array[Icon]?
   meta : Map[String, Json]?
   extensions : Map[String, Json]
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ToolDefinition::new(

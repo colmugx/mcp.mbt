@@ -119,6 +119,7 @@ pub async fn read_sse_event(client : @http.Client) -> (String?, String?) {
 
 ///|
 /// What a response-stream consumer should do with one scanned SSE event.
+#derive(Eq, @debug.Debug)
 pub enum SseEventVerdict {
   /// A JSON-RPC payload to queue for `receive`.
   Message(String)
@@ -127,7 +128,7 @@ pub enum SseEventVerdict {
   Skip
   /// End of stream.
   Eof
-} derive(Eq, @debug.Debug)
+}
 
 ///|
 /// Classify one `read_sse_event` result for a response stream.

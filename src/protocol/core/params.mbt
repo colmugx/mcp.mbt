@@ -6,6 +6,7 @@ pub(open) trait Params {
 }
 
 ///|
+#derive(Debug)
 pub struct JsonSchema {
   type_name : String
   description : String
@@ -13,7 +14,7 @@ pub struct JsonSchema {
   required : Array[String]?
   items : JsonSchema?
   default : Json?
-} derive(Debug)
+}
 
 ///|
 pub suberror ToolError {

@@ -1,4 +1,5 @@
 ///|
+#warnings("-cancellable_defer")
 async test "e2e/http: MRTR maximum rounds bounds exchanges without a final unconsumable user interaction" {
   let server = @socket.TcpServer::TcpServer(
     @socket.Addr::parse("127.0.0.1:47396"),
@@ -62,7 +63,7 @@ async test "e2e/http: MRTR maximum rounds bounds exchanges without a final uncon
         interactions.val += 1
         Ok(@types.ElicitationResult::new(@types.Cancel))
       })
-      defer client.close()
+      defer @async.protect_from_cancel(() => client.close())
       let request = build_tools_call_request(
         client.next_request_id(),
         "confirm",
@@ -119,6 +120,7 @@ async test "e2e/http: MRTR maximum rounds bounds exchanges without a final uncon
 }
 
 ///|
+#warnings("-cancellable_defer")
 async test "e2e/http: error fidelity, forbidden duplex requests and final SSE ownership" {
   let server = @socket.TcpServer::TcpServer(
     @socket.Addr::parse("127.0.0.1:47401"),
@@ -191,7 +193,7 @@ async test "e2e/http: error fidelity, forbidden duplex requests and final SSE ow
             ),
           ),
         )
-        defer client.close()
+        defer @async.protect_from_cancel(() => client.close())
         let result = Ok(
           client.send_request(
             build_tools_list_request(
@@ -233,6 +235,7 @@ async test "e2e/http: error fidelity, forbidden duplex requests and final SSE ow
 }
 
 ///|
+#warnings("-cancellable_defer")
 async test "e2e/http: registered remote schema contracts and missing capability status survive the wire" {
   let resources : Map[String, Json] = {
     "urn:test:positive": { "type": "integer", "minimum": 1 },
@@ -313,7 +316,7 @@ async test "e2e/http: registered remote schema contracts and missing capability 
           ),
         ),
       )
-      defer client.close()
+      defer @async.protect_from_cancel(() => client.close())
       ignore(client.call_tool("remote", arguments="{\"count\":1}"))
       try client.call_tool("remote", arguments="{\"count\":0}") catch {
         @types.MCPError::_ as error =>

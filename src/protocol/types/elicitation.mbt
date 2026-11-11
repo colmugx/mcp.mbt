@@ -1,21 +1,23 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum ElicitationAction {
   Accept
   Decline
   Cancel
-} derive(Debug, Eq)
+}
 
 ///|
 /// Elicitation form values. Numeric content keeps its wire literal through
 /// `ExactNumber`, mirroring `ProgressToken`; `Number` remains a convenience
 /// constructor for programmatic values.
+#derive(Debug)
 pub(all) enum ElicitationValue {
   String(String)
   Number(Double)
   ExactNumber(JsonNumber)
   Boolean(Bool)
   Strings(Array[String])
-} derive(Debug)
+}
 
 ///|
 pub fn ElicitationAction::from_json(

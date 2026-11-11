@@ -1,8 +1,9 @@
 ///|
+#derive(Debug, Eq)
 pub(all) struct ResourceReadResult {
   contents : Array[ResourceContents]
   metadata : ResultMetadata
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ResourceReadResult::new(

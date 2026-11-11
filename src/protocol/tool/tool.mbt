@@ -7,6 +7,7 @@ pub using @types {type ToolResult}
 /// (`InputRequired`). On retry, the client resubmits with `inputResponses`
 /// and the echoed `requestState`; the tool receives responses and restored state
 /// through `RequestContext`, without modifying its business arguments.
+#derive(Eq, Debug)
 pub(all) enum ToolCallOutcome {
   /// Normal completion — the tool finished and produced a result.
   Complete(ToolResult)
@@ -18,16 +19,17 @@ pub(all) enum ToolCallOutcome {
     input_requests~ : Map[String, @types.InputRequestEntry],
     state~ : Json
   )
-} derive(Eq, Debug)
+}
 
 ///|
 /// Parameter definition for tool schema
+#derive(Eq, Debug)
 pub(all) struct ParamDef {
   name : String
   description : String
   type_ : String // "string", "number", "boolean", "object", "array"
   required : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 /// Core Tool trait following MCP protocol

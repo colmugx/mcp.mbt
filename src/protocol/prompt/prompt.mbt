@@ -11,6 +11,7 @@ pub using @types {type PromptDefinition}
 /// client input (`InputRequired`). On retry, the client resubmits with
 /// `inputResponses` and the echoed `requestState`; the handler receives those
 /// responses via `_mrtr_responses` in the get params.
+#derive(Eq, Debug)
 pub(all) enum PromptGetOutcome {
   /// Normal completion — the prompt messages are ready.
   Complete(@types.GetPromptResult)
@@ -21,7 +22,7 @@ pub(all) enum PromptGetOutcome {
     input_requests~ : Map[String, @types.InputRequestEntry],
     state~ : Json
   )
-} derive(Eq, Debug)
+}
 
 ///|
 /// Core Prompt trait following MCP protocol

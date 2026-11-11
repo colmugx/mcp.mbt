@@ -1,8 +1,9 @@
 ///|
+#derive(Eq, Debug)
 pub(all) enum Role {
   User
   Assistant
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Role with Eq::{equal, not_equal}
@@ -34,12 +35,13 @@ fn Role::from_json(value : Json) -> Role raise MCPError {
 /// Annotation priority keeps the exact decimal literal (pinned schema:
 /// `number`, minimum 0, maximum 1); the range check never rounds through
 /// Double, so boundary spellings outside the interval stay invalid.
+#derive(Eq, Debug)
 pub(all) struct Annotations {
   audience : Array[Role]?
   priority : JsonNumber?
   last_modified : String?
   extensions : Map[String, Json]
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Annotations with Eq::{equal, not_equal}
@@ -94,10 +96,11 @@ pub impl ToJson for Annotations with fn to_json(self) {
 pub extend Annotations with ToJson::{to_json}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum IconTheme {
   Light
   Dark
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend IconTheme with Eq::{equal, not_equal}
@@ -106,13 +109,14 @@ pub extend IconTheme with Eq::{equal, not_equal}
 pub extend IconTheme with Debug::{to_repr}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct Icon {
   src : String
   mime_type : String?
   sizes : Array[String]?
   theme : IconTheme?
   extensions : Map[String, Json]
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Icon with Eq::{equal, not_equal}
@@ -161,11 +165,12 @@ pub impl ToJson for Icon with fn to_json(self) {
 pub extend Icon with ToJson::{to_json}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct ContentMetadata {
   annotations : Annotations?
   meta : Map[String, Json]?
   extensions : Map[String, Json]
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend ContentMetadata with Eq::{equal, not_equal}

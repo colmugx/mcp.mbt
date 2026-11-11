@@ -1,11 +1,12 @@
 ///|
 /// Full discovery result, including cache hints and server identity metadata.
+#derive(Debug, Eq)
 pub(all) struct DiscoverResult {
   supported_versions : Array[String]
   capabilities : ServerCapabilities
   instructions : String?
   metadata : ResultMetadata
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn DiscoverResult::new(

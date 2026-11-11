@@ -1,13 +1,15 @@
 ///|
+#derive(Debug, Eq)
 pub(all) struct ToolUseContent {
   id : String
   name : String
   input : Map[String, Json]
   meta : Map[String, Json]?
   extensions : Map[String, Json]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ToolResultContent {
   tool_use_id : String
   content : Array[ContentBlock]
@@ -15,23 +17,25 @@ pub(all) struct ToolResultContent {
   is_error : Bool?
   meta : Map[String, Json]?
   extensions : Map[String, Json]
-} derive(Debug, Eq)
+}
 
 ///|
 /// Sampling has a narrower standard union than tool-result content, plus tool-use blocks.
+#derive(Debug, Eq)
 pub(all) enum SamplingContentBlock {
   Content(ContentBlock)
   ToolUse(ToolUseContent)
   ToolResult(ToolResultContent)
   Unknown(Json)
-} derive(Debug, Eq)
+}
 
 ///|
 /// Retains single-block versus array presence on the wire, even for a one-element array.
+#derive(Debug, Eq)
 pub(all) enum SamplingContent {
   Single(SamplingContentBlock)
   Multiple(Array[SamplingContentBlock])
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ToolUseContent::new(

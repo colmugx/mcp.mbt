@@ -1,39 +1,44 @@
 ///|
+#derive(Debug, Eq)
 pub(all) struct ModelHint {
   name : String?
   extensions : Map[String, Json]
-} derive(Debug, Eq)
+}
 
 ///|
 /// Sampling priorities keep exact decimal literals (pinned schema: `number`
 /// with minimum 0 and maximum 1); range checks never round through Double.
+#derive(Debug, Eq)
 pub(all) struct ModelPreferences {
   hints : Array[ModelHint]?
   cost_priority : JsonNumber?
   speed_priority : JsonNumber?
   intelligence_priority : JsonNumber?
   extensions : Map[String, Json]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum SamplingContext {
   NoContext
   ThisServer
   AllServers
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum ToolChoiceMode {
   Auto
   Required
   Disabled
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ToolChoice {
   mode : ToolChoiceMode?
   extensions : Map[String, Json]
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ModelHint::new(name? : String) -> ModelHint {

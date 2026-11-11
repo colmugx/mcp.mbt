@@ -6,11 +6,12 @@
 /// Classification of JSON-RPC messages arriving on the server-side reply
 /// queue. Used to decide whether a POST response is a single JSON object or
 /// an SSE stream.
+#derive(Eq, Debug)
 pub(all) enum JsonRpcKind {
   Notification
   FinalResponse
   Other
-} derive(Eq, Debug)
+}
 
 ///|
 /// Returns `true` when the JSON body is a JSON-RPC notification

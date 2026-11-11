@@ -246,6 +246,7 @@ async test "e2e/stdio: closing the client cancels its owned stdio request and re
 }
 
 ///|
+#warnings("-cancellable_defer")
 async test "e2e/stdio: direct HTTP calls consume progress then their own response without poisoning the next call" {
   let server = @socket.TcpServer(
     @socket.Addr::parse("127.0.0.1:47336"),
@@ -266,7 +267,7 @@ async test "e2e/stdio: direct HTTP calls consume progress then their own respons
       progress.push(notification.progress.as_double())
     }),
   })
-  defer client.close()
+  defer @async.protect_from_cancel(() => client.close())
   @async.with_task_group(group => {
     group.spawn_bg(() => {
       for id in [1, 2] {
@@ -321,6 +322,7 @@ async test "e2e/stdio: direct HTTP calls consume progress then their own respons
 }
 
 ///|
+#warnings("-cancellable_defer")
 async test "e2e/stdio: concurrent direct HTTP calls correlate out-of-order replies independently" {
   let server = @socket.TcpServer(
     @socket.Addr::parse("127.0.0.1:47337"),
@@ -335,7 +337,7 @@ async test "e2e/stdio: concurrent direct HTTP calls correlate out-of-order repli
     version="1",
     transport=@transport.AnyTransport::HttpClient(transport),
   )
-  defer client.close()
+  defer @async.protect_from_cancel(() => client.close())
   let first_started : @aqueue.Queue[Unit] = @aqueue.Queue(kind=Unbounded)
   let second_consumed : @aqueue.Queue[Unit] = @aqueue.Queue(kind=Unbounded)
   let request1 = Json::object({
@@ -445,6 +447,7 @@ async test "e2e/stdio: owned stdio cancellation releases string and large numeri
 }
 
 ///|
+#warnings("-cancellable_defer")
 async test "e2e/stdio: cancelling listen cleans its handler without failing the task group" {
   @async.with_timeout(5000, () => {
     @async.with_task_group(group => {
@@ -458,7 +461,7 @@ async test "e2e/stdio: cancelling listen cleans its handler without failing the 
         version="1",
         transport=@transport.AnyTransport::StdioClient(transport),
       )
-      defer client.close()
+      defer @async.protect_from_cancel(() => client.close())
       group.spawn_bg(() => client.run(group), no_wait=true)
       wait_until(3000, () => client.event_loop_started)
       let id = client.listen(handler=_ => (), group~)

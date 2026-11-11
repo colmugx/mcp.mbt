@@ -35,6 +35,7 @@ pub impl ToJson for PromptArgument with fn to_json(self) {
 }
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct PromptDefinition {
   name : String
   title : String?
@@ -43,7 +44,7 @@ pub(all) struct PromptDefinition {
   icons : Array[Icon]?
   meta : Map[String, Json]?
   extensions : Map[String, Json]
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn PromptDefinition::new(
