@@ -5,6 +5,102 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.18.3
+
+Dependencies: `colmugx/json-schema` 0.1.5 → 0.1.6.
+
+### Added
+
+- Runnable examples that cover the SDK surface instead of two tools:
+  `examples/server` registers trait tools, a structured-output tool with an
+  `output_schema`, an MRTR tool that asks for an elicitation form plus a
+  sampling completion, a progress-reporting cancellable tool, resources, a
+  resource template, a prompt and completion; `examples/client` walks the whole
+  client API (discovery, structured output, MRTR handlers, progress,
+  resources, prompts, completion) and then `MCPHost` routing;
+  `examples/http` adds a Streamable HTTP server/client pair on port 4240.
+- Async request-state codec example (`AesGcmStateCodec`) and a documented
+  server-side MRTR round trip, including the requirement that a server install a
+  codec before any handler can answer `input_required`.
+- `Debug`/`Eq` derives across protocol and runtime types.
+- A verified numeric slice: `src/internal/scalar` carries `proof_require` /
+  `proof_ensure` contracts for the exponent-width arithmetic behind
+  `JsonNumber` ordering, proved with `moon prove` (2 goals, `proof_enabled`).
+  The extraction is behaviour-preserving; the package exists because Why3
+  lowering rejects packages that use `Map`/`Json`.
+- JSON Schema 0.1.6 brings complete `format` predicates (all 19 Draft 2020-12
+  names, 235/235 of the official `optional/format` corpus); the
+  `format-assertion` vocabulary itself is still refused as unsupported.
+
+### Fixed
+
+- Transport and client cleanup in `defer`/`errdefer` runs under
+  `@async.protect_from_cancel`, so a cancelled task still closes its connection
+  instead of losing the close to the cancellation.
+
+## 0.18.2
+
+Dependencies: `colmugx/json-schema` 0.1.1 → 0.1.5.
+
+### Added
+
+- Protocol conformance and migration notes (`docs/conformance.md`) and the
+  server, client and host guides under `public/docs/`.
+
+### Fixed
+
+- Legacy stdio sessions serialize request/response exchanges, so concurrent
+  `send_raw` calls on one child process no longer interleave frames. The
+  concurrent-stdio regression also runs on the JS target.
+- `@async.Mutex` guards each `LegacyClient` request/response pair.
+
+### Changed
+
+- JSON-RPC and transport error handling moved to typed checked errors; the
+  quickstarts were realigned with the 0.18 API.
+
+## 0.18.1
+
+Dependencies: `colmugx/json-schema` 0.0.1 → 0.1.1.
+
+### Added
+
+- Sampling response validation: `toolChoice` policy, tool-use blocks and
+  assistant/history correlation are checked before a sampling result is
+  published.
+- Exact numeric representations across protocol types and the client guide.
+
+### Changed
+
+- `external/json-schema` submodule switched to HTTPS; CI and publish workflows
+  upgraded to `actions/checkout@v5`.
+
+## 0.18.0
+
+Dependencies: `colmugx/json-schema` 0.0.1 introduced for compile-once schema
+validation.
+
+### Added
+
+- `ProgressToken::ExactNumber` and exact `JsonNumber` progress counters, so a
+  token or counter beyond binary64's exact range survives the wire; numeric
+  equality treats equivalent spellings as the same value while strings stay
+  distinct.
+- MRTR elicitation validation hardening: requested schemas and accepted content
+  are checked against an owned snapshot, and docs cover the request shape.
+- HTTP transport compliance and cancellation end-to-end tests.
+
+### Fixed
+
+- Exact JSON-RPC identities: ids and peer error codes keep their original
+  literals instead of being rounded through binary64.
+- JSON serialization types for the protocol structs.
+
+### Changed
+
+- Tool description handling and `execute` signatures, so tools can return
+  `ToolCallOutcome` instead of a bare result.
+
 ## 0.17.5
 
 Toolchain: MoonBit v0.10.9, `moonbitlang/async` 0.20.5 → 0.21.0.
@@ -243,6 +339,11 @@ legacy 2025-11-25 support isolated in `src/client/legacy/`.
   `ActiveSubscription` type.
 
 ### Known limitations (follow-ups)
+
+> All three items below are resolved in the current tree and are kept as
+> history: era probing dispatches through `ClientBackend` (legacy fallback
+> included), the HTTP server streams per-request SSE, and `MCPServer` defaults
+> to the system clock for `requestState` expiry.
 
 - **Era probe + ClientBackend dispatch** (MIGRATION-0.15.md §10b): the modern
   client does not yet auto-fallback to `LegacyClient` on legacy servers.

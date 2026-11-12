@@ -2,7 +2,7 @@
 
 Type-safe [Model Context Protocol](https://modelcontextprotocol.io/) SDK for MoonBit.
 
-**Version**: 0.18.1 · **Protocol**: 2026-07-28 (stateless) · **License**: Apache-2.0
+**Version**: 0.18.3 · **Protocol**: 2026-07-28 (stateless) · **License**: Apache-2.0
 
 ## Protocol support and scope
 
@@ -14,7 +14,7 @@ Elicitation forms are validated before interaction and accepted content is check
 
 JSON-RPC ids and peer error codes now retain exact integer literals beyond Int32 and binary64. String ids, large numeric ids, duplicate checks, subscriptions and cancellation share consistent routing without truncation.
 
-**Conformance is evidence-based, not an unconditional complete-protocol guarantee.** The validator's standard suite reaches 1301/1301, but optional format assertions and general ECMA-262 patterns remain outside its supported profile. MCP transport/runtime evidence and host responsibilities are tracked separately in the [conformance matrix and migration notes](docs/conformance.md). The error API uses MoonBit checked errors rather than Result-valued failure returns.
+**Conformance is evidence-based, not an unconditional complete-protocol guarantee.** The validator's standard suite reaches 1301/1301, and its `format` predicates now match the whole official `optional/format` corpus; the `format-assertion` vocabulary itself is still refused as unsupported, and general ECMA-262 patterns remain outside the supported regex profile. MCP transport/runtime evidence and host responsibilities are tracked separately in the [conformance matrix and migration notes](docs/conformance.md). The error API uses MoonBit checked errors rather than Result-valued failure returns.
 
 Bearer tokens, server-side authentication hooks, and protected-resource metadata are supported. OAuth authorization client lifecycle, PKCE, dynamic client registration, and token refresh management are **not included**.
 
@@ -24,12 +24,12 @@ Install the published SDK and its async runtime dependency in your MoonBit
 project:
 
 ```bash
-moon add colmugx/mcp@0.18.0
+moon add colmugx/mcp@0.18.3
 moon add moonbitlang/async@0.21.0
 ```
 
 Development can use the workspace's independent `external/json-schema` submodule.
-The SDK currently declares `colmugx/json-schema@0.1.4`; workspace and historical
+The SDK currently declares `colmugx/json-schema@0.1.6`; workspace and historical
 registry-only verification evidence are recorded separately in the conformance notes.
 
 ## Quick Start
@@ -66,7 +66,8 @@ async fn main {
     version="1.0.0",
   )
   defer client.close()
-  // Optional one-shot discovery of server identity/capabilities.
+  // Optional one-shot capability discovery; discover_result() also retains
+  // supported versions, instructions and result metadata.
   ignore(client.discover())
   let result = client.list_tools()
   for tool in result.tools { println(tool.name) }
@@ -109,6 +110,7 @@ Host tool names are qualified as `connection.tool` so multiple servers can expos
 | [Architecture](public/docs/06-architecture.md) | Protocol, runtime, transport, application layers |
 | [Host Guide](public/docs/07-host-guide.md) | `MCPHost` named connections and routing |
 | [Conformance notes](docs/conformance.md) | Protocol coverage, remaining gaps, and compatibility notes |
+| [Examples](examples/server/README.mbt.md) | Runnable stdio server, client/host and Streamable HTTP examples |
 | [Changelog](CHANGELOG.md) | Release history and breaking changes |
 
 ## API Direction

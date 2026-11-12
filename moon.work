@@ -2,5 +2,6 @@ members = [
   ".",
   "./examples/client",
   "./examples/server",
+  "./examples/http",
   "./external/json-schema",
 ]
