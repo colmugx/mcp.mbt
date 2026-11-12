@@ -1,5 +1,6 @@
 import {
   "colmugx/mcp",
+  "colmugx/mcp/server",
   "moonbitlang/async",
 }
 

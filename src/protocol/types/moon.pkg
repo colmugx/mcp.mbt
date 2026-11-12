@@ -1,4 +1,5 @@
 import {
+  "colmugx/mcp/internal/scalar",
   "moonbitlang/core/debug",
   "moonbitlang/core/bigint",
   "moonbitlang/core/json",

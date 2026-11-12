@@ -22,6 +22,7 @@ import {
   "colmugx/mcp",
   "moonbitlang/async",
   "moonbitlang/core/debug",
+  "moonbitlang/core/json",
 }
 
 pkgtype(kind: "executable")
@@ -29,7 +30,10 @@ pkgtype(kind: "executable")
 supported_targets = "native"
 ```
 
-> stdio transport and the HTTP server run on native (and wasm); the HTTP client also runs on js. See the [transport reference](04-transport-reference.md) for the target matrix.
+> `moonbitlang/core/json` is needed for the `Json` values that public signatures
+> and handler bodies use. stdio transport and the HTTP server run on native (and
+> wasm); the HTTP client runs on js, and a js stdio client is available too. See
+> the [transport reference](04-transport-reference.md) for the target matrix.
 
 ## Server
 
@@ -120,3 +124,14 @@ If `local` and `remote` both expose `echo`, the host lists them as `local.echo` 
 - Register resources, prompts, and templates: [server guide](03-server-guide.md)
 - All client methods, including era selection and subscriptions: [client guide](05-client-guide.md)
 - Wire types such as `ContentBlock` and the error taxonomy: [protocol types](02-protocol-types.md)
+
+## Runnable examples
+
+The repository ships three native examples that are compiled by CI and cover
+more than this quickstart:
+
+| Example | Shows |
+|---------|-------|
+| [`examples/server`](../../examples/server/README.mbt.md) | stdio server: trait tools, structured output, MRTR elicitation + sampling, progress, cancellation, resources, prompts, completion |
+| [`examples/client`](../../examples/client/README.mbt.md) | `MCPClient` feature tour plus `MCPHost` multi-server routing; starts the server example as a child process |
+| [`examples/http`](../../examples/http/README.mbt.md) | Streamable HTTP server and client on port 4240 |

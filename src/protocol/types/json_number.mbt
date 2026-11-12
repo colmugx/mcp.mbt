@@ -128,6 +128,9 @@ fn decimal_key_parts(key : String) -> (Bool, String, @bigint.BigInt) {
 }
 
 ///|
+/// Magnitude ordering of two canonical digit runs, decided without expanding
+/// either exponent: compare the highest place first, then the shared digit
+/// prefix, then the remaining length.
 fn decimal_magnitude_compare(
   left_digits : String,
   left_exponent : @bigint.BigInt,
@@ -135,9 +138,13 @@ fn decimal_magnitude_compare(
   right_exponent : @bigint.BigInt,
 ) -> Int32 {
   let left_shift = left_exponent +
-    @bigint.BigInt::from_int(left_digits.length() - 1)
+    @bigint.BigInt::from_int(
+      @scalar.decimal_highest_place(left_digits.length()),
+    )
   let right_shift = right_exponent +
-    @bigint.BigInt::from_int(right_digits.length() - 1)
+    @bigint.BigInt::from_int(
+      @scalar.decimal_highest_place(right_digits.length()),
+    )
   if left_shift != right_shift {
     return if left_shift < right_shift { -1 } else { 1 }
   }
@@ -151,8 +158,7 @@ fn decimal_magnitude_compare(
       return if left_digits[index] < right_digits[index] { -1 } else { 1 }
     }
   }
-  // Canonical digits never end in zero, so the longer side carries extra value.
-  left_digits.length() - right_digits.length()
+  @scalar.decimal_tail_order(left_digits.length(), right_digits.length())
 }
 
 ///|

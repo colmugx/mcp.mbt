@@ -13,7 +13,7 @@ import {
 }
 ```
 
-`colmugx/mcp/client` (alias `@client`) is needed for `ProtocolEra` and `NotificationHandlers`, which the facade does not re-export.
+`colmugx/mcp/client` (alias `@client`) is needed for `ProtocolEra`, `NotificationHandlers`, `ListenFilter`, `ResourceTemplate`, `ListResourceTemplatesResult` and `ClientBackend`, none of which the facade re-exports.
 
 ## Connect
 
@@ -24,6 +24,24 @@ let client = @mcp.MCPClient::connect_http(
   version="1.0.0",
 )
 defer client.close()
+```
+
+Both connect helpers accept transport options:
+
+| Option | Effect |
+|--------|--------|
+| `auth_token?` | Sends `Authorization: Bearer …` on every request, including the legacy session `DELETE`. |
+| `extra_headers?` | Caller-supplied headers appended after the built-in set (last write wins), for tracing or routing. |
+| `era?` | Protocol era policy; see below. |
+
+```moonbit
+let client = @mcp.MCPClient::connect_http(
+  url="http://localhost:4240/mcp",
+  name="client",
+  version="1.0.0",
+  auth_token=token,
+  extra_headers=Map::from_array([("x-tenant", "acme")]),
+)
 ```
 
 Stdio connections need a task group because the child process lifecycle belongs to async supervision:
@@ -136,7 +154,37 @@ Available hooks: `on_tools_changed`, `on_resources_changed`, `on_prompts_changed
 
 Ordinary calls also route notifications and responses correctly **without** starting `run()`: a temporary, single-reader pump invokes notification handlers and sends each response to its matching request queue. A progress event is never returned as the tool result or left to contaminate the next call. Concurrent calls can complete out of order. The persistent event loop is still required for `listen`, not for one-shot calls or their request-scoped progress.
 
-For multiplexed subscriptions on one long-lived request, start `client.run(group)` before calling `listen(filter?, handler~, group~)`. It returns a subscription id. `cancel_listen(id)` cancels the owned subscription request on stdio or HTTP; it does not send a cross-request HTTP cancellation POST. The background subscription always unregisters its handler, including on errors or cancellation. Explicit cancellation is normal completion of that background task; other raised failures propagate to its owning task group instead of being silently ignored.
+For multiplexed subscriptions on one long-lived request, start `client.run(group)` before calling `listen(filter?, handler~, group~)`. It returns a subscription id. `cancel_listen(id)` cancels the owned subscription request on stdio or HTTP; it does not send a cross-request HTTP cancellation POST.
+
+The filter is `ListenFilter` from `colmugx/mcp/client`; `ListenFilter::default()`
+subscribes to the three list-change notifications and to no resource, so a
+server-side `notify_*` call only reaches streams whose filter covers it:
+
+```moonbit
+@async.with_task_group(group => {
+  let client = @mcp.MCPClient::connect_http(
+    url="http://localhost:4240/mcp",
+    name="client",
+    version="1.0.0",
+  )
+  group.spawn_bg(() => client.run(group), no_wait=true)
+  let subscription = client.listen(
+    filter={
+      tools_list_changed: true,
+      prompts_list_changed: false,
+      resources_list_changed: true,
+      resource_subscriptions: ["memo://notes/1"],
+    },
+    handler=fn(notification) { println(notification.stringify()) },
+    group~,
+  )
+  // ... while this group is alive
+  client.cancel_listen(subscription)
+})
+```
+
+`listen` raises `MCPError` when the event loop has not been started
+(`run` must be running first) and is unsupported on legacy backends. The background subscription always unregisters its handler, including on errors or cancellation. Explicit cancellation is normal completion of that background task; other raised failures propagate to its owning task group instead of being silently ignored.
 
 Cancellation preserves request-id types: use `RequestId::Int(7)` for a small numeric id, not `RequestId::Str("7")`; use `RequestId::Number(JsonInteger::from_literal(...))` for a large numeric id. String ids and integers beyond binary64's exact range have independent response/cancellation ownership. Equivalent numeric spellings such as `42` and `4.2e1` identify the same request. Explicit cancellation returns a local `MCPError::Cancelled` to the waiting caller. Cancelling the calling async task instead propagates the runtime cancellation error. An HTTP id not owned by this client cannot be cancelled through `cancel_request`.
 

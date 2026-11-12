@@ -6,8 +6,6 @@ package "colmugx/mcp-example-server/cmd/main"
 // Errors
 
 // Types and methods
-type AddTool
-
 type EchoTool
 
 // Type aliases

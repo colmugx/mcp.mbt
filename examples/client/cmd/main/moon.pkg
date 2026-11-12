@@ -1,8 +1,7 @@
 import {
+  "colmugx/mcp",
   "colmugx/mcp/client",
-  "colmugx/mcp/protocol/types",
   "moonbitlang/async",
-  "moonbitlang/core/debug",
 }
 
 pkgtype(kind: "executable")

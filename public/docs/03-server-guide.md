@@ -153,14 +153,107 @@ For tools and resources with real logic, implement the `Tool`, `Resource`, or `P
 
 ```moonbit
 ///|
-impl @mcp.Tool for MyTool with fn execute(self, context, args) -> @mcp.ToolCallOutcome {
+struct MyTool {}
+
+///|
+impl @mcp.Tool for MyTool with fn name(_) -> String {
+  "my_tool"
+}
+
+///|
+impl @mcp.Tool for MyTool with fn description(_) -> String {
+  "What it does"
+}
+
+///|
+impl @mcp.Tool for MyTool with fn params(_) -> Array[@mcp.ParamDef] {
+  [{ name: "text", description: "Input text", type_: "string", required: true }]
+}
+
+///|
+impl @mcp.Tool for MyTool with fn execute(
+  _,
+  context,
+  args : Json,
+) -> @mcp.ToolCallOutcome {
   // Complete(result) finishes normally; InputRequired(..) asks the client
   // for input, then the request is retried with the answers attached.
   ...
 }
 ```
 
+`ParamDef` produces the advertised `inputSchema`. For a typed alternative, the
+facade also exports `tool_fn`, `simple_tool` and the `str_schema` / `int_schema` /
+`num_schema` / `bool_schema` / `arr_schema` / `obj_schema` builders, so a
+registration can assemble its schema instead of writing JSON by hand.
+
 `MCPServer::prompt_mrtr` and `MCPServer::resource_mrtr` (plus the `with_prompt_mrtr` / `with_resource_mrtr` trait variants) are the MRTR-aware equivalents for prompts and resources.
+
+A complete tool-side round trip: answer `input_required` on the first pass, read the
+answers from `context.input_responses` on the retry. `review` below asks for a form
+and a sampling completion at once, so one retry resolves both:
+
+```moonbit
+let review = @mcp.ToolDefinition::new("review", {
+  "type": "object",
+  "properties": { "text": { "type": "string" } },
+  "required": ["text"],
+})
+let server = @mcp.MCPServer("app", "1.0.0")
+  // MRTR is refused with -32603 when no requestState codec is installed.
+  .with_request_state_codec(@server.AesGcmStateCodec::with_key(key))
+  .tool_definition(review, (context, args) => {
+    let text = @mcp.get_string(args, "text").unwrap_or("")
+    if context.input_responses.is_empty() {
+      let form = @mcp.ElicitationRequest::form("Approve?", {
+        "type": "object",
+        "properties": { "approved": { "type": "boolean" } },
+        "required": ["approved"],
+      })
+      let sampling = @mcp.CreateMessageRequest::new([
+        @mcp.SamplingMessage::new(
+          @mcp.Role::User,
+          @mcp.SamplingContent::text("Draft one sentence about: " + text),
+        ),
+      ], 64)
+      let requests : Map[String, @mcp.InputRequestEntry] = Map::from_array([
+        ("approval", {
+          method_name: @mcp.InputRequestKind::ElicitationCreate,
+          params: form.to_json(),
+        }),
+        ("draft", {
+          method_name: @mcp.InputRequestKind::SamplingCreateMessage,
+          params: sampling.to_json(),
+        }),
+      ])
+      return Ok(
+        @mcp.ToolCallOutcome::InputRequired(
+          input_requests=requests,
+          state={ "text": text },
+        ),
+      )
+    }
+    // The runtime already checked the keys, result types and form constraints.
+    let approved = match context.input_responses.get("approval") {
+      Some(Object(fields)) =>
+        match fields.get("action") {
+          Some(String(action)) => action == "accept"
+          _ => false
+        }
+      _ => false
+    }
+    Ok(
+      @mcp.ToolCallOutcome::Complete(
+        @mcp.ToolResult::text(if approved { "approved" } else { "declined" }),
+      ),
+    )
+  })
+```
+
+`state` is the business data you want back; it is sealed into `requestState` and
+restored on the retry. Input answers never enter `args`. The client side of this
+round trip is in the [client guide](05-client-guide.md#client-input-handlers-modern-mrtr-and-legacy-callbacks),
+and [`examples/server`](../../examples/server/README.mbt.md) runs it end to end.
 
 ## Advertised capabilities
 
@@ -185,6 +278,52 @@ server.run_http(port=4240, path="/mcp")   // Streamable HTTP + SSE
 ```
 
 Both are async and raise `TransportError`. The runtime owns transport dispatch, task-group lifecycle, and response routing — you never construct a transport yourself.
+
+### Serving without a transport
+
+`MCPServer::handle_request` is the stateless entry point: give it one JSON-RPC
+request string, get the response string back. Use it from a serverless handler,
+an existing HTTP framework, or a test that wants no sockets:
+
+```moonbit
+let response : String = server.handle_request(
+  "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}",
+  principal=principal,
+  cancellation_token=token,
+  progress_reporter=reporter,
+)
+```
+
+All the arguments after the request string are optional. `principal` carries the
+authenticated identity a transport would otherwise attach, and the reporter
+decides where progress from that request goes.
+
+## Subscriptions and change notifications
+
+`subscriptions/listen` is a long-lived request: the client sends a filter, the
+server acknowledges, then pushes notifications on that same stream. Handlers come
+from the client side (`MCPClient::listen`, see the
+[client guide](05-client-guide.md#notifications-and-subscriptions)); the server
+only needs to announce changes:
+
+```moonbit
+// Registering or replacing entries is the usual trigger.
+server
+  .notify_tools_list_changed()
+  .notify_resources_list_changed()
+  .notify_prompts_list_changed()
+// 2026-07-28 replacement for the legacy resources/subscribe handshake: reaches
+// only streams that listed this uri in their filter.
+server.notify_resource_updated("memo://notes/1")
+// End one subscription from the server side (e.g. on scope revocation).
+server.close_subscription(subscription_id)
+```
+
+Each trigger routes only to streams whose filter covers it: the client filter is
+`{ tools_list_changed, prompts_list_changed, resources_list_changed,
+resource_subscriptions }`, so a client that subscribed to nothing receives
+nothing. Notifications are issued from the task group that owns the stream, so
+call these from an async context.
 
 ## Authentication
 
@@ -226,6 +365,9 @@ Handled inline (no spawn):
 Spawned on the task group (the handler may suspend):
 
 - `tools/call`, `resources/read`, `prompts/get`, `completion/complete`
+- `subscriptions/listen` — stays open and pushes notifications on that stream, so
+  it is dispatched before ordinary method routing and never returns until the
+  subscription is cancelled or the connection drops
 
 Stdio responses are serialized through one output queue. HTTP requests carry an authenticated envelope with a request-local reply queue, identity, and cancellation token, so out-of-order completion cannot cross responses. Every request needs `_meta.io.modelcontextprotocol/protocolVersion` and `_meta.io.modelcontextprotocol/clientCapabilities`; connect/call helpers supply these automatically.
 
@@ -239,7 +381,31 @@ The runtime validates handler-authored elicitation/sampling/roots requests befor
 
 This is validation, not consent automation: your client handler owns user interaction, sensitive-data policy, and URL navigation. Form `format` and `default` fields are annotations, not automatic format checks or submitted defaults.
 
-Stdio `notifications/cancelled` cancels the matching in-flight task in that transport's scope. The cancelled task emits no final response or later progress. HTTP SSE streams use periodic keepalive flushes to detect disconnect; I/O failure cancels that request and closes its reply queue. Detection is bounded by keepalive cadence and socket failure reporting, not instantaneous. For CPU-bound loops, call `context.cancellation_token.throw_if_cancelled()` and yield periodically; no runtime can preempt a non-yielding synchronous computation.
+### Progress
+
+Report progress from the handler through the context; the runtime correlates it
+with the request's `progressToken`, so a client that sent no token receives no
+progress notifications:
+
+```moonbit
+impl @mcp.Tool for SlowTool with fn execute(_, context, _args) -> @mcp.ToolCallOutcome {
+  for step in 1..=5 {
+    context.cancellation_token.throw_if_cancelled()
+    context.progress_reporter.report(step.to_double(), total=5.0, message="step")
+    @async.sleep(200)
+  }
+  @mcp.ToolCallOutcome::Complete(@mcp.ToolResult::text("done"))
+}
+```
+
+`report` takes `(progress, total?, message?)`; `total` and `message` are optional.
+The client side is `on_progress` inside `NotificationHandlers`, and
+`call_tool(..., progress_token=...)` supplies the token to correlate
+(see the [client guide](05-client-guide.md#notifications-and-subscriptions)).
+
+### Cancellation
+
+Stdio `notifications/cancelled` cancels the matching in-flight task in that transport's scope. The cancelled task emits no final response or later progress. HTTP SSE streams use periodic keepalive flushes to detect disconnect; I/O failure cancels that request and closes its reply queue. Detection is bounded by keepalive cadence and socket failure reporting, not instantaneous. For CPU-bound loops, call `context.cancellation_token.throw_if_cancelled()` and yield periodically; no runtime can preempt a non-yielding synchronous computation. The raised error is `RequestCancelled`; `CancellationToken::on_cancel` registers a callback when you need to release a resource before unwinding.
 
 ## Completion
 

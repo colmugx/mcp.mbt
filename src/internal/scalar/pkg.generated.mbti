@@ -1,0 +1,15 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/mcp/internal/scalar"
+
+// Values
+pub fn decimal_highest_place(Int32) -> Int32
+
+pub fn decimal_tail_order(Int32, Int32) -> Int32
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

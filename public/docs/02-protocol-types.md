@@ -1,6 +1,6 @@
 # 2. Protocol Types Reference
 
-All protocol types live in the `colmugx/mcp/protocol/types` package and are re-exported by the root facade `colmugx/mcp`, so application code can use `@mcp.ContentBlock` without a extra import. Import `colmugx/mcp/protocol/types` (alias `@types`) only when you want the explicit path.
+Protocol types live in the `colmugx/mcp/protocol/types` package. Most are re-exported by the root facade `colmugx/mcp`, so application code can use `@mcp.ContentBlock` without an extra import. Import `colmugx/mcp/protocol/types` (alias `@types`) when you want the explicit path, and for the types the facade does not re-export: `Root`, `ClientInfo`, `Notification`, `CancelledNotification`, `ResourceUpdatedNotification` and `SubscriptionNotificationKind`. The `colmugx/mcp/client` package likewise keeps `ProtocolEra`, `NotificationHandlers`, `ListenFilter`, `ResourceTemplate`, `ListResourceTemplatesResult` and `ClientBackend` for itself.
 
 Types derive `Debug` and `Eq`. Content blocks, tool definitions/results, resource definitions/templates/read results, and prompt definitions/arguments/messages/results provide shared `ToJson` / `from_json` codecs. Those codecs are strict and lossless: unknown content `type` values are preserved as `Unknown(Json)`, malformed known fields raise `MCPError::InvalidParams`, and non-standard fields survive round-trips through `extensions` maps instead of being dropped. Other types below are undergoing the remaining conformance migration; do not assume that every type already has a lossless codec.
 
@@ -10,7 +10,7 @@ Types derive `Debug` and `Eq`. Content blocks, tool definitions/results, resourc
 
 ```moonbit
 pub(all) enum RequestId {
-  Int(Int)              // convenient small numeric id
+  Int(Int32)            // convenient small numeric id
   Number(JsonInteger)   // exact, arbitrary-size JSON integer
   Str(String)           // string id
 } derive(Debug) // implements Eq using mathematical numeric identity
@@ -18,7 +18,7 @@ pub(all) enum RequestId {
 
 `RequestId::from_json` accepts strings and mathematical JSON integers, as required by the pinned JSON schema; fractions, null and other types raise `InvalidRequest`. Numeric decoding produces `Number(JsonInteger)`, retaining the original literal rather than narrowing it to `Int` or a rounded `Double`. `RequestId::to_json_string` renders the original numeric spelling or a correctly quoted string. `Int(42)` and a decoded `4.2e1` compare equal, but neither matches `Str("42")`. Routing, duplicate checks, cancellation and subscription demultiplexing use the same type-tagged canonical `key()`.
 
-Use `JsonInteger::from_literal("9007199254740993")` to construct an exact large numeric id, or `RequestId::from_json(@mcp.parse_json(raw_id))` when receiving JSON. `JsonInteger::to_json` / `to_json_string` preserve the wire literal; `as_int() -> Int?` returns `None` outside signed 32-bit range rather than truncating. Very large exponents remain compact; the identity key does not expand them into a string of zeros.
+Use `JsonInteger::from_literal("9007199254740993")` to construct an exact large numeric id, or `RequestId::from_json(@mcp.parse_json(raw_id))` when receiving JSON. `JsonInteger::to_json` / `to_json_string` preserve the wire literal; `as_int() -> Int32?` returns `None` outside signed 32-bit range rather than truncating. Very large exponents remain compact; the identity key does not expand them into a string of zeros.
 
 ### JsonRpcRequest
 
@@ -85,7 +85,7 @@ pub(all) suberror TransportError {
   InvalidState(String)     // e.g. send after close
   Unauthorized(String)     // HTTP 401, carries WWW-Authenticate info
   Forbidden(String)        // HTTP 403, insufficient scope
-  HttpError(Int, String)   // other HTTP status + response body
+  HttpError(Int32, String) // other HTTP status + response body
 } derive(Eq, Debug)
 ```
 
@@ -246,7 +246,7 @@ pub(all) struct ToolDefinition {
 } derive(Eq, Debug)
 ```
 
-Use `ToolDefinition::new(name, input_schema, description~, ...)` to avoid filling every optional field. Its codec retains the complete JSON Schema, including `$defs`, references, composition, and `x-mcp-header` annotations. Decoding requires `inputSchema.type` to be `"object"`; preserving a schema is not the same as validating tool execution against it.
+Use `ToolDefinition::new(name, input_schema, description=..., ...)` to avoid filling every optional field; the remaining parameters (`title`, `output_schema`, `annotations`, `icons`, `meta`) are optional. Its codec retains the complete JSON Schema, including `$defs`, references, composition, and `x-mcp-header` annotations. Decoding requires `inputSchema.type` to be `"object"`; preserving a schema is not the same as validating tool execution against it.
 
 `ToolAnnotations` provides optional `title`, `read_only_hint`, `destructive_hint`, `idempotent_hint`, and `open_world_hint`, plus extensions. Omitted hints remain omitted; explicit `false` remains `false`. These are advisory hints, not a basis for authorization or trusting an untrusted server.
 

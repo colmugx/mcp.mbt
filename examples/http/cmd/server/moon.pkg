@@ -1,0 +1,10 @@
+import {
+  "colmugx/mcp",
+  "moonbitlang/async",
+}
+
+pkgtype(kind: "executable")
+
+// Native CLI example; the HTTP server transport is unavailable on js.
+
+supported_targets = "native"

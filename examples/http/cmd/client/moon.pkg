@@ -1,0 +1,10 @@
+import {
+  "colmugx/mcp",
+  "moonbitlang/async",
+}
+
+pkgtype(kind: "executable")
+
+// Native CLI example.
+
+supported_targets = "native"

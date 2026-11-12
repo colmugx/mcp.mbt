@@ -1,0 +1,13 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "colmugx/mcp-example-http/cmd/server"
+
+// Values
+
+// Errors
+
+// Types and methods
+type NowTool
+
+// Type aliases
+
+// Traits

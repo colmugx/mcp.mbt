@@ -2,6 +2,13 @@
 
 `MCPHost` is the high-level API for applications that connect to several MCP servers at once — aggregate their tools, then call them through one object.
 
+Its surface is deliberately narrow: `connect_stdio`, `connect_http`, `list_tools`,
+`call_tool` and `close_all`. It aggregates tools only — resources, prompts,
+completion, notification handlers, progress and client input handlers are
+per-connection concerns, so use `MCPClient` directly when you need them. The HTTP
+form also has no `extra_headers?`; set per-connection headers on
+`MCPClient::connect_http` instead.
+
 All snippets assume:
 
 ```moonbit
