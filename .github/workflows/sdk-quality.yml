@@ -1,0 +1,243 @@
+name: SDK quality (non-blocking)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  conformance:
+    name: MCP conformance smoke tests (non-blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Update MoonBit dependencies
+        run: |
+          moon version --all
+          moon update
+
+      - name: Run MCP conformance smoke suite
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p artifacts/conformance
+
+          moon run --target native --release src/conformance/server \
+            > artifacts/conformance/server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true' EXIT
+
+          ready=0
+          for attempt in $(seq 1 60); do
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              break
+            fi
+            status=$(curl --max-time 1 -sS -o /dev/null -w '%{http_code}' \
+              http://127.0.0.1:3000/mcp || true)
+            if [ "$status" != "000" ]; then
+              ready=1
+              break
+            fi
+            sleep 0.5
+          done
+
+          if [ "$ready" -ne 1 ]; then
+            cat artifacts/conformance/server.log
+            echo "Conformance fixture did not start."
+            exit 1
+          fi
+
+          overall=0
+          log=artifacts/conformance/results.log
+          run_case() {
+            label="$1"
+            shift
+            echo "=== $label ===" | tee -a "$log"
+            if "$@" 2>&1 | tee -a "$log"; then
+              echo "RESULT: PASS ($label)" | tee -a "$log"
+            else
+              echo "RESULT: FAIL ($label)" | tee -a "$log"
+              overall=1
+            fi
+          }
+
+          run_case "server / stateless lifecycle" \
+            npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
+            server --url http://127.0.0.1:3000/mcp --scenario server-stateless --verbose
+
+          run_case "server / tools list" \
+            npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
+            server --url http://127.0.0.1:3000/mcp --scenario tools-list --verbose
+
+          run_case "server / simple text tool call" \
+            npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
+            server --url http://127.0.0.1:3000/mcp --scenario tools-call-simple-text --verbose
+
+          run_case "client / tools_call" \
+            npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
+            client --command "moon run --target native --release src/conformance/client" \
+            --scenario tools_call --verbose
+
+          run_case "client / request metadata" \
+            npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
+            client --command "moon run --target native --release src/conformance/client" \
+            --scenario request-metadata --verbose
+
+          exit "$overall"
+
+      - name: Upload conformance results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcp-conformance
+          path: |
+            artifacts/conformance/**
+            results/**
+          if-no-files-found: ignore
+          retention-days: 30
+
+  throughput:
+    name: MCP client and server throughput (non-blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Update MoonBit dependencies
+        run: |
+          moon version --all
+          moon update
+
+      - name: Install MCP Inspector load generator
+        run: npm install --global @modelcontextprotocol/inspector@2.15.0
+
+      - name: Benchmark MoonBit client and server
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p artifacts/throughput
+
+          {
+            echo "=== Runner ==="
+            uname -a
+            lscpu
+            free -h
+            echo
+            echo "=== Toolchains ==="
+            moon version --all
+            node --version
+            npm --version
+            npm list --global @modelcontextprotocol/inspector
+          } > artifacts/throughput/environment.txt 2>&1
+
+          moon run --target native --release src/conformance/server \
+            > artifacts/throughput/server.log 2>&1 &
+          server_pid=$!
+          trap 'mcpdo daemon stop >/dev/null 2>&1 || true; kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true' EXIT
+
+          ready=0
+          for attempt in $(seq 1 60); do
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              break
+            fi
+            status=$(curl --max-time 1 -sS -o /dev/null -w '%{http_code}' \
+              http://127.0.0.1:3000/mcp || true)
+            if [ "$status" != "000" ]; then
+              ready=1
+              break
+            fi
+            sleep 0.5
+          done
+
+          if [ "$ready" -ne 1 ]; then
+            cat artifacts/throughput/server.log
+            echo "Throughput fixture did not start."
+            exit 1
+          fi
+
+          moon run --target native --release src/conformance/client_benchmark \
+            > artifacts/throughput/moonbit-client.jsonl \
+            2> artifacts/throughput/moonbit-client.log
+          client_status=$?
+
+          mcpdo connect http://127.0.0.1:3000/mcp --era auto \
+            > artifacts/throughput/inspector-connect.log 2>&1
+          connect_status=$?
+          inspector_status=1
+          if [ "$connect_status" -eq 0 ]; then
+            mcpdo tools/call bench_echo message:=benchmark \
+              --load --load-steps 1,4,16,64 \
+              --load-step-duration 10 --load-warmup 2 --load-interval 5 \
+              --format json \
+              > artifacts/throughput/inspector-server.json \
+              2> artifacts/throughput/inspector-server.log
+            inspector_status=$?
+          fi
+
+          if [ "$client_status" -ne 0 ] || [ "$inspector_status" -ne 0 ]; then
+            echo "One or more throughput measurements failed."
+            exit 1
+          fi
+
+      - name: Publish throughput summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## MCP throughput"
+            echo
+            echo "### MoonBit MCPClient to MoonBit MCPServer"
+            echo
+            if [ -f artifacts/throughput/moonbit-client.jsonl ]; then
+              cat artifacts/throughput/moonbit-client.jsonl
+            else
+              echo "No MoonBit client results were produced."
+            fi
+            echo
+            echo "### MCP Inspector load against MoonBit MCPServer"
+            echo
+            if [ -f artifacts/throughput/inspector-server.json ]; then
+              cat artifacts/throughput/inspector-server.json
+            else
+              echo "No Inspector results were produced."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload throughput results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcp-throughput
+          path: artifacts/throughput/**
+          if-no-files-found: ignore
+          retention-days: 90
