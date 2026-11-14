@@ -88,7 +88,7 @@ async test "e2e/legacy: direct legacy send cancellation keeps identity at group 
       let _ : Unit = fail("cancelled send completed normally")
     } catch {
       e =>
-        if @async.is_being_cancelled() {
+        if e is @async.WaitedTaskAlreadyCancelled {
           ()
         } else {
           fail("send cancellation lost its identity: \{e}")

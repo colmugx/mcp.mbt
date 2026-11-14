@@ -383,7 +383,7 @@ async fn MCPClient::send_request(self : MCPClient, request : String) -> String {
   let explicitly_cancelled = Ref(false)
   let cancellation_reason : Ref[String?] = Ref(None)
   let answer : Ref[String?] = Ref(None)
-  @async.with_task_group(group => {
+  let status = @async.handle_cancellation(() => @async.with_task_group(group => {
     let owned_task : Ref[@async.Task[String]?] = Ref(None)
     self.request_cancellations.set(id, fn(reason) {
       cancellation_reason.val = reason
@@ -405,12 +405,23 @@ async fn MCPClient::send_request(self : MCPClient, request : String) -> String {
     answer.val = Some(task.wait() catch {
       error =>
         if explicitly_cancelled.val && (error is @async.WaitedTaskAlreadyCancelled) {
+          self.notify_cancelled_best_effort(
+            request_id,
+            reason?=cancellation_reason.val,
+          )
           raise @types.Cancelled("Request cancelled by client")
         } else {
           raise error
         }
     })
-  })
+  }))
+  if status is None {
+    self.notify_cancelled_best_effort(
+      request_id,
+      reason?=cancellation_reason.val,
+    )
+    raise @types.Cancelled("Request cancelled by client")
+  }
   answer.val.unwrap()
 }
 
