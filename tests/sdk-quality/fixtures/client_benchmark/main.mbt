@@ -10,7 +10,7 @@ async fn main {
   )
   defer @async.protect_from_cancel(() => client.close())
 
-  let requests_per_worker = 500
+  let requests_per_worker = 50
   for concurrency in [1, 4, 16, 64] {
     let failures = Ref(0)
     let started = @env.now()
