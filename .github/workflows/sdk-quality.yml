@@ -34,6 +34,11 @@ jobs:
           moon version --all
           moon update
 
+      - name: Stage isolated quality fixtures
+        run: |
+          mkdir -p src/conformance
+          cp -R tests/sdk-quality/fixtures/. src/conformance/
+
       - name: Compile MoonBit native release fixtures
         run: moon build --target native --release --output-json
 
@@ -143,6 +148,11 @@ jobs:
 
       - name: Install MCP Inspector load generator
         run: npm install --global @modelcontextprotocol/inspector@2.15.0
+
+      - name: Stage isolated quality fixtures
+        run: |
+          mkdir -p src/conformance
+          cp -R tests/sdk-quality/fixtures/. src/conformance/
 
       - name: Compile MoonBit native release fixtures
         run: moon build --target native --release --output-json
