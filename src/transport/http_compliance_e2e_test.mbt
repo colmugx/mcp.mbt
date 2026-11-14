@@ -136,15 +136,14 @@ async fn origin_probe_post(
   client.write(body_bytes) catch {
     e => fail("origin probe write failed: \{e}")
   }
-  client.flush() catch {
+  client.flush_partial_data() catch {
     e => fail("origin probe flush failed: \{e}")
   }
   let response = client.end_request() catch {
     e => fail("origin probe got no response: \{e}")
   }
   let body_str = try {
-    let b = client.read_all()
-    b.text()
+    @utf8.decode(client.read_all())
   } catch {
     _ => ""
   }

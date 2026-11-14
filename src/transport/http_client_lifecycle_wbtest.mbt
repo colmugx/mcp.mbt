@@ -22,7 +22,7 @@ async test "HTTP queue receive preserves runtime cancellation rather than report
     let cancelled = Ref(false)
     let receiver = group.spawn(() => {
       ignore(transport.receive()) catch {
-        error => cancelled.val = @async.is_cancellation_error(error)
+        error => cancelled.val = (error is @async.WaitedTaskAlreadyCancelled)
       }
     })
     @async.sleep(1)
