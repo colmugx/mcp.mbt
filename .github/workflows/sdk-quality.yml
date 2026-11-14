@@ -229,7 +229,7 @@ jobs:
           server_pid=""
           cleanup() {
             echo "Stopping MCP Inspector daemon"
-            mcpdo daemon stop >/dev/null 2>&1 || true
+            timeout --signal=KILL 5s mcpdo daemon stop >/dev/null 2>&1 || true
             if [ -n "$server_pid" ]; then
               echo "Stopping throughput server process group $server_pid"
               kill -TERM -- "-$server_pid" 2>/dev/null || true
@@ -300,24 +300,22 @@ jobs:
           }
           run_bounded "MoonBit MCPClient -> MCPServer" 120 \
             artifacts/throughput/moonbit-client.log \
-            moon run --target native --release src/conformance/client_benchmark
-          client_status=$?
+            moon run --target native --release src/conformance/client_benchmark || client_status=$?
           grep -E '^\{"concurrency"' artifacts/throughput/moonbit-client.log \
             > artifacts/throughput/moonbit-client.jsonl || true
 
           run_bounded "MCP Inspector connect" 20 \
             artifacts/throughput/inspector-connect.log \
-            mcpdo connect http://127.0.0.1:3000/mcp --era auto
-          connect_status=$?
+            mcpdo connect http://127.0.0.1:3000/mcp --era auto || connect_status=$?
           inspector_status=1
           if [ "$connect_status" -eq 0 ]; then
+            inspector_status=0
             run_bounded "MCP Inspector load" 60 \
               artifacts/throughput/inspector-server.log \
               mcpdo tools/call bench_echo message:=benchmark \
                 --load --load-steps 1,4,16,64 \
                 --load-step-duration 5 --load-warmup 1 --load-interval 2 \
-                --format json
-            inspector_status=$?
+                --format json || inspector_status=$?
             cp artifacts/throughput/inspector-server.log \
               artifacts/throughput/inspector-server.json
           fi
