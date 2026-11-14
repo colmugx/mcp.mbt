@@ -2,6 +2,8 @@
 
 The SDK quality workflow is intentionally separate from the existing code-check workflow. It runs on pull requests, pushes to main, and manual dispatches. Both jobs use GitHub Actions job-level continue-on-error, so conformance or benchmark failures never block the existing checks or merges.
 
+The new executable fixtures live under `tests/sdk-quality/fixtures`, **outside the SDK's `src/` module source tree**. Only the new quality jobs copy those files into `src/conformance` inside their disposable runner checkouts before compiling them. The regular `check.yml` job never sees or builds these fixtures, so a fixture failure cannot turn the existing code check red.
+
 ## Protocol correctness
 
 The workflow uses the official modelcontextprotocol/conformance runner against small MoonBit fixtures.
