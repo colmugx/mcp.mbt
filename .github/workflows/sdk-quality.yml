@@ -266,23 +266,60 @@ jobs:
             exit 1
           fi
 
-          timeout --signal=TERM --kill-after=5s 180s moon run --target native --release src/conformance/client_benchmark \
-            > artifacts/throughput/moonbit-client.jsonl \
-            2> artifacts/throughput/moonbit-client.log
-          client_status=$?
+          run_bounded() {
+            label="$1"
+            seconds="$2"
+            output="$3"
+            shift 3
+            echo "=== $label (limit: ${seconds}s) ==="
+            setsid "$@" > "$output" 2>&1 &
+            command_pid=$!
+            sleep "$seconds" &
+            timer_pid=$!
+            status=0
+            finished=""
+            wait -n -p finished "$command_pid" "$timer_pid" || status=$?
 
-          mcpdo connect http://127.0.0.1:3000/mcp --era auto \
-            > artifacts/throughput/inspector-connect.log 2>&1
+            if [ "$finished" = "$timer_pid" ]; then
+              echo "TIMEOUT: $label exceeded ${seconds}s" >> "$output"
+              kill -TERM -- "-$command_pid" 2>/dev/null || true
+              sleep 2
+              kill -KILL -- "-$command_pid" 2>/dev/null || true
+              wait "$command_pid" 2>/dev/null || true
+              status=124
+            else
+              kill "$timer_pid" 2>/dev/null || true
+              wait "$timer_pid" 2>/dev/null || true
+            fi
+
+            kill -TERM -- "-$command_pid" 2>/dev/null || true
+            sleep 0.1
+            kill -KILL -- "-$command_pid" 2>/dev/null || true
+            cat "$output"
+            return "$status"
+          }
+          run_bounded "MoonBit MCPClient -> MCPServer" 120 \
+            artifacts/throughput/moonbit-client.log \
+            moon run --target native --release src/conformance/client_benchmark
+          client_status=$?
+          grep -E '^\{"concurrency"' artifacts/throughput/moonbit-client.log \
+            > artifacts/throughput/moonbit-client.jsonl || true
+
+          run_bounded "MCP Inspector connect" 20 \
+            artifacts/throughput/inspector-connect.log \
+            mcpdo connect http://127.0.0.1:3000/mcp --era auto
           connect_status=$?
           inspector_status=1
           if [ "$connect_status" -eq 0 ]; then
-            timeout --signal=TERM --kill-after=5s 150s mcpdo tools/call bench_echo message:=benchmark \
-              --load --load-steps 1,4,16,64 \
-              --load-step-duration 10 --load-warmup 2 --load-interval 5 \
-              --format json \
-              > artifacts/throughput/inspector-server.json \
-              2> artifacts/throughput/inspector-server.log
+            run_bounded "MCP Inspector load" 60 \
+              artifacts/throughput/inspector-server.log \
+              mcpdo tools/call bench_echo message:=benchmark \
+                --load --load-steps 1,4,16,64 \
+                --load-step-duration 5 --load-warmup 1 --load-interval 2 \
+                --format json
             inspector_status=$?
+            cp artifacts/throughput/inspector-server.log \
+              artifacts/throughput/inspector-server.json
           fi
 
           if [ "$client_status" -ne 0 ] || [ "$inspector_status" -ne 0 ]; then
