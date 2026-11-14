@@ -39,7 +39,7 @@ warnings = "-unused_package"
 // are absent under wasm-gc, where unimplemented.mbt provides abort stubs.
 
 options(
-  "allow-experimental-packages": true,
+  "allow-experimental-packages": ["moonbitlang/core/async/stdio", "moonbitlang/core/async/http", "moonbitlang/core/async/socket", "moonbitlang/core/async/process", "moonbitlang/core/async", "moonbitlang/core/async/io", "moonbitlang/core/async/js_async"],
   targets: {
     "unimplemented.mbt": [ "wasm-gc" ],
     "unimplemented_js.mbt": [ "js" ],
