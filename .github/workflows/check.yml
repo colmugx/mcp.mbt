@@ -22,15 +22,6 @@ jobs:
       - name: moon update
         run: moon update
 
-      - name: inspect installed core async API
-        run: |
-          echo "Core async HTTP interfaces:"
-          find "$HOME/.moon" -path '*/async/http/pkg.generated.mbti' -print -exec sed -n '1,110p' {} \;
-          echo "Core async IO interfaces:"
-          find "$HOME/.moon" -path '*/async/io/pkg.generated.mbti' -print -exec grep -n 'flush_partial_data\|trait BinaryWriter\|pub .*BufferedWriter' {} \;
-          echo "Core async installation:"
-          moon version --all
-
       - name: moon check
         run: moon check --target native --deny-warn --output-json
 

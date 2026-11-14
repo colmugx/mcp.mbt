@@ -25,7 +25,7 @@ project:
 
 ```bash
 moon add colmugx/mcp@0.18.3
-moon add moonbitlang/async@0.21.0
+moon add moonbitlang/core
 ```
 
 Development can use the workspace's independent `external/json-schema` submodule.
