@@ -3,18 +3,18 @@ import {
   "colmugx/mcp/transport",
   "moonbitlang/core/json",
   "moonbitlang/core/encoding/utf8",
-  "moonbitlang/async",
-  "moonbitlang/async/http",
-  "moonbitlang/async/io",
+  "moonbitlang/core/async",
+  "moonbitlang/core/async/http",
+  "moonbitlang/core/async/io",
 }
 
 import {
   "moonbitlang/core/debug",
-  "moonbitlang/async",
-  "moonbitlang/async/socket",
+  "moonbitlang/core/async",
+  "moonbitlang/core/async/socket",
 } for "wbtest"
 
-// http_session relies on @http streaming APIs, which moonbitlang/async ships
+// http_session relies on @http streaming APIs, which moonbitlang/core/async ships
 // only for native+wasm (client.mbt) and js (client.js.mbt); they are absent
 // under wasm-gc, so the file is gated out there.
 // unused_package is noise for gated packages and cannot be suppressed
@@ -23,6 +23,7 @@ import {
 warnings = "-unused_package"
 
 options(
+  "allow-experimental-packages": true,
   targets: {
     "http_session.mbt": [ "native", "js", "wasm" ],
     "unimplemented.mbt": [ "wasm-gc" ],

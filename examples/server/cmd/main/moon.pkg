@@ -1,7 +1,7 @@
 import {
   "colmugx/mcp",
   "colmugx/mcp/server",
-  "moonbitlang/async",
+  "moonbitlang/core/async",
 }
 
 pkgtype(kind: "executable")
@@ -10,3 +10,5 @@ pkgtype(kind: "executable")
 // native/js/wasm and the CLI is only exercised on native.
 
 supported_targets = "native"
+
+options("allow-experimental-packages": true)

@@ -6,15 +6,15 @@ import {
   "colmugx/mcp/validation",
   "colmugx/mcp/client/legacy",
   "moonbitlang/core/json",
-  "moonbitlang/async",
-  "moonbitlang/async/aqueue",
+  "moonbitlang/core/async",
+  "moonbitlang/core/async/aqueue",
 }
 
 import {
   "colmugx/mcp/server",
   "moonbitlang/core/debug",
   "moonbitlang/core/encoding/utf8",
-  "moonbitlang/async/socket",
+  "moonbitlang/core/async/socket",
 } for "wbtest"
 
 // http_era_connect_e2e_wbtest.mbt drives the public connect APIs against a
@@ -29,6 +29,7 @@ import {
 warnings = "-unused_package"
 
 options(
+  "allow-experimental-packages": true,
   targets: {
     "http_era_connect_e2e_wbtest.mbt": [ "native" ],
     "stdio_request_cancel_e2e_wbtest.mbt": [ "native" ],
