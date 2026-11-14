@@ -74,12 +74,21 @@ fn era_hex_size(line : String) -> Int32 {
 }
 
 ///|
+/// Read UTF-8 header text from a TCP connection using the binary core/async API.
+async fn era_tcp_read_until(conn : @socket.Tcp, delimiter : BytesView) -> String? {
+  match conn.read_until(delimiter) {
+    Some(data) => Some(@utf8.decode(data))
+    None => None
+  }
+}
+
+///|
 /// Read a chunked request body (the legacy client posts with
 /// `Transfer-Encoding: chunked` instead of `Content-Length`).
 async fn era_read_chunked_body(conn : @socket.Tcp) -> String {
   let parts : Array[String] = []
   while true {
-    let size_line = match conn.text.read_until("\r\n") {
+    let size_line = match era_tcp_read_until(conn, b"\r\n") {
       Some(l) => l
       None => break
     }
@@ -109,7 +118,7 @@ async fn era_fake_handle_conn(
   legacy_only : Bool,
   methods : Array[String],
 ) -> Unit {
-  let head = match conn.text.read_until("\r\n\r\n") {
+  let head = match era_tcp_read_until(conn, b"\r\n\r\n") {
     Some(h) => h
     None => return
   }
@@ -405,7 +414,7 @@ async fn era_gate_handle_conn(
   conn : @socket.Tcp,
   marker_seen : Array[Bool],
 ) -> Unit {
-  let head = match conn.text.read_until("\r\n\r\n") {
+  let head = match era_tcp_read_until(conn, b"\r\n\r\n") {
     Some(h) => h
     None => return
   }
