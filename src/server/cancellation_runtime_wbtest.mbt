@@ -64,9 +64,7 @@ async test "cancelled handler cannot emit a late result even if it handles task 
     (_, _) => {
       defer ignore(stopped.try_put(()) catch { _ => false })
       started.put(())
-      @async.sleep(10000) catch {
-        _ => ()
-      }
+      ignore(@async.handle_cancellation(() => @async.sleep(10000)))
       Ok(@tool.ToolResult::text("late"))
     },
   )

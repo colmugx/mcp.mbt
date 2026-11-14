@@ -53,7 +53,7 @@ async fn MCPServer::dispatch_runtime_request(
       principal?,
       cancellation_token=token,
     ) catch {
-      error => {
+      _ => {
         if token.is_cancelled() || @async.is_being_cancelled() {
           return
         }
@@ -129,7 +129,7 @@ async fn MCPServer::dispatch_runtime_request(
         cancellation_token=token,
         progress_reporter=reporter,
       ) catch {
-        error => {
+        _ => {
           if token.is_cancelled() || @async.is_being_cancelled() {
             return
           }
