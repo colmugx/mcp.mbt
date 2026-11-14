@@ -79,7 +79,7 @@ async fn LegacyHttpSessionTransport::do_post(
   let body_bytes = @utf8.encode(message)
   let headers : @http.Headers = Map([])
   self.apply_request_headers(headers)
-  let client = @http.request_stream(@http.Post, self.base_url, headers~) catch {
+  let client = @http.post(self.base_url, headers~) catch {
     e =>
       if @async.is_being_cancelled() {
         raise e
@@ -98,7 +98,7 @@ async fn LegacyHttpSessionTransport::do_post(
         raise @types.WriteError("Failed to write body: \{e}")
       }
   }
-  client.flush_partial_data() catch {
+  client.flush() catch {
     e =>
       if @async.is_being_cancelled() {
         raise e

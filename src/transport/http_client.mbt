@@ -139,7 +139,7 @@ pub async fn HttpClientTransport::send(
     None => ()
   }
   apply_extra_headers(headers, self.extra_headers)
-  let client = @http.request_stream(@http.Post, self.base_url, headers~) catch {
+  let client = @http.post(self.base_url, headers~) catch {
     e =>
       if @async.is_being_cancelled() {
         raise e
@@ -158,7 +158,7 @@ pub async fn HttpClientTransport::send(
         raise @types.WriteError("Failed to write body: \{Repr(e)}")
       }
   }
-  client.flush_partial_data() catch {
+  client.flush() catch {
     e =>
       if @async.is_being_cancelled() {
         raise e
@@ -316,7 +316,7 @@ pub async fn HttpClientTransport::send_notification(
     None => ()
   }
   apply_extra_headers(headers, self.extra_headers)
-  let client = @http.request_stream(@http.Post, self.base_url, headers~) catch {
+  let client = @http.post(self.base_url, headers~) catch {
     e =>
       if @async.is_being_cancelled() {
         raise e
@@ -328,7 +328,7 @@ pub async fn HttpClientTransport::send_notification(
   // Fire-and-forget: write body, end request; errors are intentionally swallowed.
   try {
     client.write(body_bytes)
-    client.flush_partial_data()
+    client.flush()
     let _ = client.end_request()
   } catch {
     _ => ()
