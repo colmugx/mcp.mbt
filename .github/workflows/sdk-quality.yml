@@ -34,6 +34,9 @@ jobs:
           moon version --all
           moon update
 
+      - name: Compile MoonBit native release fixtures
+        run: moon build --target native --release --output-json
+
       - name: Run MCP conformance smoke suite
         shell: bash
         run: |
@@ -46,7 +49,7 @@ jobs:
           trap 'kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true' EXIT
 
           ready=0
-          for attempt in $(seq 1 60); do
+          for attempt in $(seq 1 120); do
             if ! kill -0 "$server_pid" 2>/dev/null; then
               break
             fi
@@ -141,6 +144,9 @@ jobs:
       - name: Install MCP Inspector load generator
         run: npm install --global @modelcontextprotocol/inspector@2.15.0
 
+      - name: Compile MoonBit native release fixtures
+        run: moon build --target native --release --output-json
+
       - name: Benchmark MoonBit client and server
         shell: bash
         run: |
@@ -166,7 +172,7 @@ jobs:
           trap 'mcpdo daemon stop >/dev/null 2>&1 || true; kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true' EXIT
 
           ready=0
-          for attempt in $(seq 1 60); do
+          for attempt in $(seq 1 120); do
             if ! kill -0 "$server_pid" 2>/dev/null; then
               break
             fi
