@@ -173,7 +173,7 @@ async test "e2e/stdio: explicit HTTP cancellation closes the owned request strea
       ignore(era_tcp_read_until(connection, b"\r\n0\r\n\r\n").unwrap())
       connection.write(@utf8.encode(
         "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\nd\r\n: keepalive\n\n\r\n",
-      )
+      ))
       started.put(())
       let remaining = connection.read()
       assert_true(
