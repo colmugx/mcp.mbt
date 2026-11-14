@@ -129,7 +129,7 @@ async fn origin_probe_post(
   headers["MCP-Protocol-Version"] = @types.ProtocolVersion
   headers["Mcp-Method"] = "ping"
   headers["Origin"] = origin
-  let client = @http.post_stream(url, headers~) catch {
+  let client = @http.request_stream(@http.Post, url, headers~) catch {
     e => fail("origin probe POST failed: \{e}")
   }
   defer client.close()
