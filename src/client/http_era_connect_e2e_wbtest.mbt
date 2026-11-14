@@ -79,7 +79,7 @@ fn era_hex_size(line : String) -> Int32 {
 async fn era_read_chunked_body(conn : @socket.Tcp) -> String {
   let parts : Array[String] = []
   while true {
-    let size_line = match conn.read_until("\r\n") {
+    let size_line = match conn.text.read_until("\r\n") {
       Some(l) => l
       None => break
     }
@@ -109,7 +109,7 @@ async fn era_fake_handle_conn(
   legacy_only : Bool,
   methods : Array[String],
 ) -> Unit {
-  let head = match conn.read_until("\r\n\r\n") {
+  let head = match conn.text.read_until("\r\n\r\n") {
     Some(h) => h
     None => return
   }
@@ -144,7 +144,7 @@ async fn era_fake_handle_conn(
       }
     _ => era_http_response("202 Accepted", "application/json", "")
   }
-  conn.write(response) catch {
+  conn.write(@utf8.encode(response)) catch {
     _ => ()
   }
 }
@@ -405,7 +405,7 @@ async fn era_gate_handle_conn(
   conn : @socket.Tcp,
   marker_seen : Array[Bool],
 ) -> Unit {
-  let head = match conn.read_until("\r\n\r\n") {
+  let head = match conn.text.read_until("\r\n\r\n") {
     Some(h) => h
     None => return
   }
@@ -439,7 +439,7 @@ async fn era_gate_handle_conn(
       }
     _ => era_http_response("202 Accepted", "application/json", "")
   }
-  conn.write(response) catch {
+  conn.write(@utf8.encode(response)) catch {
     _ => ()
   }
 }

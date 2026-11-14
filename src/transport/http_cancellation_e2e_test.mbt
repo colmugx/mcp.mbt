@@ -57,7 +57,7 @@ async test "e2e/http: timeout during send surfaces TimeoutError, not ReadError" 
 /// `@async.is_cancellation_error` recognizes — the property the enclosing
 /// task-group timeout fallback relies on once translation catches stop
 /// swallowing cancellations.
-/// Dependency anchor: this pins moonbitlang/async's cancellation
+/// Dependency anchor: this pins moonbitlang/core/async's cancellation
 /// error-recognition semantics; the P6 regression tests below depend on
 /// this property holding.
 async test "cancelled task error is recognized by is_cancellation_error" {
@@ -69,7 +69,7 @@ async test "cancelled task error is recognized by is_cancellation_error" {
       let _ : Unit = fail("cancelled task completed normally")
     } catch {
       e =>
-        if @async.is_cancellation_error(e) {
+        if (e is @async.WaitedTaskAlreadyCancelled) {
           ()
         } else {
           fail("cancellation error not recognized: \{e}")
@@ -111,7 +111,7 @@ async test "e2e/http: direct send cancellation keeps identity at group boundary"
       let _ : Unit = fail("cancelled send completed normally")
     } catch {
       e =>
-        if @async.is_cancellation_error(e) {
+        if (e is @async.WaitedTaskAlreadyCancelled) {
           ()
         } else {
           fail("send cancellation lost its identity: \{e}")

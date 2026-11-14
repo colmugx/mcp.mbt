@@ -140,7 +140,7 @@ async test "e2e/sse: SSE disconnect cancels its authenticated envelope and serve
     wait_for_listen(@socket.Addr::parse("127.0.0.1:47333"))
     let sender = group.spawn(() => {
       client.send(request) catch {
-        error => if !@async.is_cancellation_error(error) { raise error }
+        error => if !@async.is_being_cancelled() { raise error }
       }
     })
     match @async.with_timeout_opt(3000, () => client.receive()) {
