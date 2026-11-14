@@ -26,4 +26,9 @@ import {
   "moonbitlang/core/debug",
 } for "wbtest"
 
-options("allow-experimental-packages": ["moonbitlang/core/async", "moonbitlang/core/async/aqueue"])
+options(
+  "allow-experimental-packages": [
+    "moonbitlang/core/async",
+    "moonbitlang/core/async/aqueue",
+  ],
+)

@@ -113,7 +113,9 @@ pub async fn SseEventReader::next(self : SseEventReader) -> (String?, String?) {
 /// response stream and call `next` repeatedly instead — each `read_sse_event`
 /// call starts a fresh lexbuf, dropping any trailing bytes buffered from its
 /// own scan.
-pub async fn read_sse_event(client : @http.ClientConnection) -> (String?, String?) {
+pub async fn read_sse_event(
+  client : @http.ClientConnection,
+) -> (String?, String?) {
   SseEventReader::new(client).next()
 }
 

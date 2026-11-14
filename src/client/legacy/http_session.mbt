@@ -132,11 +132,7 @@ async fn LegacyHttpSessionTransport::do_post(
     // Read the response body so gate/protocol rejections keep their reason
     // (same shape as the modern `HttpClientTransport` 4xx error). The outer
     // errdefer releases the client on this raise.
-    let body_str = try {
-      @utf8.decode(client.read_all())
-    } catch {
-      _ => ""
-    }
+    let body_str = @utf8.decode(client.read_all()) catch { _ => "" }
     raise @types.HttpError(response.code, body_str)
   }
   // @http.Headers lookups are case-insensitive, so servers that spell the

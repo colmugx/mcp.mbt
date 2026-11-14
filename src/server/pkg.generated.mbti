@@ -9,7 +9,7 @@ import {
   "colmugx/mcp/protocol/types",
   "colmugx/mcp/runtime",
   "colmugx/mcp/transport",
-  "moonbitlang/async/aqueue",
+  "moonbitlang/core/async/aqueue",
   "moonbitlang/core/json",
 }
 

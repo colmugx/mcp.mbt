@@ -383,38 +383,43 @@ async fn MCPClient::send_request(self : MCPClient, request : String) -> String {
   let explicitly_cancelled = Ref(false)
   let cancellation_reason : Ref[String?] = Ref(None)
   let answer : Ref[String?] = Ref(None)
-  let status = @async.handle_cancellation(() => @async.with_task_group(group => {
-    let owned_task : Ref[@async.Task[String]?] = Ref(None)
-    self.request_cancellations.set(id, fn(reason) {
-      cancellation_reason.val = reason
-      explicitly_cancelled.val = true
-      match owned_task.val {
-        Some(task) => task.cancel()
-        None => ()
-      }
-    })
-    defer self.request_cancellations.remove(id)
-    let task = group.spawn(
-      () => self.send_request_inner(request, request_id, cancellation_reason),
-      allow_failure=true,
-    )
-    owned_task.val = Some(task)
-    if explicitly_cancelled.val {
-      task.cancel()
-    }
-    answer.val = Some(task.wait() catch {
-      error =>
-        if explicitly_cancelled.val && (error is @async.WaitedTaskAlreadyCancelled) {
-          self.notify_cancelled_best_effort(
-            request_id,
-            reason?=cancellation_reason.val,
-          )
-          raise @types.Cancelled("Request cancelled by client")
-        } else {
-          raise error
+  let status = @async.handle_cancellation(() => {
+    @async.with_task_group(group => {
+      let owned_task : Ref[@async.Task[String]?] = Ref(None)
+      self.request_cancellations.set(id, fn(reason) {
+        cancellation_reason.val = reason
+        explicitly_cancelled.val = true
+        match owned_task.val {
+          Some(task) => task.cancel()
+          None => ()
         }
+      })
+      defer self.request_cancellations.remove(id)
+      let task = group.spawn(
+        () => self.send_request_inner(request, request_id, cancellation_reason),
+        allow_failure=true,
+      )
+      owned_task.val = Some(task)
+      if explicitly_cancelled.val {
+        task.cancel()
+      }
+      answer.val = Some(
+        task.wait() catch {
+          error =>
+            if explicitly_cancelled.val &&
+              error is @async.WaitedTaskAlreadyCancelled {
+              self.notify_cancelled_best_effort(
+                request_id,
+                reason?=cancellation_reason.val,
+              )
+              raise @types.Cancelled("Request cancelled by client")
+            } else {
+              raise error
+            }
+        },
+      )
     })
-  }))
+  })
   if status is None {
     self.notify_cancelled_best_effort(
       request_id,
@@ -1407,10 +1412,7 @@ pub async fn MCPClient::cancel_listen(
 }
 
 ///|
-pub async fn MCPClient::run(
-  self : MCPClient,
-  group : @async.TaskGroup,
-) -> Unit {
+pub async fn MCPClient::run(self : MCPClient, group : @async.TaskGroup) -> Unit {
   // Legacy backends use a direct request/response loop; the modern event loop
   // is not started for them.
   if self.backend is Legacy(_) {

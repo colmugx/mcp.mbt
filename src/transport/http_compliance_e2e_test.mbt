@@ -142,11 +142,7 @@ async fn origin_probe_post(
   let response = client.end_request() catch {
     e => fail("origin probe got no response: \{e}")
   }
-  let body_str = try {
-    @utf8.decode(client.read_all())
-  } catch {
-    _ => ""
-  }
+  let body_str = @utf8.decode(client.read_all()) catch { _ => "" }
   (response.code, body_str)
 }
 

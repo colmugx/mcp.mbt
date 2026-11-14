@@ -4,8 +4,8 @@ package "colmugx/mcp/client/legacy"
 import {
   "colmugx/mcp/protocol/types",
   "colmugx/mcp/transport",
-  "moonbitlang/async",
-  "moonbitlang/async/aqueue",
+  "moonbitlang/core/async",
+  "moonbitlang/core/async/aqueue",
 }
 
 // Values

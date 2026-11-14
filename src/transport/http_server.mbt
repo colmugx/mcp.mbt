@@ -196,12 +196,12 @@ pub async fn HttpTransport::start(
     match req.meth {
       Post => {
         let message = @utf8.decode(conn.read_all()) catch {
-            _ => {
-              conn.send_response(400, "Bad Request")
-              conn.end_response()
-              return
-            }
+          _ => {
+            conn.send_response(400, "Bad Request")
+            conn.end_response()
+            return
           }
+        }
         let parsed = @validation.parse_json(message) catch {
           error => {
             conn.send_response(400, "Bad Request", extra_headers={

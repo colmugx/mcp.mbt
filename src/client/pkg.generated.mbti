@@ -5,8 +5,8 @@ import {
   "colmugx/mcp/client/legacy",
   "colmugx/mcp/protocol/types",
   "colmugx/mcp/transport",
-  "moonbitlang/async",
-  "moonbitlang/async/aqueue",
+  "moonbitlang/core/async",
+  "moonbitlang/core/async/aqueue",
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
 }
@@ -100,7 +100,7 @@ pub async fn MCPClient::close(Self) -> Unit
 pub async fn MCPClient::complete(Self, ref_type~ : String, ref_name~ : String, argument_name~ : String, argument_value~ : String, context_arguments? : Map[String, String]) -> @types.CompletionResult
 pub async fn MCPClient::complete_reference(Self, @types.CompletionReference, argument_name~ : String, argument_value~ : String, context_arguments? : Map[String, String]) -> @types.CompletionResult
 pub async fn MCPClient::connect_http(url~ : String, name~ : String, version~ : String, auth_token? : String, extra_headers? : Array[(String, String)], era? : ProtocolEra) -> Self
-pub async fn MCPClient::connect_stdio(cmd~ : String, args? : Array[String], name~ : String, version~ : String, extra_env? : Map[String, String], group~ : @async.TaskGroup[Unit], era? : ProtocolEra) -> Self
+pub async fn MCPClient::connect_stdio(cmd~ : String, args? : Array[String], name~ : String, version~ : String, extra_env? : Map[String, String], group~ : @async.TaskGroup, era? : ProtocolEra) -> Self
 pub async fn MCPClient::discover(Self) -> @types.ServerCapabilities
 pub async fn MCPClient::discover_result(Self) -> @types.DiscoverResult
 pub async fn MCPClient::get_prompt(Self, String, arguments? : String) -> @types.GetPromptResult
@@ -108,14 +108,14 @@ pub async fn MCPClient::list_prompts(Self, cursor? : String) -> ListPromptsResul
 pub async fn MCPClient::list_resource_templates(Self, cursor? : String) -> ListResourceTemplatesResult
 pub async fn MCPClient::list_resources(Self, cursor? : String) -> ListResourcesResult
 pub async fn MCPClient::list_tools(Self, cursor? : String) -> ListToolsResult
-pub fn MCPClient::listen(Self, filter? : ListenFilter, handler~ : (@json.Json) -> Unit, group~ : @async.TaskGroup[Unit]) -> String raise @types.MCPError
+pub fn MCPClient::listen(Self, filter? : ListenFilter, handler~ : (@json.Json) -> Unit, group~ : @async.TaskGroup) -> String raise @types.MCPError
 pub fn MCPClient::next_request_id(Self) -> Int32
 pub fn MCPClient::on_elicitation(Self, (@json.Json) -> Result[@types.ElicitationResult, @types.MCPError], capabilities? : @types.ElicitationCapabilities) -> Self
 pub fn MCPClient::on_notification(Self, NotificationHandlers) -> Self
 pub fn MCPClient::on_roots(Self, () -> Result[Array[@types.Root], @types.MCPError]) -> Self
 pub fn MCPClient::on_sampling(Self, (@json.Json) -> Result[@types.CreateMessageResult, @types.MCPError], capabilities? : @types.SamplingCapabilities) -> Self
 pub async fn MCPClient::read_resource(Self, String) -> ReadResourceResult
-pub async fn MCPClient::run(Self, @async.TaskGroup[Unit]) -> Unit
+pub async fn MCPClient::run(Self, @async.TaskGroup) -> Unit
 pub fn MCPClient::set_legacy_mode(Self, Bool) -> Self
 pub fn MCPClient::with_capabilities(Self, @types.ClientCapabilities) -> Self raise @types.MCPError
 
@@ -128,7 +128,7 @@ pub fn MCPHost::MCPHost(name~ : String, version~ : String) -> Self
 pub async fn MCPHost::call_tool(Self, String, arguments? : String) -> @types.ToolResult
 pub async fn MCPHost::close_all(Self) -> Unit
 pub async fn MCPHost::connect_http(Self, name~ : String, url~ : String, auth_token? : String, era? : ProtocolEra) -> Unit
-pub async fn MCPHost::connect_stdio(Self, name~ : String, cmd~ : String, args? : Array[String], extra_env? : Map[String, String], group~ : @async.TaskGroup[Unit], era? : ProtocolEra) -> Unit
+pub async fn MCPHost::connect_stdio(Self, name~ : String, cmd~ : String, args? : Array[String], extra_env? : Map[String, String], group~ : @async.TaskGroup, era? : ProtocolEra) -> Unit
 pub async fn MCPHost::list_tools(Self) -> ListToolsResult
 
 pub(all) struct NotificationHandlers {

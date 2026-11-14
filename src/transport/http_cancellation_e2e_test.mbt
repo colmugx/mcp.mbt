@@ -69,7 +69,7 @@ async test "cancelled task error is recognized by is_cancellation_error" {
       let _ : Unit = fail("cancelled task completed normally")
     } catch {
       e =>
-        if (e is @async.WaitedTaskAlreadyCancelled) {
+        if e is @async.WaitedTaskAlreadyCancelled {
           ()
         } else {
           fail("cancellation error not recognized: \{e}")
@@ -111,7 +111,7 @@ async test "e2e/http: direct send cancellation keeps identity at group boundary"
       let _ : Unit = fail("cancelled send completed normally")
     } catch {
       e =>
-        if (e is @async.WaitedTaskAlreadyCancelled) {
+        if e is @async.WaitedTaskAlreadyCancelled {
           ()
         } else {
           fail("send cancellation lost its identity: \{e}")

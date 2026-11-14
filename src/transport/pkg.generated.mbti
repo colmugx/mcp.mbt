@@ -4,12 +4,12 @@ package "colmugx/mcp/transport"
 import {
   "colmugx/mcp/protocol/types",
   "colmugx/mcp/runtime",
-  "moonbitlang/async",
-  "moonbitlang/async/aqueue",
-  "moonbitlang/async/http",
-  "moonbitlang/async/io",
-  "moonbitlang/async/process",
-  "moonbitlang/async/stdio",
+  "moonbitlang/core/async",
+  "moonbitlang/core/async/aqueue",
+  "moonbitlang/core/async/http",
+  "moonbitlang/core/async/io",
+  "moonbitlang/core/async/process",
+  "moonbitlang/core/async/stdio",
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
   "moonbitlang/core/lexbuf",
@@ -47,7 +47,7 @@ pub fn looks_like_sentinel(String) -> Bool
 
 pub fn origin_allowed(String, Array[String]?) -> Bool
 
-pub async fn read_sse_event(@http.Client) -> (String?, String?)
+pub async fn read_sse_event(@http.ClientConnection) -> (String?, String?)
 
 pub fn request_id_from_body(String) -> @json.Json?
 
@@ -147,7 +147,7 @@ pub struct SseEventReader {
   buf : @lexbuf.AsyncLexbuf
   decode_failed : @ref.Ref[Bool]
 }
-pub fn SseEventReader::new(@http.Client) -> Self
+pub fn SseEventReader::new(@http.ClientConnection) -> Self
 pub async fn SseEventReader::next(Self) -> (String?, String?)
 
 #derive(Eq, @debug.Debug)
@@ -175,7 +175,7 @@ pub fn StdioClientTransport::close(Self) -> Unit
 pub async fn StdioClientTransport::receive(Self) -> String?
 pub async fn StdioClientTransport::send(Self, String) -> Unit
 pub async fn StdioClientTransport::send_notification(Self, @types.Notification) -> Unit
-pub async fn StdioClientTransport::start(Self, @async.TaskGroup[Unit]) -> Unit raise @types.TransportError
+pub async fn StdioClientTransport::start(Self, @async.TaskGroup) -> Unit raise @types.TransportError
 
 pub struct StdioTransport {
   mut closed : Bool

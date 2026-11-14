@@ -75,7 +75,10 @@ fn era_hex_size(line : String) -> Int32 {
 
 ///|
 /// Read UTF-8 header text from a TCP connection using the binary core/async API.
-async fn era_tcp_read_until(conn : @socket.Tcp, delimiter : BytesView) -> String? {
+async fn era_tcp_read_until(
+  conn : @socket.Tcp,
+  delimiter : BytesView,
+) -> String? {
   match conn.read_until(delimiter) {
     Some(data) => Some(@utf8.decode(data))
     None => None

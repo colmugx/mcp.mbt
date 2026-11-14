@@ -193,14 +193,14 @@ pub async fn HttpClientTransport::send(
   if response.code >= 400 {
     // Read the response body so era probes can inspect modern JSON-RPC errors
     // (UnsupportedProtocolVersion / HeaderMismatch / MissingRequiredClientCapability).
-    let body_str = try {
-      @utf8.decode(client.read_all())
-    } catch {
+    let body_str = @utf8.decode(client.read_all()) catch {
       error => {
         if @async.is_being_cancelled() {
           raise error
         }
-        raise @types.ReadError("Failed to read HTTP error response: \{Repr(error)}")
+        raise @types.ReadError(
+          "Failed to read HTTP error response: \{Repr(error)}",
+        )
       }
     }
     raise @types.HttpError(response.code, body_str)

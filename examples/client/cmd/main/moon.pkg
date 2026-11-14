@@ -11,4 +11,6 @@ pkgtype(kind: "executable")
 
 supported_targets = "native"
 
-options("allow-experimental-packages": ["moonbitlang/core/async"])
+options(
+  "allow-experimental-packages": [ "moonbitlang/core/async" ],
+)
