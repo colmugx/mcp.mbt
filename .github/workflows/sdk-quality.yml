@@ -83,24 +83,24 @@ jobs:
           }
 
           run_case "server / stateless lifecycle" \
-            npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
+            timeout --signal=TERM --kill-after=5s 90s npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
             server --url http://127.0.0.1:3000/mcp --scenario server-stateless --verbose
 
           run_case "server / tools list" \
-            npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
+            timeout --signal=TERM --kill-after=5s 90s npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
             server --url http://127.0.0.1:3000/mcp --scenario tools-list --verbose
 
           run_case "server / simple text tool call" \
-            npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
+            timeout --signal=TERM --kill-after=5s 90s npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
             server --url http://127.0.0.1:3000/mcp --scenario tools-call-simple-text --verbose
 
           run_case "client / tools_call" \
-            npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
+            timeout --signal=TERM --kill-after=5s 90s npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
             client --command "moon run --target native --release src/conformance/client" \
             --scenario tools_call --verbose
 
           run_case "client / request metadata" \
-            npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
+            timeout --signal=TERM --kill-after=5s 90s npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
             client --command "moon run --target native --release src/conformance/client" \
             --scenario request-metadata --verbose
 
@@ -191,7 +191,7 @@ jobs:
             exit 1
           fi
 
-          moon run --target native --release src/conformance/client_benchmark \
+          timeout --signal=TERM --kill-after=5s 180s moon run --target native --release src/conformance/client_benchmark \
             > artifacts/throughput/moonbit-client.jsonl \
             2> artifacts/throughput/moonbit-client.log
           client_status=$?
@@ -201,7 +201,7 @@ jobs:
           connect_status=$?
           inspector_status=1
           if [ "$connect_status" -eq 0 ]; then
-            mcpdo tools/call bench_echo message:=benchmark \
+            timeout --signal=TERM --kill-after=5s 150s mcpdo tools/call bench_echo message:=benchmark \
               --load --load-steps 1,4,16,64 \
               --load-step-duration 10 --load-warmup 2 --load-interval 5 \
               --format json \
