@@ -1,0 +1,12 @@
+import {
+  "colmugx/mcp",
+  "moonbitlang/core/async",
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"
+
+options(
+  "allow-experimental-packages": [ "moonbitlang/core/async" ],
+)
