@@ -168,14 +168,14 @@ async test "e2e/stdio: explicit HTTP cancellation closes the owned request strea
     group.spawn_bg(() => {
       let (connection, _) = server.accept()
       defer connection.close()
-      let head = connection.read_until("\r\n\r\n").unwrap()
+      let head = era_tcp_read_until(connection, b"\r\n\r\n").unwrap()
       assert_true(head.to_lower().contains("transfer-encoding: chunked"))
-      ignore(connection.read_until("\r\n0\r\n\r\n").unwrap())
-      connection.write(
+      ignore(era_tcp_read_until(connection, b"\r\n0\r\n\r\n").unwrap())
+      connection.write(@utf8.encode(
         "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\nd\r\n: keepalive\n\n\r\n",
       )
       started.put(())
-      let remaining = connection.read_some()
+      let remaining = connection.read()
       assert_true(
         remaining is None,
         msg="unexpected request bytes: \{Repr(remaining)}, head: \{head}",
@@ -273,8 +273,8 @@ async test "e2e/stdio: direct HTTP calls consume progress then their own respons
       for id in [1, 2] {
         let (connection, _) = server.accept()
         defer connection.close()
-        ignore(connection.read_until("\r\n\r\n").unwrap())
-        ignore(connection.read_until("\r\n0\r\n\r\n").unwrap())
+        ignore(era_tcp_read_until(connection, b"\r\n\r\n").unwrap())
+        ignore(era_tcp_read_until(connection, b"\r\n0\r\n\r\n").unwrap())
         let notification = Json::object({
           "jsonrpc": "2.0",
           "method": "notifications/progress",
@@ -290,12 +290,12 @@ async test "e2e/stdio: direct HTTP calls consume progress then their own respons
           "\n\ndata: " +
           response +
           "\n\n"
-        connection.write(
+        connection.write(@utf8.encode(
           "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: " +
           @utf8.encode(body).length().to_string() +
           "\r\nConnection: close\r\n\r\n" +
           body,
-        )
+        ))
       }
     })
     for id in [1, 2] {
@@ -366,26 +366,26 @@ async test "e2e/stdio: concurrent direct HTTP calls correlate out-of-order repli
     group.spawn_bg(() => {
       let (first, _) = server.accept()
       defer first.close()
-      ignore(first.read_until("\r\n\r\n").unwrap())
-      ignore(first.read_until("\r\n0\r\n\r\n").unwrap())
+      ignore(era_tcp_read_until(first, b"\r\n\r\n").unwrap())
+      ignore(era_tcp_read_until(first, b"\r\n0\r\n\r\n").unwrap())
       first_started.put(())
       let (second, _) = server.accept()
       defer second.close()
-      ignore(second.read_until("\r\n\r\n").unwrap())
-      ignore(second.read_until("\r\n0\r\n\r\n").unwrap())
-      second.write(
+      ignore(era_tcp_read_until(second, b"\r\n\r\n").unwrap())
+      ignore(era_tcp_read_until(second, b"\r\n0\r\n\r\n").unwrap())
+      second.write(@utf8.encode(
         "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: " +
         @utf8.encode(response2).length().to_string() +
         "\r\nConnection: close\r\n\r\n" +
         response2,
-      )
+      ))
       second_consumed.get()
-      first.write(
+      first.write(@utf8.encode(
         "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: " +
         @utf8.encode(response1).length().to_string() +
         "\r\nConnection: close\r\n\r\n" +
         response1,
-      )
+      ))
     })
     let first = group.spawn(() => client.send_request(request1))
     @async.with_timeout(3000, () => first_started.get())
