@@ -6,6 +6,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: sdk-quality-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -13,7 +17,7 @@ jobs:
   conformance:
     name: MCP conformance smoke tests (non-blocking)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     continue-on-error: true
     steps:
       - uses: actions/checkout@v5
@@ -48,10 +52,24 @@ jobs:
           set -uo pipefail
           mkdir -p artifacts/conformance
 
-          moon run --target native --release src/conformance/server \
+          server_pid=""
+          cleanup() {
+            if [ -n "$server_pid" ]; then
+              echo "Stopping conformance server process group $server_pid"
+              kill -TERM -- "-$server_pid" 2>/dev/null || true
+              sleep 0.2
+              kill -KILL -- "-$server_pid" 2>/dev/null || true
+              wait "$server_pid" 2>/dev/null || true
+            fi
+          }
+          trap cleanup EXIT
+          trap 'exit 130' INT
+          trap 'exit 143' TERM
+
+          # Reap moonrun/native descendants with the launcher.
+          setsid moon run --target native --release src/conformance/server \
             > artifacts/conformance/server.log 2>&1 &
           server_pid=$!
-          trap 'kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true' EXIT
 
           ready=0
           for attempt in $(seq 1 120); do
@@ -75,39 +93,71 @@ jobs:
 
           overall=0
           log=artifacts/conformance/results.log
+          case_number=0
           run_case() {
             label="$1"
-            shift
-            echo "=== $label ===" | tee -a "$log"
-            if "$@" 2>&1 | tee -a "$log"; then
+            seconds="$2"
+            shift 2
+            case_number=$((case_number + 1))
+            case_log="artifacts/conformance/case-\${case_number}.log"
+            echo "=== $label (limit: \${seconds}s) ===" | tee -a "$log"
+
+            # Isolate the entire npx/Node process tree so timeout cleanup does
+            # not leave children holding pipes open.
+            setsid "$@" > "$case_log" 2>&1 &
+            command_pid=$!
+            sleep "$seconds" &
+            timer_pid=$!
+            status=0
+            finished=""
+            wait -n -p finished "$command_pid" "$timer_pid" || status=$?
+
+            if [ "$finished" = "$timer_pid" ]; then
+              echo "TIMEOUT: $label exceeded \${seconds}s" >> "$case_log"
+              kill -TERM -- "-$command_pid" 2>/dev/null || true
+              sleep 2
+              kill -KILL -- "-$command_pid" 2>/dev/null || true
+              wait "$command_pid" 2>/dev/null || true
+              status=124
+            else
+              kill "$timer_pid" 2>/dev/null || true
+              wait "$timer_pid" 2>/dev/null || true
+            fi
+
+            kill -TERM -- "-$command_pid" 2>/dev/null || true
+            sleep 0.1
+            kill -KILL -- "-$command_pid" 2>/dev/null || true
+            cat "$case_log" | tee -a "$log"
+
+            if [ "$status" -eq 0 ]; then
               echo "RESULT: PASS ($label)" | tee -a "$log"
             else
-              echo "RESULT: FAIL ($label)" | tee -a "$log"
+              echo "RESULT: FAIL ($label, exit $status)" | tee -a "$log"
               overall=1
             fi
           }
 
-          run_case "server / stateless lifecycle" \
-            timeout --signal=TERM --kill-after=5s 90s npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
-            server --url http://127.0.0.1:3000/mcp --scenario server-stateless --verbose
+          run_case "server / stateless lifecycle" 45 \
+            npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
+            server --url http://127.0.0.1:3000/mcp --scenario server-stateless --timeout 10000 --verbose
 
-          run_case "server / tools list" \
-            timeout --signal=TERM --kill-after=5s 90s npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
-            server --url http://127.0.0.1:3000/mcp --scenario tools-list --verbose
+          run_case "server / tools list" 45 \
+            npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
+            server --url http://127.0.0.1:3000/mcp --scenario tools-list --timeout 10000 --verbose
 
-          run_case "server / simple text tool call" \
-            timeout --signal=TERM --kill-after=5s 90s npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
-            server --url http://127.0.0.1:3000/mcp --scenario tools-call-simple-text --verbose
+          run_case "server / simple text tool call" 45 \
+            npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
+            server --url http://127.0.0.1:3000/mcp --scenario tools-call-simple-text --timeout 10000 --verbose
 
-          run_case "client / tools_call" \
-            timeout --signal=TERM --kill-after=5s 90s npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
+          run_case "client / tools_call" 45 \
+            npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
             client --command "moon run --target native --release src/conformance/client" \
-            --scenario tools_call --verbose
+            --scenario tools_call --timeout 10000 --verbose
 
-          run_case "client / request metadata" \
-            timeout --signal=TERM --kill-after=5s 90s npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
+          run_case "client / request metadata" 45 \
+            npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
             client --command "moon run --target native --release src/conformance/client" \
-            --scenario request-metadata --verbose
+            --scenario request-metadata --timeout 10000 --verbose
 
           exit "$overall"
 
@@ -125,7 +175,7 @@ jobs:
   throughput:
     name: MCP client and server throughput (non-blocking)
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 10
     continue-on-error: true
     steps:
       - uses: actions/checkout@v5
@@ -176,10 +226,25 @@ jobs:
             npm list --global @modelcontextprotocol/inspector
           } > artifacts/throughput/environment.txt 2>&1
 
-          moon run --target native --release src/conformance/server \
+          server_pid=""
+          cleanup() {
+            echo "Stopping MCP Inspector daemon"
+            mcpdo daemon stop >/dev/null 2>&1 || true
+            if [ -n "$server_pid" ]; then
+              echo "Stopping throughput server process group $server_pid"
+              kill -TERM -- "-$server_pid" 2>/dev/null || true
+              sleep 0.2
+              kill -KILL -- "-$server_pid" 2>/dev/null || true
+              wait "$server_pid" 2>/dev/null || true
+            fi
+          }
+          trap cleanup EXIT
+          trap 'exit 130' INT
+          trap 'exit 143' TERM
+
+          setsid moon run --target native --release src/conformance/server \
             > artifacts/throughput/server.log 2>&1 &
           server_pid=$!
-          trap 'mcpdo daemon stop >/dev/null 2>&1 || true; kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true' EXIT
 
           ready=0
           for attempt in $(seq 1 120); do
