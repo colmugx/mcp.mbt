@@ -278,43 +278,35 @@ pub async fn StdioClientTransport::start(
 /// `start`, it keeps the child's lifetime inside the group:
 ///
 /// - Normal path: cancellable wait on the pre-registered exit promise; the
-///   child exits on its own (any code — exit-code semantics belong to
-///   receive()'s EOF handling) and the task ends without failing the group.
-/// - Cancelled path (group cancellation, whole-group failure, or teardown
-///   with the body returned without a manual close): rerun close()'s
-///   JS choreography (stdin EOF + 5s kill timer, guaranteeing the exit
-///   promise settles), then block on the exit promise uncancellably — the
-///   group must not tear down while the child may still be alive, matching
-///   the native SIGTERM → 5s → SIGKILL blocking wait — and finally re-raise
-///   the cancellation (a cancelled task is not a group failure).
-/// - Racing a manual `close()` is safe: JS-side writer.close()/kill are
-///   idempotent, and if close() already ended stdin the wait resolves
-///   instead of hanging.
+///   child exits on its own and the task ends without failing the group.
+/// - Cancelled path: handle the coroutine cancellation explicitly, initiate
+///   stdin EOF plus the 5s kill fallback, and wait non-cancellably until the
+///   child has actually exited. The group must not finish with a live child.
+/// - Racing a manual `close()` is safe: writer.close()/kill are idempotent.
 ///
-/// The catch is a cancellation handler that performs async work, not mere
-/// cleanup, so the errdefer rewrite suggested by fragile_catch_all cannot
-/// express it (same shape as with_task_group's own teardown).
-#warnings("-fragile_catch_all")
+/// Cancellation is a coroutine control signal, not an ordinary error:
+/// `catch` cannot handle it. Use `handle_cancellation` and keep the
+/// post-cancellation process wait non-cancellable.
 async fn watch_child_in_group(
   writer : JsStdinWriter,
   child : JsChildProcess,
   exit : @js_async.Promise[ChildExit],
 ) -> Unit {
-  // The AbortController is never observed by the exit promise itself; it
-  // only makes the suspension yield to group cancellation.
+  // Supplying a controller makes Promise::wait's suspension cancellable.
+  // The exit promise itself remains registered until the child emits exit.
   let ctrl = @js_async.AbortController::new()
-  let _ = exit.wait(abort_controller=ctrl) catch {
-    err => {
+  match @async.handle_cancellation(() => exit.wait(abort_controller=ctrl)) {
+    Some(_) => ()
+    None => {
       graceful_close(writer, child, exit)
+      // Promise::wait without a controller protects its suspension from
+      // cancellation, allowing this cleanup to finish after group teardown.
       try {
         let _ = exit.wait()
       } catch {
-        // The exit promise never rejects by construction; swallow anyway so
-        // the re-raise below carries the cancellation, not a JsError (a
-        // non-Cancelled error here would fail the whole group).
+        // The exit promise never rejects by construction.
         _ => ()
       }
-      raise err
     }
   }
 }
