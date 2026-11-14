@@ -194,7 +194,7 @@ pub async fn LegacyHttpSessionTransport::send(
         if @async.is_being_cancelled() {
           raise e
         } else {
-          raise @types.ReadError("Failed to decode response body: \{e}")
+          raise @types.ReadError("Failed to decode response body: \{Repr(e)}")
         }
     }
     self.pending_responses.put(body_str) catch {
