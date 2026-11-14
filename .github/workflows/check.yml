@@ -45,7 +45,15 @@ jobs:
                 ;;
             esac
             echo "::group::JS async tests: $file"
-            timeout --signal=TERM --kill-after=5s 60s moon test --target js "$file"
+            if [[ "$file" == "src/transport/stdio_client_js_e2e_wbtest.mbt" ]]; then
+              moon test --target js --outline "$file"
+              for index in 0 1 2 3 4; do
+                echo "Running $file test index $index"
+                timeout --signal=TERM --kill-after=5s 20s moon test --target js --index "$index" "$file"
+              done
+            else
+              timeout --signal=TERM --kill-after=5s 60s moon test --target js "$file"
+            fi
             echo "::endgroup::"
           done < <(grep -rl --include='*.mbt' 'async test' src | sort)
 
