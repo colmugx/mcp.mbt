@@ -12,7 +12,7 @@ Add the dependencies (the async runtime is required for anything that connects):
 
 ```bash
 moon add colmugx/mcp
-moon add moonbitlang/async
+Use the `moonbitlang/core/async` packages shipped with MoonBit core; no separate async dependency is required.
 ```
 
 Give your main package a `moon.pkg`:
@@ -20,7 +20,7 @@ Give your main package a `moon.pkg`:
 ```moonbit
 import {
   "colmugx/mcp",
-  "moonbitlang/async",
+  "moonbitlang/core/async",
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
 }

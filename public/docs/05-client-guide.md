@@ -8,7 +8,7 @@ All snippets assume:
 import {
   "colmugx/mcp",
   "colmugx/mcp/client",
-  "moonbitlang/async",
+  "moonbitlang/core/async",
   "moonbitlang/core/debug",
 }
 ```

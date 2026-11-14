@@ -1,5 +1,5 @@
 ///| wasm-gc stub — legacy HTTP session transport relies on @http streaming
-/// APIs that moonbitlang/async does not ship for this target, so
+/// APIs that moonbitlang/core/async does not ship for this target, so
 /// http_session.mbt is gated out; these abort stubs keep sibling files
 /// (legacy_transport.mbt / legacy_client.mbt) compilable.
 
