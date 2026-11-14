@@ -9,19 +9,21 @@ import {
   "colmugx/mcp/validation",
   "moonbitlang/core/json",
   "moonbitlang/core/encoding/utf8",
-  "moonbitlang/async",
-  "moonbitlang/async/aqueue",
+  "moonbitlang/core/async",
+  "moonbitlang/core/async/aqueue",
   "cc06b/mooncry/lib" @mooncry,
   "moonbitlang/core/env",
   "gmlewis/base64",
 }
 
 import {
-  "moonbitlang/async",
+  "moonbitlang/core/async",
   "moonbitlang/core/debug",
 } for "test"
 
 import {
-  "moonbitlang/async",
+  "moonbitlang/core/async",
   "moonbitlang/core/debug",
 } for "wbtest"
+
+options("allow-experimental-packages": true)
