@@ -51,7 +51,7 @@ pub fn StdioClientTransport::StdioClientTransport(
 /// Must be called before `send()` / `receive()`.
 pub async fn StdioClientTransport::start(
   self : StdioClientTransport,
-  group : @async.TaskGroup[Unit],
+  group : @async.TaskGroup,
 ) -> Unit raise @types.TransportError {
   if self.closed {
     raise @types.InvalidState("Cannot start a closed transport")
@@ -75,8 +75,8 @@ pub async fn StdioClientTransport::start(
     self.cmd,
     self.args,
     extra_env=self.extra_env,
-    stdin=stdin_input,
-    stdout=stdout_output,
+    stdin=@process.ProcessInput::Shared(stdin_input),
+    stdout=@process.ProcessOutput::Shared(stdout_output),
     cancel_handler=@process.graceful_cancel(timeout=5000),
     no_wait=true,
   ) catch {
@@ -84,7 +84,7 @@ pub async fn StdioClientTransport::start(
   }
   self.reader = Some(stdout_reader)
   self.raw_writer = Some(stdin_writer)
-  self.writer = Some(@io.BufferedWriter::new(stdin_writer, size=8192))
+  self.writer = Some(@io.BufferedWriter::BufferedWriter(stdin_writer, size=8192))
 }
 
 ///|
@@ -101,7 +101,7 @@ pub async fn StdioClientTransport::receive(
     None =>
       raise @types.InvalidState("Transport not started — call start() first")
   }
-  let line_opt = reader.read_until("\n") catch {
+  let line_opt = reader.text.read_until("\n") catch {
     e => raise transport_read_error(e, "Failed to read from child process: ")
   }
   match line_opt {
@@ -141,10 +141,10 @@ pub async fn StdioClientTransport::send(
   }
   // A failed partial frame cannot safely be followed by another JSON-RPC line.
   errdefer self.close()
-  writer.write(message) catch {
+  writer.write(@utf8.encode(message)) catch {
     e => raise transport_write_error(e, "Failed to write to child stdin: ")
   }
-  writer.write("\n") catch {
+  writer.write(@utf8.encode("\n")) catch {
     e => raise transport_write_error(e, "Failed to write newline: ")
   }
   writer.flush() catch {
@@ -170,10 +170,10 @@ pub async fn StdioClientTransport::send_notification(
   }
   let json = notification.to_jsonrpc_string()
   errdefer self.close()
-  writer.write(json) catch {
+  writer.write(@utf8.encode(json)) catch {
     e => raise transport_write_error(e, "Failed to send notification: ")
   }
-  writer.write("\n") catch {
+  writer.write(@utf8.encode("\n")) catch {
     e => raise transport_write_error(e, "Failed to write newline: ")
   }
   writer.flush() catch {

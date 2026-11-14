@@ -50,7 +50,7 @@ pub async fn MCPHost::connect_stdio(
   cmd~ : String,
   args~ : Array[String] = [],
   extra_env~ : Map[String, String] = {},
-  group~ : @async.TaskGroup[Unit],
+  group~ : @async.TaskGroup,
   era~ : ProtocolEra = Auto,
 ) -> Unit {
   let client = MCPClient::connect_stdio(

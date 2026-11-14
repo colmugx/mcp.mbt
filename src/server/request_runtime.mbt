@@ -39,7 +39,7 @@ async fn MCPServer::dispatch_runtime_request(
   self : MCPServer,
   request : @types.JsonRpcRequest,
   reply : @aqueue.Queue[String],
-  group : @async.TaskGroup[Unit],
+  group : @async.TaskGroup,
   scope : String,
   principal : @runtime.Principal?,
   token : @runtime.CancellationToken,
@@ -54,7 +54,7 @@ async fn MCPServer::dispatch_runtime_request(
       cancellation_token=token,
     ) catch {
       error => {
-        if token.is_cancelled() || @async.is_cancellation_error(error) {
+        if token.is_cancelled() || @async.is_being_cancelled() {
           return
         }
         internal_error_response(request.id)
@@ -130,7 +130,7 @@ async fn MCPServer::dispatch_runtime_request(
         progress_reporter=reporter,
       ) catch {
         error => {
-          if token.is_cancelled() || @async.is_cancellation_error(error) {
+          if token.is_cancelled() || @async.is_being_cancelled() {
             return
           }
           internal_error_response(request.id)

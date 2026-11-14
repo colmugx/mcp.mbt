@@ -265,7 +265,7 @@ pub async fn MCPClient::connect_stdio(
   name~ : String,
   version~ : String,
   extra_env~ : Map[String, String] = {},
-  group~ : @async.TaskGroup[Unit],
+  group~ : @async.TaskGroup,
   era~ : ProtocolEra = Auto,
 ) -> MCPClient {
   let stdio = @transport.StdioClientTransport::StdioClientTransport(
@@ -382,6 +382,7 @@ async fn MCPClient::send_request(self : MCPClient, request : String) -> String {
   }
   let explicitly_cancelled = Ref(false)
   let cancellation_reason : Ref[String?] = Ref(None)
+  let answer : Ref[String?] = Ref(None)
   @async.with_task_group(group => {
     let owned_task : Ref[@async.Task[String]?] = Ref(None)
     self.request_cancellations.set(id, fn(reason) {
@@ -401,15 +402,16 @@ async fn MCPClient::send_request(self : MCPClient, request : String) -> String {
     if explicitly_cancelled.val {
       task.cancel()
     }
-    task.wait() catch {
+    answer.val = Some(task.wait() catch {
       error =>
-        if explicitly_cancelled.val && @async.is_cancellation_error(error) {
+        if explicitly_cancelled.val && (error is @async.WaitedTaskAlreadyCancelled) {
           raise @types.Cancelled("Request cancelled by client")
         } else {
           raise error
         }
-    }
+    })
   })
+  answer.val.unwrap()
 }
 
 ///|
@@ -425,6 +427,7 @@ async fn MCPClient::send_request_inner(
   )
   self.response_map[id] = queue
   defer self.response_map.remove(id)
+  let answer : Ref[String?] = Ref(None)
   @async.with_task_group(group => {
     if !self.event_loop_started {
       group.spawn_bg(() => self.pump_direct_responses(group), no_wait=true)
@@ -465,8 +468,9 @@ async fn MCPClient::send_request_inner(
       }
     }
     self.maybe_store_server_info(response)
-    response
+    answer.val = Some(response)
   })
+  answer.val.unwrap()
 }
 
 ///|
@@ -1344,7 +1348,7 @@ pub fn MCPClient::listen(
   self : MCPClient,
   filter~ : ListenFilter = ListenFilter::default(),
   handler~ : (Json) -> Unit,
-  group~ : @async.TaskGroup[Unit],
+  group~ : @async.TaskGroup,
 ) -> String raise @types.MCPError {
   if self.backend is Legacy(_) {
     raise @types.MethodNotFound(
@@ -1394,7 +1398,7 @@ pub async fn MCPClient::cancel_listen(
 ///|
 pub async fn MCPClient::run(
   self : MCPClient,
-  group : @async.TaskGroup[Unit],
+  group : @async.TaskGroup,
 ) -> Unit {
   // Legacy backends use a direct request/response loop; the modern event loop
   // is not started for them.
@@ -1449,10 +1453,10 @@ fn MCPClient::dispatch_response(
 }
 
 ///|
-fn[T] MCPClient::handle_server_request(
+fn MCPClient::handle_server_request(
   self : MCPClient,
   obj : Map[String, Json],
-  group : @async.TaskGroup[T],
+  group : @async.TaskGroup,
 ) -> Unit {
   let method_name = match obj.get("method") {
     Some(String(m)) => m

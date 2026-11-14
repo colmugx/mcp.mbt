@@ -140,7 +140,7 @@ pub fn StdioClientTransport::StdioClientTransport(
 ///|
 pub async fn StdioClientTransport::start(
   self : StdioClientTransport,
-  group : @async.TaskGroup[Unit],
+  group : @async.TaskGroup,
 ) -> Unit raise @types.TransportError {
   abort("StdioClientTransport is not available on wasm-gc target")
 }
