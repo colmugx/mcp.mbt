@@ -6,6 +6,7 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
         with:
@@ -31,8 +32,25 @@ jobs:
       - name: moon check js
         run: moon check --target js --deny-warn --output-json
 
+      # Isolate async test files first: a hanging test must be attributed to
+      # a file rather than leaving the whole JS test step opaque indefinitely.
+      - name: isolate JS async test files
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r file; do
+            case "$file" in
+              src/client/client_cancel_branch_wbtest.mbt|src/client/http_era_connect_e2e_wbtest.mbt|src/client/http_mrtr_rounds_e2e_wbtest.mbt|src/client/stdio_request_cancel_e2e_wbtest.mbt|src/client/legacy/http_cancellation_e2e_wbtest.mbt|src/transport/http_cancellation_e2e_test.mbt|src/transport/http_compliance_e2e_test.mbt|src/transport/http_request_id_e2e_test.mbt|src/transport/sse_flush_e2e_test.mbt|src/transport/transport_io_test.mbt)
+                continue
+                ;;
+            esac
+            echo "::group::JS async tests: $file"
+            timeout --signal=TERM --kill-after=5s 60s moon test --target js "$file"
+            echo "::endgroup::"
+          done < <(grep -rl --include='*.mbt' 'async test' src | sort)
+
       - name: moon test js
-        run: moon test --target js --output-json
+        run: timeout --signal=TERM --kill-after=5s 600s moon test --target js --output-json
 
       # wasm is a supported server target, but `moon test --target wasm`
       # cannot run yet: the wasm test binaries fail to instantiate in the
