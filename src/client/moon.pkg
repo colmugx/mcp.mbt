@@ -29,7 +29,7 @@ import {
 warnings = "-unused_package"
 
 options(
-  "allow-experimental-packages": true,
+  "allow-experimental-packages": ["moonbitlang/core/async", "moonbitlang/core/async/aqueue", "moonbitlang/core/async/socket"],
   targets: {
     "http_era_connect_e2e_wbtest.mbt": [ "native" ],
     "stdio_request_cancel_e2e_wbtest.mbt": [ "native" ],
