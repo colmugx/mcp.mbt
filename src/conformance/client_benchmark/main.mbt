@@ -16,7 +16,7 @@ async fn main {
     let started = @env.now()
     @async.with_task_group(group => {
       for _ in 0..<concurrency {
-        group.spawn(async fn() {
+        ignore(group.spawn(async fn() {
           for _ in 0..<requests_per_worker {
             try
               ignore(
@@ -31,7 +31,7 @@ async fn main {
               _ => ()
             }
           }
-        })
+        }))
       }
     })
     let elapsed_ms = (@env.now() - started).to_double()
