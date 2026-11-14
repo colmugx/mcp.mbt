@@ -82,7 +82,7 @@ async fn log_stderr(line : String) -> Unit noraise {
     return
   }
   stderr_log_busy.val = true
-  let _ = @stdio.stderr.write(line) catch { _ => () }
+  let _ = @stdio.stderr.text.write(line) catch { _ => () }
   stderr_log_busy.val = false
 }
 
@@ -96,7 +96,7 @@ pub async fn HttpTransport::start(
     e => raise @types.WriteError("Failed to create server: " + e.to_string())
   }
   log_stderr("[HttpTransport] Streamable HTTP server ready\n")
-  server.run_forever(async fn(req, body, conn) {
+  server.run_forever(async fn(req, conn) {
     // Protected Resource Metadata endpoint (RFC 9728)
     if req.path == "/.well-known/oauth-protected-resource" {
       match self.auth {
@@ -116,7 +116,7 @@ pub async fn HttpTransport::start(
             "Content-Type": "application/json",
             "Cache-Control": "max-age=3600",
           })
-          conn.write(metadata)
+          conn.write_string(metadata)
           conn.end_response()
           return
         }
@@ -148,7 +148,7 @@ pub async fn HttpTransport::start(
           conn.send_response(403, "Forbidden", extra_headers={
             "Content-Type": "application/json",
           })
-          conn.write("{\"error\":\"invalid_origin\"}")
+          conn.write_string("{\"error\":\"invalid_origin\"}")
           conn.end_response()
           return
         }
@@ -195,7 +195,7 @@ pub async fn HttpTransport::start(
     log_stderr("[HttpTransport] Request to " + req.path + "\n")
     match req.meth {
       Post => {
-        let message = body.read_all().text() catch {
+        let message = @utf8.decode(conn.read_all()) catch {
             _ => {
               conn.send_response(400, "Bad Request")
               conn.end_response()
@@ -207,7 +207,7 @@ pub async fn HttpTransport::start(
             conn.send_response(400, "Bad Request", extra_headers={
               "Content-Type": "application/json",
             })
-            conn.write(jsonrpc_error_body(error, body=message))
+            conn.write_string(jsonrpc_error_body(error, body=message))
             conn.end_response()
             return
           }
@@ -220,7 +220,7 @@ pub async fn HttpTransport::start(
           conn.send_response(400, "Bad Request", extra_headers={
             "Content-Type": "application/json",
           })
-          conn.write(
+          conn.write_string(
             jsonrpc_error_body(
               @types.InvalidRequest(
                 "HTTP POST body must be a single JSON-RPC request or notification",
@@ -237,7 +237,7 @@ pub async fn HttpTransport::start(
             conn.send_response(400, "Bad Request", extra_headers={
               "Content-Type": "application/json",
             })
-            conn.write(err_response)
+            conn.write_string(err_response)
             conn.end_response()
             return
           }
@@ -284,9 +284,9 @@ pub async fn HttpTransport::start(
                 // ServerConnection writes are buffered; without an explicit
                 // flush nothing reaches the wire until end_response, which
                 // for a long-lived subscriptions/listen stream never comes.
-                conn.flush()
-                conn.write(sse_event_line(first))
-                conn.flush()
+                conn.flush_partial_data()
+                conn.write_string(sse_event_line(first))
+                conn.flush_partial_data()
                 @async.with_task_group(group => {
                   // Keepalive travels through the same queue: exactly one task owns socket writes.
                   // This detects disconnects without consuming pipelined HTTP request bytes.
@@ -302,11 +302,11 @@ pub async fn HttpTransport::start(
                   while true {
                     let msg = reply_queue.get()
                     if msg == ": keepalive\n\n" {
-                      conn.write(msg)
+                      conn.write_string(msg)
                     } else {
-                      conn.write(sse_event_line(msg))
+                      conn.write_string(sse_event_line(msg))
                     }
-                    conn.flush()
+                    conn.flush_partial_data()
                     if classify_jsonrpc_message(msg) is FinalResponse {
                       break
                     }
@@ -321,7 +321,7 @@ pub async fn HttpTransport::start(
                   "Content-Type": "application/json",
                   "MCP-Protocol-Version": @types.ProtocolVersion,
                 })
-                conn.write(first)
+                conn.write_string(first)
                 conn.end_response()
               }
             }
@@ -370,7 +370,7 @@ pub async fn HttpTransport::start(
 /// it can be read from the body; the caller maps all of these to HTTP 400.
 fn HttpTransport::validate_request_headers(
   self : HttpTransport,
-  req : @http.Request,
+  req : @http.RequestHeader,
   body : String,
   is_notif~ : Bool,
 ) -> Result[Unit, String] {

@@ -712,7 +712,7 @@ fn MCPServer::handle_inbound_notification(
 async fn MCPServer::handle_server_request(
   self : MCPServer,
   request : ServerRequest,
-  group : @async.TaskGroup[Unit],
+  group : @async.TaskGroup,
   scope~ : String = "",
   principal? : @runtime.Principal,
   cancellation_token~ : @runtime.CancellationToken = @runtime.CancellationToken::new(),
@@ -761,7 +761,7 @@ async fn MCPServer::handle_server_request(
 async fn MCPServer::run_stdio_transport(
   self : MCPServer,
   transport : @transport.StdioTransport,
-  group : @async.TaskGroup[Unit],
+  group : @async.TaskGroup,
 ) -> Unit raise @types.TransportError {
   let scope = self.new_request_scope()
   defer self.cancel_scope(scope)
@@ -800,7 +800,7 @@ async fn MCPServer::run_stdio_transport(
 async fn MCPServer::run_http_transport(
   self : MCPServer,
   transport : @transport.HttpTransport,
-  group : @async.TaskGroup[Unit],
+  group : @async.TaskGroup,
 ) -> Unit raise @types.TransportError {
   transport.set_tool_schema_resolver(fn(name) {
     self.registry.tools.get(name).map(entry => entry.definition.input_schema)
@@ -829,7 +829,7 @@ async fn MCPServer::run_http_transport(
 async fn MCPServer::run_with_transport(
   self : MCPServer,
   transport : @transport.AnyTransport,
-  group : @async.TaskGroup[Unit],
+  group : @async.TaskGroup,
 ) -> Unit raise @types.TransportError {
   match transport {
     Stdio(stdio) => self.run_stdio_transport(stdio, group)

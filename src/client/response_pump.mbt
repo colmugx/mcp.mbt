@@ -1,8 +1,8 @@
 ///|
 /// One reader owns the transport while every caller waits on its own id-routed queue.
-async fn[T] MCPClient::pump_direct_responses(
+async fn MCPClient::pump_direct_responses(
   self : MCPClient,
-  group : @async.TaskGroup[T],
+  group : @async.TaskGroup,
 ) -> Unit {
   self.receive_mutex.acquire()
   defer self.receive_mutex.release()
@@ -36,10 +36,10 @@ fn MCPClient::close_pending_response_queues(self : MCPClient) -> Unit {
 }
 
 ///|
-fn[T] MCPClient::route_received_message(
+fn MCPClient::route_received_message(
   self : MCPClient,
   message : String,
-  group : @async.TaskGroup[T],
+  group : @async.TaskGroup,
 ) -> Unit {
   let json = @validation.parse_json(message) catch {
     _ => {

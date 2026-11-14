@@ -72,7 +72,7 @@ fn LegacyHttpSessionTransport::apply_request_headers(
 async fn LegacyHttpSessionTransport::do_post(
   self : LegacyHttpSessionTransport,
   message : String,
-) -> (@http.Response, @http.Client) {
+) -> (@http.ResponseHeader, @http.ClientConnection) {
   if self.closed {
     raise @types.InvalidState("Cannot send on closed transport")
   }
@@ -98,7 +98,7 @@ async fn LegacyHttpSessionTransport::do_post(
         raise @types.WriteError("Failed to write body: \{e}")
       }
   }
-  client.flush() catch {
+  client.flush_partial_data() catch {
     e =>
       if @async.is_being_cancelled() {
         raise e
@@ -133,8 +133,7 @@ async fn LegacyHttpSessionTransport::do_post(
     // (same shape as the modern `HttpClientTransport` 4xx error). The outer
     // errdefer releases the client on this raise.
     let body_str = try {
-      let body = client.read_all()
-      body.text()
+      @utf8.decode(client.read_all())
     } catch {
       _ => ""
     }
@@ -190,7 +189,7 @@ pub async fn LegacyHttpSessionTransport::send(
           raise @types.ReadError("Failed to read response body: \{e}")
         }
     }
-    let body_str = body.text() catch {
+    let body_str = @utf8.decode(body) catch {
       e =>
         if @async.is_being_cancelled() {
           raise e
@@ -254,7 +253,7 @@ pub async fn LegacyHttpSessionTransport::close(
         headers[name] = value
       }
       try {
-        let _ = @http.request(self.base_url, @http.Delete, headers, b"")
+        let _ = @http.request_binary(@http.Delete, self.base_url, b"", headers~)
       } catch {
         _ => ()
       }

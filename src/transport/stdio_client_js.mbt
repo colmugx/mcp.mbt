@@ -180,7 +180,7 @@ pub struct StdioClientTransport {
   mut closed : Bool
   send_mutex : @async.Mutex
   /// Buffered stdout reader; `Some` marks the transport as started.
-  priv mut reader : &@io.Reader?
+  priv mut reader : &@io.TextReader?
   /// Cancels the from_js copy coroutine and the underlying JS stream.
   priv mut stop_reader : () -> Unit
   priv mut child : JsChildProcess?
@@ -222,7 +222,7 @@ pub fn StdioClientTransport::StdioClientTransport(
 /// child.
 pub async fn StdioClientTransport::start(
   self : StdioClientTransport,
-  group : @async.TaskGroup[Unit],
+  group : @async.TaskGroup,
 ) -> Unit raise @types.TransportError {
   if self.closed {
     raise @types.InvalidState("Cannot start a closed transport")
@@ -255,7 +255,7 @@ pub async fn StdioClientTransport::start(
     }
   }
   let rs = @js_async.ReadableStream::from_js(stdout_web)
-  let reader : &@io.Reader = rs
+  let reader : &@io.TextReader = @io.Utf8Reader::Utf8Reader(rs)
   let writer = stream_writer(stdin_web)
   self.reader = Some(reader)
   self.stop_reader = fn() { rs.close() }

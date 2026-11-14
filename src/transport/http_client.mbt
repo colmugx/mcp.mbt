@@ -158,7 +158,7 @@ pub async fn HttpClientTransport::send(
         raise @types.WriteError("Failed to write body: \{e}")
       }
   }
-  client.flush() catch {
+  client.flush_partial_data() catch {
     e =>
       if @async.is_being_cancelled() {
         raise e
@@ -194,8 +194,7 @@ pub async fn HttpClientTransport::send(
     // Read the response body so era probes can inspect modern JSON-RPC errors
     // (UnsupportedProtocolVersion / HeaderMismatch / MissingRequiredClientCapability).
     let body_str = try {
-      let body = client.read_all()
-      body.text()
+      @utf8.decode(client.read_all())
     } catch {
       error => {
         if @async.is_being_cancelled() {
@@ -250,7 +249,7 @@ pub async fn HttpClientTransport::send(
           raise @types.ReadError("Failed to read response body: \{e}")
         }
     }
-    let body_str = body.text() catch {
+    let body_str = @utf8.decode(body) catch {
       e =>
         if @async.is_being_cancelled() {
           raise e
@@ -329,7 +328,7 @@ pub async fn HttpClientTransport::send_notification(
   // Fire-and-forget: write body, end request; errors are intentionally swallowed.
   try {
     client.write(body_bytes)
-    client.flush()
+    client.flush_partial_data()
     let _ = client.end_request()
   } catch {
     _ => ()

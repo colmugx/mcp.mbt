@@ -23,8 +23,8 @@ pub struct SseEventReader {
 ///|
 /// Build a reader over one streaming response body. The refill closure is
 /// created once here; every `next` call scans the same lexbuf it fills.
-pub fn SseEventReader::new(client : @http.Client) -> SseEventReader {
-  sse_reader_from_bytes(() => client.read_some(max_len=8192))
+pub fn SseEventReader::new(client : @http.ClientConnection) -> SseEventReader {
+  sse_reader_from_bytes(() => client.read())
 }
 
 ///|
@@ -113,7 +113,7 @@ pub async fn SseEventReader::next(self : SseEventReader) -> (String?, String?) {
 /// response stream and call `next` repeatedly instead — each `read_sse_event`
 /// call starts a fresh lexbuf, dropping any trailing bytes buffered from its
 /// own scan.
-pub async fn read_sse_event(client : @http.Client) -> (String?, String?) {
+pub async fn read_sse_event(client : @http.ClientConnection) -> (String?, String?) {
   SseEventReader::new(client).next()
 }
 
