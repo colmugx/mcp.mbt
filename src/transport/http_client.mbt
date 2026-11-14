@@ -139,12 +139,12 @@ pub async fn HttpClientTransport::send(
     None => ()
   }
   apply_extra_headers(headers, self.extra_headers)
-  let client = @http.post_stream(self.base_url, headers~) catch {
+  let client = @http.request_stream(@http.Post, self.base_url, headers~) catch {
     e =>
       if @async.is_being_cancelled() {
         raise e
       } else {
-        raise @types.WriteError("HTTP POST failed: \{e}")
+        raise @types.WriteError("HTTP POST failed: \{Repr(e)}")
       }
   }
   // `send` consumes the client on every path, so a plain `defer` covers both
@@ -155,7 +155,7 @@ pub async fn HttpClientTransport::send(
       if @async.is_being_cancelled() {
         raise e
       } else {
-        raise @types.WriteError("Failed to write body: \{e}")
+        raise @types.WriteError("Failed to write body: \{Repr(e)}")
       }
   }
   client.flush_partial_data() catch {
@@ -163,7 +163,7 @@ pub async fn HttpClientTransport::send(
       if @async.is_being_cancelled() {
         raise e
       } else {
-        raise @types.WriteError("Failed to flush: \{e}")
+        raise @types.WriteError("Failed to flush: \{Repr(e)}")
       }
   }
   let response = client.end_request() catch {
@@ -171,7 +171,7 @@ pub async fn HttpClientTransport::send(
       if @async.is_being_cancelled() {
         raise e
       } else {
-        raise @types.ReadError("Failed to get response: \{e}")
+        raise @types.ReadError("Failed to get response: \{Repr(e)}")
       }
   }
   // Stateless transport: 404 no longer means "session expired". Surface it
@@ -200,7 +200,7 @@ pub async fn HttpClientTransport::send(
         if @async.is_being_cancelled() {
           raise error
         }
-        raise @types.ReadError("Failed to read HTTP error response: \{error}")
+        raise @types.ReadError("Failed to read HTTP error response: \{Repr(error)}")
       }
     }
     raise @types.HttpError(response.code, body_str)
@@ -246,7 +246,7 @@ pub async fn HttpClientTransport::send(
         if @async.is_being_cancelled() {
           raise e
         } else {
-          raise @types.ReadError("Failed to read response body: \{e}")
+          raise @types.ReadError("Failed to read response body: \{Repr(e)}")
         }
     }
     let body_str = @utf8.decode(body) catch {
@@ -254,7 +254,7 @@ pub async fn HttpClientTransport::send(
         if @async.is_being_cancelled() {
           raise e
         } else {
-          raise @types.ReadError("Failed to read response body: \{e}")
+          raise @types.ReadError("Failed to read response body: \{Repr(e)}")
         }
     }
     guard check_http_response(body_str, request_id_from_body(message))
@@ -316,12 +316,12 @@ pub async fn HttpClientTransport::send_notification(
     None => ()
   }
   apply_extra_headers(headers, self.extra_headers)
-  let client = @http.post_stream(self.base_url, headers~) catch {
+  let client = @http.request_stream(@http.Post, self.base_url, headers~) catch {
     e =>
       if @async.is_being_cancelled() {
         raise e
       } else {
-        raise @types.WriteError("Failed to send notification: \{e}")
+        raise @types.WriteError("Failed to send notification: \{Repr(e)}")
       }
   }
   defer client.close()

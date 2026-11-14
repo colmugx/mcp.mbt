@@ -18,7 +18,7 @@ pub fn StdioTransport::StdioTransport() -> StdioTransport {
     // stdin is already buffered internally (has ReaderBuffer)
     reader: @stdio.stdin,
     // Wrap stdout with BufferedWriter to batch writes (8KB buffer)
-    writer: @io.BufferedWriter::BufferedWriter(@stdio.stdout, size=8192),
+    writer: @io.BufferedWriter::new(@stdio.stdout, size=8192),
   }
 }
 

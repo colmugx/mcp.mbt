@@ -284,9 +284,9 @@ pub async fn HttpTransport::start(
                 // ServerConnection writes are buffered; without an explicit
                 // flush nothing reaches the wire until end_response, which
                 // for a long-lived subscriptions/listen stream never comes.
-                conn.flush_partial_data()
+                @io.BinaryWriter::flush_partial_data(conn)
                 conn.write_string(sse_event_line(first))
-                conn.flush_partial_data()
+                @io.BinaryWriter::flush_partial_data(conn)
                 @async.with_task_group(group => {
                   // Keepalive travels through the same queue: exactly one task owns socket writes.
                   // This detects disconnects without consuming pipelined HTTP request bytes.
@@ -306,7 +306,7 @@ pub async fn HttpTransport::start(
                     } else {
                       conn.write_string(sse_event_line(msg))
                     }
-                    conn.flush_partial_data()
+                    @io.BinaryWriter::flush_partial_data(conn)
                     if classify_jsonrpc_message(msg) is FinalResponse {
                       break
                     }

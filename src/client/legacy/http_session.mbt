@@ -79,7 +79,7 @@ async fn LegacyHttpSessionTransport::do_post(
   let body_bytes = @utf8.encode(message)
   let headers : @http.Headers = Map([])
   self.apply_request_headers(headers)
-  let client = @http.post_stream(self.base_url, headers~) catch {
+  let client = @http.request_stream(@http.Post, self.base_url, headers~) catch {
     e =>
       if @async.is_being_cancelled() {
         raise e
