@@ -9,19 +9,31 @@ fn request_id_to_json(id : @types.RequestId) -> Json {
 /// Build the `_meta.io.modelcontextprotocol/serverInfo` value for a response.
 /// `description` is optional on the spec's `Implementation` schema and is
 /// emitted only when set (B10).
-fn server_info_meta(server : MCPServer) -> Json {
+fn build_server_info_meta(
+  name : String,
+  version : String,
+  title : String?,
+  description : String?,
+) -> Json {
   let info : Map[String, Json] = Map([])
-  info.set("name", Json::string(server.name))
-  info.set("version", Json::string(server.version))
-  match server.title {
+  info.set("name", Json::string(name))
+  info.set("version", Json::string(version))
+  match title {
     Some(t) => info.set("title", Json::string(t))
     None => ()
   }
-  match server.description {
+  match description {
     Some(d) => info.set("description", Json::string(d))
     None => ()
   }
   Json::object(info)
+}
+
+///|
+/// Server identity is immutable after construction / builder updates. Reuse
+/// its JSON representation rather than allocating a Map for every response.
+fn server_info_meta(server : MCPServer) -> Json {
+  server.cached_server_info
 }
 
 ///|
