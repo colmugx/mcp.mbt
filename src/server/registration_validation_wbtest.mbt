@@ -91,6 +91,9 @@ test "tool wire JSON cache follows registrations and replacements" {
   })
   let after_replace = registry.list_tools().map(@types.ToolDefinition::to_json)
   assert_eq(registry.list_tool_jsons(), after_replace)
+  let caller_array = registry.list_tool_jsons()
+  caller_array.push(Json::null())
+  assert_eq(registry.list_tool_jsons(), after_replace)
   assert_eq(
     registry.list_tool_jsons()[0],
     after_replace[0],
