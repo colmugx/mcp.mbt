@@ -300,3 +300,53 @@ async test "e2e/http: compliance: registry-aware mirrored headers reject before 
     server.cancel()
   })
 }
+
+
+///|
+#cfg(target="native")
+async test "e2e/http: decoded queue reuses parsed body and preserves authenticated envelope" {
+  let transport = @transport.HttpTransport::HttpTransport(
+    port=47356,
+    endpoint_path="/mcp",
+  )
+  let request = (
+    {
+      "jsonrpc": "2.0",
+      "id": 9007199254740993,
+      "method": "tools/list",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": @types.ProtocolVersion,
+          "io.modelcontextprotocol/clientCapabilities": {},
+        },
+      },
+    } : Json
+  ).stringify()
+  let response = (
+    {
+      "jsonrpc": "2.0",
+      "id": 9007199254740993,
+      "result": { "resultType": "complete", "tools": [] },
+    } : Json
+  ).stringify()
+  @async.with_timeout(5000, () => {
+    @async.with_task_group(group => {
+      let server = group.spawn(() => transport.start() catch { _ => () })
+      await_http_listen(@socket.Addr::parse("127.0.0.1:47356"))
+      group.spawn_bg(() => {
+        let decoded = transport.receive_decoded_request().unwrap()
+        assert_eq(decoded.envelope.message, request)
+        assert_eq(decoded.parsed, @validation.parse_json(request))
+        assert_true(decoded.envelope.principal is None)
+        decoded.envelope.reply.put(response)
+      })
+      let client = @transport.HttpClientTransport::HttpClientTransport(
+        "http://127.0.0.1:47356/mcp",
+      )
+      defer client.close()
+      client.send(request)
+      assert_eq(client.receive(), Some(response))
+      server.cancel()
+    })
+  })
+}
