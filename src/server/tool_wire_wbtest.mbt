@@ -98,3 +98,45 @@ test "conformance: server metadata merge does not mutate handler result" {
   )
   assert_eq(result.stringify(), original)
 }
+
+
+///|
+test "serverInfo cache preserves builder identity across response kinds" {
+  let original = MCPServer::MCPServer("initial", "1")
+  let titled = original.with_title("Title")
+  let described = titled.with_description("Description")
+  let reversed = original.with_description("Description").with_title("Title")
+  let expected : Json = {
+    "name": "initial",
+    "version": "1",
+    "title": "Title",
+    "description": "Description",
+  }
+  assert_eq(server_info_meta(described), expected)
+  assert_eq(server_info_meta(reversed), expected)
+  assert_eq(server_info_meta(original), { "name": "initial", "version": "1" })
+  assert_eq(
+    server_info_meta(titled),
+    { "name": "initial", "version": "1", "title": "Title" },
+  )
+
+  let id = @types.RequestId::Int(1)
+  let plain = @json.parse(jsonrpc_success_str(described, id, { "content": [] }))
+  let cacheable = @json.parse(
+    jsonrpc_cacheable_success_str(described, id, { "tools": [] }, 1, "public"),
+  )
+  guard plain is { "result": { "_meta": Object(plain_meta), .. }, .. } else {
+    fail("missing server info in plain response")
+  }
+  guard cacheable is { "result": { "_meta": Object(cache_meta), .. }, .. } else {
+    fail("missing server info in cacheable response")
+  }
+  assert_eq(
+    plain_meta.get("io.modelcontextprotocol/serverInfo"),
+    Some(expected),
+  )
+  assert_eq(
+    cache_meta.get("io.modelcontextprotocol/serverInfo"),
+    Some(expected),
+  )
+}
