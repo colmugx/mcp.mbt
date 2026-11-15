@@ -96,3 +96,60 @@ test "MRTR accepts state-only load shedding and roots requests without params" {
 
   assert_true(empty.input_requests.is_empty())
 }
+
+
+///|
+test "MRTR decoded-result inspection matches legacy wire inspection" {
+  let client = MCPClient::MCPClient(
+    name="t",
+    version="1",
+    transport=@transport.AnyTransport::Stdio(
+      @transport.StdioTransport::StdioTransport(),
+    ),
+  )
+  for result in [
+    { "resultType": "complete", "content": [] },
+    { "content": [] },
+    {
+      "resultType": "input_required",
+      "requestState": "opaque",
+      "inputRequests": {
+        "roots": { "method": "roots/list" },
+      },
+    },
+  ] {
+    let response = Json::object({
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": result,
+    }).stringify()
+    let decoded = parse_jsonrpc_response(response)
+    assert_eq(
+      client.check_input_required(response),
+      client.check_input_required_result(decoded),
+    )
+  }
+}
+
+///|
+test "MRTR decoded result reports invalid types without an extra parse" {
+  let client = MCPClient::MCPClient(
+    name="t",
+    version="1",
+    transport=@transport.AnyTransport::Stdio(
+      @transport.StdioTransport::StdioTransport(),
+    ),
+  )
+  for result in [
+    { "resultType": 42 },
+    { "resultType": "unexpected" },
+    { "resultType": "input_required", "requestState": null },
+  ] {
+    try client.check_input_required_result(result) catch {
+      @types.InvalidParams(_) => ()
+      error => raise error
+    } noraise {
+      _ => fail("invalid decoded MRTR result should raise InvalidParams")
+    }
+  }
+}
