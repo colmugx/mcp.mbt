@@ -12,11 +12,18 @@ priv struct ToolEntry {
 ///|
 struct ToolRegistry {
   tools : Map[String, ToolEntry]
+  // Rebuilt only when a tool is registered or replaced.
+  mut sorted_definitions : Array[@types.ToolDefinition]
+  mut sorted_definitions_valid : Bool
 }
 
 ///|
 fn ToolRegistry::ToolRegistry() -> ToolRegistry {
-  { tools: Default::default(), }
+  {
+    tools: Default::default(),
+    sorted_definitions: [],
+    sorted_definitions_valid: true,
+  }
 }
 
 ///|
@@ -76,15 +83,22 @@ fn ToolRegistry::register_definition(
     output_validator,
     handler,
   })
+  self.sorted_definitions_valid = false
 }
 
 ///|
 fn ToolRegistry::list_tools(
   self : ToolRegistry,
 ) -> Array[@types.ToolDefinition] {
-  let entries : Array[ToolEntry] = Array::from_iter(self.tools.values())
-  entries.sort_by(fn(a, b) { a.definition.name.compare(b.definition.name) })
-  entries.map(fn(entry) { entry.definition })
+  if !self.sorted_definitions_valid {
+    let entries : Array[ToolEntry] = Array::from_iter(self.tools.values())
+    entries.sort_by(fn(a, b) { a.definition.name.compare(b.definition.name) })
+    self.sorted_definitions = entries.map(fn(entry) { entry.definition })
+    self.sorted_definitions_valid = true
+  }
+  // Preserve the previous API contract: callers receive their own array.
+  // The ToolDefinition values were already shared with the registry.
+  self.sorted_definitions.map(fn(definition) { definition })
 }
 
 ///|
