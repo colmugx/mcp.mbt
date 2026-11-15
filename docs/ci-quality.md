@@ -51,3 +51,25 @@ Unlike independent per-commit GitHub-hosted runner observations, this is a
 more useful within-run before/after comparison. It still has noise, only two
 measurements per side, and measures only the 256-tool list workload rather
 than all MCP operations. Avoid interpreting a small delta as definitive.
+
+## Client-centered A/B for boundary decoding
+
+The `client_mrtr_ab` job is independent and non-blocking. It runs only
+for `perf/client-mrtr-single-decode` and compares the baseline and candidate
+native-release clients on the same GitHub Actions runner, both against a
+single unchanged baseline server. The trial order is ABBA: baseline,
+candidate, candidate, baseline.
+
+Each client calls the same echo tool at concurrency 1, 4, 16 and 64,
+using 2,000 requests per worker. It asserts zero errors and records
+the four throughput figures, environment details and raw logs as artifacts.
+The longer trial is intended to reduce the noise of millisecond-scale
+low-concurrency tests, but even a same-run ABBA needs replication before a
+small change can be described as a reliable speedup.
+
+The broader goal is to minimize client-side repeated JSON parsing:
+the receiver parses the JSON-RPC envelope once for routing, passes the
+decoded object to modern typed callers, and reuses it to extract serverInfo.
+The raw-string request method remains supported for callers requiring exact
+wire text and for compatibility tests. Server-centric tools/list results
+must not be treated as evidence about MCPClient throughput.
