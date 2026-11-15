@@ -34,7 +34,7 @@ index=0
 for side in base candidate candidate base; do
   index=$((index + 1))
   echo "=== A/B slot $index: $side ==="
-  (cd "$side" && setsid moon run --target native --release src/conformance/server) \
+  (cd "$side" && exec setsid ./_build/native/release/build/colmugx/mcp/conformance/server/server.exe) \
     > "artifacts/ab/server-$index-$side.log" 2>&1 &
   server_pid=$!
 
@@ -72,6 +72,7 @@ for side in base candidate candidate base; do
 
   echo "=== A/B slot $index complete ==="
   stop_server
+  sleep 0.5
 done
 
 node <<'NODE'
