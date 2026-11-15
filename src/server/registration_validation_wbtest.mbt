@@ -66,3 +66,38 @@ test "tool list cache invalidates on insertion and replacement" {
   assert_eq(final_list[0].description, Some("replacement"))
   assert_eq(registry.list_tools(), final_list)
 }
+
+
+///|
+test "tool wire JSON cache follows registrations and replacements" {
+  let registry = ToolRegistry::ToolRegistry()
+  assert_eq(registry.list_tool_jsons(), ([] : Array[Json]))
+  registry.register("z", "first", { "type": "object" }, fn(_, _) {
+    Ok(@tool.Complete(@tool.ToolResult::text("z")))
+  })
+  registry.register("a", "second", { "type": "object" }, fn(_, _) {
+    Ok(@tool.Complete(@tool.ToolResult::text("a")))
+  })
+  let expected = registry.list_tools().map(@types.ToolDefinition::to_json)
+  assert_eq(registry.list_tool_jsons(), expected)
+  assert_eq(registry.list_tool_jsons(), expected)
+  registry.register("m", "third", { "type": "object" }, fn(_, _) {
+    Ok(@tool.Complete(@tool.ToolResult::text("m")))
+  })
+  let after_insert = registry.list_tools().map(@types.ToolDefinition::to_json)
+  assert_eq(registry.list_tool_jsons(), after_insert)
+  registry.register("a", "replacement", { "type": "object" }, fn(_, _) {
+    Ok(@tool.Complete(@tool.ToolResult::text("new")))
+  })
+  let after_replace = registry.list_tools().map(@types.ToolDefinition::to_json)
+  assert_eq(registry.list_tool_jsons(), after_replace)
+  assert_eq(
+    registry.list_tool_jsons()[0],
+    after_replace[0],
+  )
+  // Previously materialized snapshots still contain the earlier description.
+  guard expected[0] is { "description": String(description), .. } else {
+    fail("expected old tool description")
+  }
+  assert_eq(description, "second")
+}
