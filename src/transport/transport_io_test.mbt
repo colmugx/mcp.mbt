@@ -98,16 +98,22 @@ async test "HttpTransport routes out-of-order responses by JSON-RPC id" {
   let reply_b : @async.Queue[String] = @async.Queue(kind=Blocking(1))
 
   transport.pending_requests.put({
-    message: request_a,
-    reply: reply_a,
-    principal: None,
-    cancellation_token: @runtime.CancellationToken::new(),
+    envelope: {
+      message: request_a,
+      reply: reply_a,
+      principal: None,
+      cancellation_token: @runtime.CancellationToken::new(),
+    },
+    parsed: @validation.parse_json(request_a),
   })
   transport.pending_requests.put({
-    message: request_b,
-    reply: reply_b,
-    principal: None,
-    cancellation_token: @runtime.CancellationToken::new(),
+    envelope: {
+      message: request_b,
+      reply: reply_b,
+      principal: None,
+      cancellation_token: @runtime.CancellationToken::new(),
+    },
+    parsed: @validation.parse_json(request_b),
   })
 
   @debug.assert_eq(transport.receive(), Some(request_a))
