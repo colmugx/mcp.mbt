@@ -146,6 +146,16 @@ pub async fn HttpTransport::receive_request(
 
 ///|
 #warnings("-unused_value-unused_async-unused_error_type")
+///|
+#warnings("-unused_value-unused_async-unused_error_type")
+pub async fn HttpTransport::receive_decoded_request(
+  self : HttpTransport,
+) -> DecodedHttpRequest? raise @types.TransportError {
+  ignore(self)
+  abort("HttpTransport decoded HTTP requests are unavailable on this target")
+}
+
+///|
 pub async fn HttpTransport::receive_authenticated_request(
   self : HttpTransport,
 ) -> AuthenticatedRequest? raise @types.TransportError {
