@@ -19,6 +19,8 @@ pub struct MCPClient {
   client_name : String
   client_version : String
   capabilities : @types.ClientCapabilities
+  // Immutable request metadata snapshot, refreshed only when capabilities change.
+  request_meta_cache : Json
   transport : @transport.AnyTransport
   id_counter : RequestIdCounter
   mut server_capabilities : @types.ServerCapabilities?
@@ -62,6 +64,7 @@ fn MCPClient::MCPClient(
     client_name: name,
     client_version: version,
     capabilities,
+    request_meta_cache: build_request_meta(name, version, capabilities),
     transport,
     id_counter: RequestIdCounter::RequestIdCounter(),
     server_capabilities: None,
@@ -374,12 +377,19 @@ fn MCPClient::request_meta(
   self : MCPClient,
   log_level~ : String? = None,
 ) -> Json {
-  build_request_meta(
-    self.client_name,
-    self.client_version,
-    self.capabilities,
-    log_level~,
-  )
+  match log_level {
+    // No allocation, map construction or capability serialization in the
+    // common tools/call request path. Request builders treat this as read-only.
+    None => self.request_meta_cache
+    // Logging metadata is per-request, not part of the immutable snapshot.
+    Some(_) =>
+      build_request_meta(
+        self.client_name,
+        self.client_version,
+        self.capabilities,
+        log_level~,
+      )
+  }
 }
 
 ///|
@@ -1318,19 +1328,23 @@ pub fn MCPClient::on_sampling(
   handler : (Json) -> Result[@types.CreateMessageResult, @types.MCPError],
   capabilities? : @types.SamplingCapabilities,
 ) -> MCPClient {
+  let capabilities = {
+    ..self.capabilities,
+    sampling: Some(
+      capabilities.unwrap_or(
+        self.capabilities.sampling.unwrap_or(
+          @types.SamplingCapabilities::new(),
+        ),
+      ),
+    ),
+  }
   {
     ..self,
     sampling_handler: Some(handler),
-    capabilities: {
-      ..self.capabilities,
-      sampling: Some(
-        capabilities.unwrap_or(
-          self.capabilities.sampling.unwrap_or(
-            @types.SamplingCapabilities::new(),
-          ),
-        ),
-      ),
-    },
+    capabilities,
+    request_meta_cache: build_request_meta(
+      self.client_name, self.client_version, capabilities,
+    ),
   }
 }
 
@@ -1339,15 +1353,19 @@ pub fn MCPClient::on_roots(
   self : MCPClient,
   handler : () -> Result[Array[@types.Root], @types.MCPError],
 ) -> MCPClient {
+  let capabilities = {
+    ..self.capabilities,
+    roots: Some(
+      self.capabilities.roots.unwrap_or(@types.RootCapabilities::new()),
+    ),
+  }
   {
     ..self,
     roots_handler: Some(handler),
-    capabilities: {
-      ..self.capabilities,
-      roots: Some(
-        self.capabilities.roots.unwrap_or(@types.RootCapabilities::new()),
-      ),
-    },
+    capabilities,
+    request_meta_cache: build_request_meta(
+      self.client_name, self.client_version, capabilities,
+    ),
   }
 }
 
@@ -1357,19 +1375,23 @@ pub fn MCPClient::on_elicitation(
   handler : (Json) -> Result[@types.ElicitationResult, @types.MCPError],
   capabilities? : @types.ElicitationCapabilities,
 ) -> MCPClient {
+  let capabilities = {
+    ..self.capabilities,
+    elicitation: Some(
+      capabilities.unwrap_or(
+        self.capabilities.elicitation.unwrap_or(
+          @types.ElicitationCapabilities::new(form={}),
+        ),
+      ),
+    ),
+  }
   {
     ..self,
     elicitation_handler: Some(handler),
-    capabilities: {
-      ..self.capabilities,
-      elicitation: Some(
-        capabilities.unwrap_or(
-          self.capabilities.elicitation.unwrap_or(
-            @types.ElicitationCapabilities::new(form={}),
-          ),
-        ),
-      ),
-    },
+    capabilities,
+    request_meta_cache: build_request_meta(
+      self.client_name, self.client_version, capabilities,
+    ),
   }
 }
 
