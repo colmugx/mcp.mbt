@@ -124,10 +124,17 @@ test "MRTR decoded-result inspection matches legacy wire inspection" {
       "result": result,
     }).stringify()
     let decoded = parse_jsonrpc_response(response)
-    assert_eq(
+    match (
       client.check_input_required(response),
       client.check_input_required_result(decoded),
-    )
+    ) {
+      (None, None) => ()
+      (Some(old), Some(new)) => {
+        assert_eq(old.request_state, new.request_state)
+        assert_eq(old.input_requests, new.input_requests)
+      }
+      _ => fail("decoded and wire MRTR classifications differ")
+    }
   }
 }
 
