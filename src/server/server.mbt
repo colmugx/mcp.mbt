@@ -304,6 +304,14 @@ fn parse_request_message(
   let parsed = @validation.parse_json(request_json) catch {
     _ => return Err(jsonrpc_error_str_no_id(-32700, "Parse error"))
   }
+  parse_decoded_request_message(parsed)
+}
+
+///|
+/// Decode the JSON-RPC envelope without parsing JSON text again.
+fn parse_decoded_request_message(
+  parsed : Json,
+) -> Result[@types.JsonRpcRequest, String] {
   try @types.JsonRpcRequest::from_json(parsed) catch {
     // A structurally invalid request cannot supply a trustworthy response id.
     e =>
@@ -332,6 +340,11 @@ fn is_fast_method(method_name : String) -> Bool {
 /// request path, which would otherwise reject them for the missing `id`.
 fn is_notification_message(message : String) -> Bool {
   let json = @json.parse(message) catch { _ => return false }
+  is_notification_json(json)
+}
+
+///|
+fn is_notification_json(json : Json) -> Bool {
   if json is Object(obj) {
     obj.get("id") is None && obj.get("method") is Some(String(_))
   } else {
@@ -670,6 +683,16 @@ fn MCPServer::handle_inbound_notification(
   scope~ : String = "",
 ) -> Unit {
   let json = @validation.parse_json(message) catch { _ => return }
+  self.handle_inbound_parsed_notification(json, scope~)
+}
+
+///|
+/// Notification handler for already-decoded HTTP payloads.
+fn MCPServer::handle_inbound_parsed_notification(
+  self : MCPServer,
+  json : Json,
+  scope~ : String = "",
+) -> Unit {
   if json is Object(obj) {
     match obj.get("method") {
       Some(String("notifications/cancelled")) => {
@@ -724,7 +747,58 @@ async fn MCPServer::handle_server_request(
   if cancellation_token.is_cancelled() {
     return
   }
-  match parse_request_message(request.message) {
+  self.handle_server_request_result(
+    parse_request_message(request.message),
+    request,
+    group,
+    scope~,
+    principal?,
+    cancellation_token~,
+  )
+}
+
+///|
+/// Native HTTP has already parsed the body once for envelope and header
+/// validation. Forward the same Json tree to runtime dispatch, including
+/// notifications, rather than decoding its original String again.
+async fn MCPServer::handle_decoded_http_request(
+  self : MCPServer,
+  decoded : @transport.DecodedHttpRequest,
+  group : @async.TaskGroup,
+  scope~ : String = "",
+) -> Unit {
+  let envelope = decoded.envelope
+  if is_notification_json(decoded.parsed) {
+    self.handle_inbound_parsed_notification(decoded.parsed, scope~)
+    return
+  }
+  if envelope.cancellation_token.is_cancelled() {
+    return
+  }
+  self.handle_server_request_result(
+    parse_decoded_request_message(decoded.parsed),
+    { message: envelope.message, reply: envelope.reply, },
+    group,
+    scope~,
+    principal?=envelope.principal,
+    cancellation_token=envelope.cancellation_token,
+  )
+}
+
+///|
+/// Shared runtime dispatch. Both text-based STDIO and decoded HTTP retain
+/// the same error and subscription routing semantics.
+async fn MCPServer::handle_server_request_result(
+  self : MCPServer,
+  parsed : Result[@types.JsonRpcRequest, String],
+  request : ServerRequest,
+  group : @async.TaskGroup,
+  scope~ : String = "",
+  principal? : @runtime.Principal,
+  cancellation_token~ : @runtime.CancellationToken = @runtime.CancellationToken::new(),
+) -> Unit {
+  match parsed {
+
     Err(response) => request.reply.put(response) catch { _ => () }
     Ok(parsed_request) => {
       match check_protocol_version(parsed_request.id, parsed_request.params) {
@@ -806,18 +880,16 @@ async fn MCPServer::run_http_transport(
     self.registry.tools.get(name).map(entry => entry.definition.input_schema)
   })
   while true {
-    match transport.receive_authenticated_request() {
+    match transport.receive_decoded_request() {
       None => {
         transport.close()
         break
       }
       Some(request) =>
-        self.handle_server_request(
-          { message: request.message, reply: request.reply, },
+        self.handle_decoded_http_request(
+          request,
           group,
           scope=self.new_request_scope(),
-          principal?=request.principal,
-          cancellation_token=request.cancellation_token,
         ) catch {
           _ => ()
         }
