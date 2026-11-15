@@ -5,7 +5,7 @@ pub struct HttpTransport {
   auth : AuthConfig?
   keepalive_interval_ms : Int32
   tool_schema_resolver : Ref[(String) -> Json?]
-  pending_requests : @async.Queue[AuthenticatedRequest]
+  pending_requests : @async.Queue[DecodedHttpRequest]
   pending_reply_queues : Map[String, @async.Queue[String]]
 }
 
@@ -232,7 +232,7 @@ pub async fn HttpTransport::start(
           return
         }
         let is_notif = is_notification(parsed)
-        match self.validate_request_headers(req, message, is_notif~) {
+        match self.validate_request_headers(req, parsed, message, is_notif~) {
           Err(err_response) => {
             conn.send_response(400, "Bad Request", extra_headers={
               "Content-Type": "application/json",
@@ -254,10 +254,8 @@ pub async fn HttpTransport::start(
         }
         try {
           self.pending_requests.put({
-            message,
-            reply: reply_queue,
-            principal,
-            cancellation_token,
+            envelope: { message, reply: reply_queue, principal, cancellation_token, },
+            parsed,
           })
           if is_notif {
             // JSON-RPC notification: accept and close immediately. The server
@@ -371,13 +369,11 @@ pub async fn HttpTransport::start(
 fn HttpTransport::validate_request_headers(
   self : HttpTransport,
   req : @http.RequestHeader,
+  json : Json,
   body : String,
   is_notif~ : Bool,
 ) -> Result[Unit, String] {
   ignore(self)
-  let json = @validation.parse_json(body) catch {
-    _ => return Err(header_mismatch_error("malformed JSON body", body~))
-  }
   let body_method = if json is Object(obj) {
     match obj.get("method") {
       Some(String(m)) => m
@@ -610,12 +606,20 @@ fn extract_body_string(body : Json, parent : String, child : String) -> String? 
 }
 
 ///|
-pub async fn HttpTransport::receive_authenticated_request(
+pub async fn HttpTransport::receive_decoded_request(
   self : HttpTransport,
-) -> AuthenticatedRequest? raise @types.TransportError {
+) -> DecodedHttpRequest? raise @types.TransportError {
   Some(self.pending_requests.get()) catch {
     e => raise @types.ReadError(e.to_string())
   }
+}
+
+///|
+/// Preserve the existing string-based authenticated transport API.
+pub async fn HttpTransport::receive_authenticated_request(
+  self : HttpTransport,
+) -> AuthenticatedRequest? raise @types.TransportError {
+  self.receive_decoded_request().map(fn(request) { request.envelope })
 }
 
 ///|
