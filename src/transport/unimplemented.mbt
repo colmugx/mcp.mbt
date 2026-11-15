@@ -111,7 +111,6 @@ pub async fn HttpTransport::receive_request(
 }
 
 ///|
-///|
 pub async fn HttpTransport::receive_decoded_request(
   self : HttpTransport,
 ) -> DecodedHttpRequest? raise @types.TransportError {
