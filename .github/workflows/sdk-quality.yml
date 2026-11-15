@@ -435,7 +435,7 @@ jobs:
 
   client_mrtr_ab:
     name: Same-run client MRTR ABBA (experimental)
-    if: github.head_ref == 'perf/client-mrtr-single-decode'
+    if: startsWith(github.head_ref, 'perf/client-')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     continue-on-error: true

@@ -21,5 +21,11 @@ pub fn MCPClient::with_capabilities(
       "elicitation capability requires an on_elicitation handler",
     )
   }
-  { ..self, capabilities, }
+  {
+    ..self,
+    capabilities,
+    request_meta_cache: build_request_meta(
+      self.client_name, self.client_version, capabilities,
+    ),
+  }
 }
