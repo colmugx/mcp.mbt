@@ -400,6 +400,9 @@ jobs:
             mkdir -p "$side/src/conformance/server"
             cp tests/sdk-quality/list-fixture/main.mbt "$side/src/conformance/server/main.mbt"
             cp tests/sdk-quality/list-fixture/moon.pkg "$side/src/conformance/server/moon.pkg"
+            mkdir -p "$side/src/conformance/microbench"
+            cp tests/sdk-quality/list-microbench/main.mbt "$side/src/conformance/microbench/main.mbt"
+            cp tests/sdk-quality/list-microbench/moon.pkg "$side/src/conformance/microbench/moon.pkg"
           done
 
       - name: Build baseline and candidate
