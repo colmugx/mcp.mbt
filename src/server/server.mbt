@@ -105,6 +105,8 @@ pub struct MCPServer {
   version : String
   title : String?
   description : String?
+  /// Cached immutable server identity JSON reused in every successful result.
+  cached_server_info : Json
   instructions : String?
   auth_config : @transport.AuthConfig?
   /// Optional AEAD codec for MRTR `requestState`. When `None`, the server
@@ -133,6 +135,7 @@ pub fn MCPServer::MCPServer(name : String, version : String) -> MCPServer {
     version,
     title: None,
     description: None,
+    cached_server_info: build_server_info_meta(name, version, None, None),
     instructions: None,
     auth_config: None,
     request_state_codec: None,
@@ -1056,7 +1059,13 @@ pub fn[T : @prompt.PromptMRTR] MCPServer::with_prompt_mrtr(
 
 ///|
 pub fn MCPServer::with_title(self : MCPServer, title : String) -> MCPServer {
-  { ..self, title: Some(title), }
+  {
+    ..self,
+    title: Some(title),
+    cached_server_info: build_server_info_meta(
+      self.name, self.version, Some(title), self.description,
+    ),
+  }
 }
 
 ///|
@@ -1064,7 +1073,13 @@ pub fn MCPServer::with_description(
   self : MCPServer,
   description : String,
 ) -> MCPServer {
-  { ..self, description: Some(description), }
+  {
+    ..self,
+    description: Some(description),
+    cached_server_info: build_server_info_meta(
+      self.name, self.version, self.title, Some(description),
+    ),
+  }
 }
 
 ///|
