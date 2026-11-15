@@ -33,7 +33,7 @@ async fn main {
   for _ in 0..<100 {
     ignore(server.handle_request(wire))
   }
-  let repetitions = 5000
+  let repetitions = 30000
   let started = @env.now()
   let mut total_bytes = 0
   for _ in 0..<repetitions {
