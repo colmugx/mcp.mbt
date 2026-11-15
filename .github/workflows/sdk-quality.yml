@@ -432,3 +432,67 @@ jobs:
             candidate-build.jsonl
           if-no-files-found: ignore
           retention-days: 30
+
+  client_mrtr_ab:
+    name: Same-run client MRTR ABBA (experimental)
+    if: github.head_ref == 'perf/client-mrtr-single-decode'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Prepare identical client/server workload
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git worktree add --detach base origin/main
+          git worktree add --detach candidate HEAD
+          for side in base candidate; do
+            git -C "$side" submodule update --init --recursive
+            mkdir -p "$side/src/conformance"
+            cp -R tests/sdk-quality/fixtures/. "$side/src/conformance/"
+            sed -i 's/let requests_per_worker = 50/let requests_per_worker = 150/' \
+              "$side/src/conformance/client_benchmark/main.mbt"
+          done
+
+      - name: Build both SDK revisions with same toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          for side in base candidate; do
+            (
+              cd "$side"
+              moon update
+              moon build --target native --release --output-json > "../$side-client-build.jsonl"
+            )
+          done
+
+      - name: Run client MRTR ABBA
+        shell: bash
+        run: bash tests/sdk-quality/compare-client-mrtr.sh
+
+      - name: Upload A/B evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-client-mrtr-abba
+          path: |
+            artifacts/client-ab/**
+            base-client-build.jsonl
+            candidate-client-build.jsonl
+          if-no-files-found: ignore
+          retention-days: 30
