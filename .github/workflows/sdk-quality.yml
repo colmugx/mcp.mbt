@@ -99,8 +99,8 @@ jobs:
             seconds="$2"
             shift 2
             case_number=$((case_number + 1))
-            case_log="artifacts/conformance/case-\${case_number}.log"
-            echo "=== $label (limit: \${seconds}s) ===" | tee -a "$log"
+            case_log="artifacts/conformance/case-${case_number}.log"
+            echo "=== $label (limit: ${seconds}s) ===" | tee -a "$log"
 
             # Isolate the entire npx/Node process tree so timeout cleanup does
             # not leave children holding pipes open.
@@ -113,7 +113,7 @@ jobs:
             wait -n -p finished "$command_pid" "$timer_pid" || status=$?
 
             if [ "$finished" = "$timer_pid" ]; then
-              echo "TIMEOUT: $label exceeded \${seconds}s" >> "$case_log"
+              echo "TIMEOUT: $label exceeded ${seconds}s" >> "$case_log"
               kill -TERM -- "-$command_pid" 2>/dev/null || true
               sleep 2
               kill -KILL -- "-$command_pid" 2>/dev/null || true
@@ -143,11 +143,11 @@ jobs:
 
           run_case "server / tools list" 45 \
             npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
-            server --url http://127.0.0.1:3000/mcp --scenario tools-list --timeout 10000 --verbose
+            server --url http://127.0.0.1:3000/mcp --scenario tools-list --spec-version 2026-07-28 --timeout 10000 --verbose
 
           run_case "server / simple text tool call" 45 \
             npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
-            server --url http://127.0.0.1:3000/mcp --scenario tools-call-simple-text --timeout 10000 --verbose
+            server --url http://127.0.0.1:3000/mcp --scenario tools-call-simple-text --spec-version 2026-07-28 --timeout 10000 --verbose
 
           run_case "client / tools_call" 45 \
             npx --yes @modelcontextprotocol/conformance@0.2.0-alpha.12 \
@@ -298,12 +298,14 @@ jobs:
             cat "$output"
             return "$status"
           }
+          client_status=0
           run_bounded "MoonBit MCPClient -> MCPServer" 120 \
             artifacts/throughput/moonbit-client.log \
             moon run --target native --release src/conformance/client_benchmark || client_status=$?
           grep -E '^\{"concurrency"' artifacts/throughput/moonbit-client.log \
             > artifacts/throughput/moonbit-client.jsonl || true
 
+          connect_status=0
           run_bounded "MCP Inspector connect" 20 \
             artifacts/throughput/inspector-connect.log \
             mcpdo connect http://127.0.0.1:3000/mcp --era auto || connect_status=$?
@@ -312,12 +314,12 @@ jobs:
             inspector_status=0
             run_bounded "MCP Inspector load" 60 \
               artifacts/throughput/inspector-server.log \
-              mcpdo tools/call bench_echo message:=benchmark \
+              mcpdo --format json tools/call bench_echo message:=benchmark \
                 --load --load-steps 1,4,16,64 \
                 --load-step-duration 5 --load-warmup 1 --load-interval 2 \
-                --format json || inspector_status=$?
+                --load-max-error-rate 0.01 || inspector_status=$?
             cp artifacts/throughput/inspector-server.log \
-              artifacts/throughput/inspector-server.json
+              artifacts/throughput/inspector-server-output.txt
           fi
 
           if [ "$client_status" -ne 0 ] || [ "$inspector_status" -ne 0 ]; then
@@ -342,8 +344,8 @@ jobs:
             echo
             echo "### MCP Inspector load against MoonBit MCPServer"
             echo
-            if [ -f artifacts/throughput/inspector-server.json ]; then
-              cat artifacts/throughput/inspector-server.json
+            if [ -f artifacts/throughput/inspector-server-output.txt ]; then
+              cat artifacts/throughput/inspector-server-output.txt
             else
               echo "No Inspector results were produced."
             fi
