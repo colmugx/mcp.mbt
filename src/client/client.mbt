@@ -46,7 +46,7 @@ pub struct MCPClient {
 /// A single received response. Preserve the original wire text for internal
 /// raw-response callers, while modern typed callers consume the same JSON tree
 /// that the receiver already parsed for routing.
-priv struct RoutedResponse {
+pub struct RoutedResponse {
   raw : String
   parsed : Json
 }
@@ -560,8 +560,8 @@ async fn[T] legacy_send_and_parse(
 
 ///|
 /// Store `serverInfo` from a JSON-RPC response's `result._meta` if present.
-/// Per migration 2.4 of the 2026-07-28 spec, server identity may ride on any
-/// response, so this is called for every successful response.
+/// Compatibility helper for callers/tests with a raw response string.
+#warnings("-unused_value")
 fn MCPClient::maybe_store_server_info(
   self : MCPClient,
   response_str : String,
