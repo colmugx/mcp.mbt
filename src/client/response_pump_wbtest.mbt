@@ -14,8 +14,8 @@ async test "temporary client pump routes out-of-order replies and progress witho
       progress.push(notification.progress.as_double())
     }),
   })
-  let first : @aqueue.Queue[String] = @aqueue.Queue(kind=Unbounded)
-  let second : @aqueue.Queue[String] = @aqueue.Queue(kind=Unbounded)
+  let first : @aqueue.Queue[RoutedResponse] = @aqueue.Queue(kind=Unbounded)
+  let second : @aqueue.Queue[RoutedResponse] = @aqueue.Queue(kind=Unbounded)
   client.response_map.set(@types.RequestId::Int(1).key(), first)
   client.response_map.set(@types.RequestId::Int(2).key(), second)
   transport.pending_responses.put(
@@ -34,11 +34,11 @@ async test "temporary client pump routes out-of-order replies and progress witho
   @async.with_task_group(group => client.pump_direct_responses(group))
   assert_eq(progress, [0.5])
   assert_true(
-    @json.parse(first.get())
+    first.get().parsed
     is { "id": Number(1, ..), "result": { "marker": String("first"), .. }, .. },
   )
   assert_true(
-    @json.parse(second.get())
+    second.get().parsed
     is { "id": Number(2, ..), "result": { "marker": String("second"), .. }, .. },
   )
   assert_true(client.response_map.is_empty())
@@ -56,7 +56,7 @@ async test "temporary client pump closes pending queues on transport EOF" {
     version="1",
     transport=@transport.AnyTransport::HttpClient(transport),
   )
-  let queue : @aqueue.Queue[String] = @aqueue.Queue(kind=Unbounded)
+  let queue : @aqueue.Queue[RoutedResponse] = @aqueue.Queue(kind=Unbounded)
   client.response_map.set(@types.RequestId::Int(1).key(), queue)
   transport.close()
   @async.with_task_group(group => client.pump_direct_responses(group))

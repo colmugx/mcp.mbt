@@ -34,12 +34,21 @@ pub struct MCPClient {
     @types.ElicitationResult,
     @types.MCPError,
   ])?
-  response_map : Map[String, @aqueue.Queue[String]]
+  response_map : Map[String, @aqueue.Queue[RoutedResponse]]
   request_cancellations : Map[String, (String?) -> Unit]
   receive_mutex : @async.Mutex
   mut event_loop_started : Bool
   mut legacy_mode : Bool
   mut backend : ClientBackend
+}
+
+///|
+/// A single received response. Preserve the original wire text for internal
+/// raw-response callers, while modern typed callers consume the same JSON tree
+/// that the receiver already parsed for routing.
+priv struct RoutedResponse {
+  raw : String
+  parsed : Json
 }
 
 ///|
@@ -375,6 +384,16 @@ fn MCPClient::request_meta(
 
 ///|
 async fn MCPClient::send_request(self : MCPClient, request : String) -> String {
+  self.send_request_decoded(request).raw
+}
+
+///|
+/// Internal typed response: cancellation, request id ownership and error
+/// mapping remain identical to send_request; only the returned carrier differs.
+async fn MCPClient::send_request_decoded(
+  self : MCPClient,
+  request : String,
+) -> RoutedResponse {
   let request_id = extract_request_id(request)
   let id = request_id.key()
   if self.request_cancellations.contains(id) {
@@ -382,10 +401,10 @@ async fn MCPClient::send_request(self : MCPClient, request : String) -> String {
   }
   let explicitly_cancelled = Ref(false)
   let cancellation_reason : Ref[String?] = Ref(None)
-  let answer : Ref[String?] = Ref(None)
+  let answer : Ref[RoutedResponse?] = Ref(None)
   let status = @async.handle_cancellation(() => {
     @async.with_task_group(group => {
-      let owned_task : Ref[@async.Task[String]?] = Ref(None)
+      let owned_task : Ref[@async.Task[RoutedResponse]?] = Ref(None)
       self.request_cancellations.set(id, fn(reason) {
         cancellation_reason.val = reason
         explicitly_cancelled.val = true
@@ -436,14 +455,14 @@ async fn MCPClient::send_request_inner(
   request : String,
   request_id : @types.RequestId,
   cancellation_reason : Ref[String?],
-) -> String {
+) -> RoutedResponse {
   let id = request_id.key()
-  let queue : @aqueue.Queue[String] = @aqueue.Queue(
+  let queue : @aqueue.Queue[RoutedResponse] = @aqueue.Queue(
     kind=@aqueue.Kind::Unbounded,
   )
   self.response_map[id] = queue
   defer self.response_map.remove(id)
-  let answer : Ref[String?] = Ref(None)
+  let answer : Ref[RoutedResponse?] = Ref(None)
   @async.with_task_group(group => {
     if !self.event_loop_started {
       group.spawn_bg(() => self.pump_direct_responses(group), no_wait=true)
@@ -483,7 +502,7 @@ async fn MCPClient::send_request_inner(
         )
       }
     }
-    self.maybe_store_server_info(response)
+    self.maybe_store_server_info_decoded(response.parsed)
     answer.val = Some(response)
   })
   answer.val.unwrap()
@@ -548,6 +567,16 @@ fn MCPClient::maybe_store_server_info(
   response_str : String,
 ) -> Unit {
   let json = @validation.parse_json(response_str) catch { _ => return }
+  self.maybe_store_server_info_decoded(json)
+}
+
+///|
+/// No JSON parsing in the successful transport response path. Keep the raw
+/// helper for existing callers/tests that only have a response string.
+fn MCPClient::maybe_store_server_info_decoded(
+  self : MCPClient,
+  json : Json,
+) -> Unit {
   if json is Object(obj) {
     match obj.get("result") {
       Some(result_json) => {
@@ -584,10 +613,11 @@ async fn MCPClient::send_with_mrtr(
   let mut rounds = 0
   while rounds < max_rounds {
     rounds = rounds + 1
-    let response = self.send_request(current_request)
-    // Parse exactly once: the MRTR decision and the final typed result
-    // consume this same JSON tree without a String -> Json round-trip.
-    let result = parse_jsonrpc_response(response)
+    // The receiver already decoded this response to route it by request id.
+    // MRTR and the final typed result both consume that same JSON tree.
+    let result = parse_jsonrpc_response_decoded(
+      self.send_request_decoded(current_request).parsed,
+    )
     match self.check_input_required_result(result) {
       None => return result
       Some(input_req) => {
@@ -1009,9 +1039,9 @@ pub async fn MCPClient::discover(self : MCPClient) -> @types.ServerCapabilities 
     Modern => {
       let id = self.next_request_id()
       let request = build_discover_request(id, self.request_meta())
-      let response_str = self.send_request(request)
-
-      let result_json = parse_jsonrpc_response(response_str)
+      let result_json = parse_jsonrpc_response_decoded(
+        self.send_request_decoded(request).parsed,
+      )
 
       let caps = parse_discover_capabilities(result_json)
       self.server_capabilities = Some(caps)
@@ -1037,9 +1067,9 @@ pub async fn MCPClient::list_tools(
       legacy_send_and_parse(legacy, legacy_request, parse_tools_list)
     }
     Modern => {
-      let response_str = self.send_request(request)
-
-      let result_json = parse_jsonrpc_response(response_str)
+      let result_json = parse_jsonrpc_response_decoded(
+        self.send_request_decoded(request).parsed,
+      )
 
       let list_result = parse_tools_list(result_json)
 
@@ -1119,9 +1149,9 @@ pub async fn MCPClient::list_resources(
       parse_list_resources,
     )
   }
-  let response_str = self.send_request(request)
-
-  let result_json = parse_jsonrpc_response(response_str)
+  let result_json = parse_jsonrpc_response_decoded(
+    self.send_request_decoded(request).parsed,
+  )
   parse_list_resources(result_json)
 }
 
@@ -1157,9 +1187,9 @@ pub async fn MCPClient::list_prompts(
       parse_list_prompts,
     )
   }
-  let response_str = self.send_request(request)
-
-  let result_json = parse_jsonrpc_response(response_str)
+  let result_json = parse_jsonrpc_response_decoded(
+    self.send_request_decoded(request).parsed,
+  )
   parse_list_prompts(result_json)
 }
 
@@ -1205,9 +1235,9 @@ pub async fn MCPClient::list_resource_templates(
       parse_list_resource_templates,
     )
   }
-  let response_str = self.send_request(request)
-
-  let result_json = parse_jsonrpc_response(response_str)
+  let result_json = parse_jsonrpc_response_decoded(
+    self.send_request_decoded(request).parsed,
+  )
   parse_list_resource_templates(result_json)
 }
 
@@ -1257,9 +1287,9 @@ pub async fn MCPClient::complete_reference(
       parse_completion_result,
     )
   }
-  let response_str = self.send_request(request)
-
-  let result_json = parse_jsonrpc_response(response_str)
+  let result_json = parse_jsonrpc_response_decoded(
+    self.send_request_decoded(request).parsed,
+  )
   parse_completion_result(result_json)
 }
 
@@ -1465,7 +1495,7 @@ fn MCPClient::dispatch_response(
   match self.response_map.get(key) {
     Some(queue) => {
       try {
-        let _ = queue.try_put(raw_message)
+        let _ = queue.try_put({ raw: raw_message, parsed: Json::object(obj), })
       } catch {
         _ => ()
       }
@@ -1599,6 +1629,13 @@ fn parse_jsonrpc_response(response_str : String) -> Json raise @types.MCPError {
   let json = @validation.parse_json(response_str) catch {
     _ => raise @types.ParseError("Invalid JSON response")
   }
+  parse_jsonrpc_response_decoded(json)
+}
+
+///|
+/// Validate a previously-decoded JSON-RPC envelope without parsing its wire
+/// text again. The legacy parser above keeps exactly the same error mapping.
+fn parse_jsonrpc_response_decoded(json : Json) -> Json raise @types.MCPError {
   match json {
     Object(obj) => {
       match obj.get("error") {

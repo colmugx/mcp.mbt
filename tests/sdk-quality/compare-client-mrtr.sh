@@ -71,7 +71,7 @@ const slots = labels.map((side, i) => {
     .filter(line => line.startsWith('{"concurrency"')).map(JSON.parse);
   for (const c of [1, 4, 16, 64]) {
     const row = records.find(x => x.concurrency === c);
-    if (!row || row.requests !== 150 * c || row.errors !== 0 || row.throughput_rps <= 0) {
+    if (!row || row.requests !== 2000 * c || row.errors !== 0 || row.throughput_rps <= 0) {
       throw new Error('Incomplete/failed ' + path + ' at concurrency ' + c);
     }
   }
@@ -85,7 +85,7 @@ const average = (side, concurrency) => {
 const lines = [
   '## Same-run ABBA: MCPClient MRTR tools/call',
   '',
-  'Unchanged main server, same MoonBit compiler/runner, 150 tool calls per worker.',
+  'Unchanged main server, same MoonBit compiler/runner, 2000 tool calls per worker.',
   '',
   '| Slot | Revision | Concurrency | Requests/s | Errors |',
   '|---|---|---:|---:|---:|',
