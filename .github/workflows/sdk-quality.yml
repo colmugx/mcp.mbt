@@ -369,7 +369,7 @@ jobs:
 
   list_ab:
     name: Same-run tools/list ABBA (experimental)
-    if: github.head_ref == 'perf/cache-tool-list-order'
+    if: startsWith(github.head_ref, 'perf/')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     continue-on-error: true
