@@ -1,6 +1,6 @@
 # Non-blocking MCP quality CI
 
-The SDK quality workflow is intentionally separate from the existing code-check workflow. It runs on pull requests, pushes to main, and manual dispatches. Both jobs use GitHub Actions job-level continue-on-error, so conformance or benchmark failures never block the existing checks or merges.
+The SDK quality workflow is intentionally separate from the existing code-check workflow. It runs on pull requests, pushes to main, and manual dispatches. The jobs use GitHub Actions job-level continue-on-error, so conformance or benchmark failures never block the existing checks or merges.
 
 The new executable fixtures live under `tests/sdk-quality/fixtures`, **outside the SDK's `src/` module source tree**. Only the new quality jobs copy those files into `src/conformance` inside their disposable runner checkouts before compiling them. The regular `check.yml` job never sees or builds these fixtures, so a fixture failure cannot turn the existing code check red.
 
@@ -30,4 +30,24 @@ The throughput job records two complementary measurements against the same MoonB
 
 The Inspector is only the load generator; results are not used to rank programming languages. The MoonBit-to-MoonBit measurement gives a direct SDK round-trip signal, while the Inspector run provides a second, independently implemented load driver.
 
-Both jobs upload raw logs and environment details as workflow artifacts. The workflow currently records results rather than enforcing a performance threshold. Once enough same-runner history exists, a separate change can add noise-aware regression budgets.
+Both regular quality jobs upload raw logs and environment details as workflow artifacts. The workflow currently records results rather than enforcing a performance threshold. Once enough same-runner history exists, a separate change can add noise-aware regression budgets.
+
+## Same-run tools/list A/B for performance PRs
+
+Pull requests whose branch starts with `perf/` also run an **independent,
+non-blocking** `list_ab` job. It checks out `main` and the PR revision into
+separate worktrees on the **same GitHub Actions runner**, overlays the same
+256-tool HTTP server fixture into both, and compiles both in native release
+mode with the same MoonBit toolchain.
+
+It runs the order **main → candidate → candidate → main** (ABBA). Each slot
+measures `tools/list` throughput and p95 latency at concurrency 1 and 8,
+using a Node HTTP load driver for 6 seconds per level, after warm-up. The
+initial response must contain exactly 256 tools, and HTTP errors make the
+comparison fail. The results, toolchain environment, and raw per-slot JSON
+are uploaded as `perf-tool-list-abba` artifacts, with a GitHub Step Summary.
+
+Unlike independent per-commit GitHub-hosted runner observations, this is a
+more useful within-run before/after comparison. It still has noise, only two
+measurements per side, and measures only the 256-tool list workload rather
+than all MCP operations. Avoid interpreting a small delta as definitive.
