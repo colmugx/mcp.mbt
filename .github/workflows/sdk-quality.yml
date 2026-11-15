@@ -316,7 +316,7 @@ jobs:
               artifacts/throughput/inspector-server.log \
               mcpdo --format json tools/call bench_echo message:=benchmark \
                 --load --load-steps 1,4,16,64 \
-                --load-step-duration 5 --load-warmup 1 --load-interval 2 \
+                --load-step-duration 5 --load-interval 2 \
                 --load-max-error-rate 0.01 || inspector_status=$?
             cp artifacts/throughput/inspector-server.log \
               artifacts/throughput/inspector-server-output.txt
