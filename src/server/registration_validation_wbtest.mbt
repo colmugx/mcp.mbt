@@ -44,10 +44,10 @@ test "tool list cache invalidates on insertion and replacement" {
   let registry = ToolRegistry::ToolRegistry()
   assert_eq(registry.list_tools().length(), 0)
   registry.register("z", "first", { "type": "object" }, fn(_, _) {
-    Ok(@tool.ToolResult::text("z"))
+    Ok(@tool.Complete(@tool.ToolResult::text("z")))
   })
   registry.register("a", "second", { "type": "object" }, fn(_, _) {
-    Ok(@tool.ToolResult::text("a"))
+    Ok(@tool.Complete(@tool.ToolResult::text("a")))
   })
   let first = registry.list_tools()
   assert_eq(first.map(fn(tool) { tool.name }), ["a", "z"])
@@ -55,11 +55,11 @@ test "tool list cache invalidates on insertion and replacement" {
   first.push(first[0])
   assert_eq(registry.list_tools().map(fn(tool) { tool.name }), ["a", "z"])
   registry.register("m", "third", { "type": "object" }, fn(_, _) {
-    Ok(@tool.ToolResult::text("m"))
+    Ok(@tool.Complete(@tool.ToolResult::text("m")))
   })
   assert_eq(registry.list_tools().map(fn(tool) { tool.name }), ["a", "m", "z"])
   registry.register("a", "replacement", { "type": "object" }, fn(_, _) {
-    Ok(@tool.ToolResult::text("new"))
+    Ok(@tool.Complete(@tool.ToolResult::text("new")))
   })
   let final_list = registry.list_tools()
   assert_eq(final_list.map(fn(tool) { tool.name }), ["a", "m", "z"])
