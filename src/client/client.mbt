@@ -624,6 +624,7 @@ priv struct InputRequiredInfo {
 }
 
 ///|
+#warnings("-unused_value")
 fn MCPClient::check_input_required(
   self : MCPClient,
   response : String,
