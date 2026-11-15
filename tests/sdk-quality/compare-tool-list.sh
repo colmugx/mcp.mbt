@@ -113,7 +113,7 @@ const fs=require('node:fs');
 const labels=['base','candidate','candidate','base'];
 const rows=labels.map((side,i)=>{
   const value=JSON.parse(fs.readFileSync('artifacts/list-ab/micro-'+(i+1)+'-'+side+'.json','utf8'));
-  if(value.requests!==5000 || value.total_bytes<1000000 || value.rps<=0) {
+  if(value.requests!==30000 || value.total_bytes<1000000 || value.rps<=0) {
     throw new Error('Invalid microbench result in slot '+(i+1));
   }
   return {slot:i+1,side,...value};
