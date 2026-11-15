@@ -579,14 +579,17 @@ async fn MCPClient::send_with_mrtr(
   self : MCPClient,
   request : String,
   max_rounds~ : Int32 = 8,
-) -> String {
+) -> Json {
   let mut current_request = request
   let mut rounds = 0
   while rounds < max_rounds {
     rounds = rounds + 1
     let response = self.send_request(current_request)
-    match self.check_input_required(response) {
-      None => return response
+    // Parse exactly once: the MRTR decision and the final typed result
+    // consume this same JSON tree without a String -> Json round-trip.
+    let result = parse_jsonrpc_response(response)
+    match self.check_input_required_result(result) {
+      None => return result
       Some(input_req) => {
         if rounds == max_rounds {
           raise @types.InternalError("MRTR exceeded max rounds")
@@ -630,11 +633,23 @@ fn MCPClient::check_input_required(
   let result = match json {
     Object(obj) =>
       match obj.get("result") {
-        Some(Object(r)) => r
+        Some(result) => result
         _ => return None
       } // no result object (e.g. an error response)
     _ => return None
   }
+  self.check_input_required_result(result)
+}
+
+///|
+/// Inspect a decoded JSON-RPC result without parsing a response string again.
+/// This is shared by the modern MRTR request loop and legacy test helpers.
+fn MCPClient::check_input_required_result(
+  self : MCPClient,
+  result : Json,
+) -> InputRequiredInfo? raise @types.MCPError {
+  ignore(self)
+  guard result is Object(result) else { return None }
   match result.get("resultType") {
     None => return None // absent => "complete"
     Some(String("complete")) => return None
@@ -1085,9 +1100,7 @@ pub async fn MCPClient::call_tool(
       parse_call_tool,
     )
   }
-  let response_str = self.send_with_mrtr(request)
-
-  let result_json = parse_jsonrpc_response(response_str)
+  let result_json = self.send_with_mrtr(request)
   parse_call_tool(result_json)
 }
 
@@ -1125,9 +1138,7 @@ pub async fn MCPClient::read_resource(
       parse_read_resource,
     )
   }
-  let response_str = self.send_with_mrtr(request)
-
-  let result_json = parse_jsonrpc_response(response_str)
+  let result_json = self.send_with_mrtr(request)
   parse_read_resource(result_json)
 }
 
@@ -1171,9 +1182,7 @@ pub async fn MCPClient::get_prompt(
       parse_get_prompt,
     )
   }
-  let response_str = self.send_with_mrtr(request)
-
-  let result_json = parse_jsonrpc_response(response_str)
+  let result_json = self.send_with_mrtr(request)
   parse_get_prompt(result_json)
 }
 
