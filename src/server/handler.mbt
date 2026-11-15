@@ -515,8 +515,9 @@ fn seal_request_state(
 
 ///|
 fn handle_tools_list(server : MCPServer, id : @types.RequestId) -> String {
-  let tools = server.registry.list_tools()
-  let tool_jsons = tools.map(@types.ToolDefinition::to_json)
+  // Tool definitions are immutable after registration; the registry owns
+  // and invalidates their cached wire JSON on every change.
+  let tool_jsons = server.registry.list_tool_jsons()
   jsonrpc_cacheable_success_str(
     server,
     id,
