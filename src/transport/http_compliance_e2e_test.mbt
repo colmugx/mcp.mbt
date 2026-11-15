@@ -309,26 +309,9 @@ async test "e2e/http: decoded queue reuses parsed body and preserves authenticat
     port=47356,
     endpoint_path="/mcp",
   )
-  let request = (
-    {
-      "jsonrpc": "2.0",
-      "id": 9007199254740993,
-      "method": "tools/list",
-      "params": {
-        "_meta": {
-          "io.modelcontextprotocol/protocolVersion": @types.ProtocolVersion,
-          "io.modelcontextprotocol/clientCapabilities": {},
-        },
-      },
-    } : Json
-  ).stringify()
-  let response = (
-    {
-      "jsonrpc": "2.0",
-      "id": 9007199254740993,
-      "result": { "resultType": "complete", "tools": [] },
-    } : Json
-  ).stringify()
+  // Preserve the exact wire spelling of a JSON-RPC id beyond JS safe integers.
+  let request = "{\"jsonrpc\":\"2.0\",\"id\":9007199254740993,\"method\":\"tools/list\",\"params\":{\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":\"2026-07-28\",\"io.modelcontextprotocol/clientCapabilities\":{}}}}"
+  let response = "{\"jsonrpc\":\"2.0\",\"id\":9007199254740993,\"result\":{\"resultType\":\"complete\",\"tools\":[]}}"
   @async.with_timeout(5000, () => {
     @async.with_task_group(group => {
       let server = group.spawn(() => transport.start() catch { _ => () })
