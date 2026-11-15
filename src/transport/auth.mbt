@@ -43,3 +43,12 @@ pub(all) struct AuthenticatedRequest {
   principal : @runtime.Principal?
   cancellation_token : @runtime.CancellationToken
 }
+
+///|
+/// Parsed HTTP request coupled with its authenticated transport envelope.
+/// Internal server runtimes consume this directly; legacy transport adapters
+/// can still receive the original request string from the envelope.
+pub(all) struct DecodedHttpRequest {
+  envelope : AuthenticatedRequest
+  parsed : Json
+}
