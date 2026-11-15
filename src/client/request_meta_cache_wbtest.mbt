@@ -55,7 +55,8 @@ test "client metadata snapshots update on capability builders without altering o
   guard with_handlers.request_meta()
     is {
       "io.modelcontextprotocol/clientCapabilities": {
-        "roots": {}, "sampling": {}, "elicitation": { "form": {} },
+        "roots": { .. }, "sampling": { .. }, "elicitation": { "form": { .. }, .. },
+        ..
       },
       ..
     } else {
