@@ -108,15 +108,15 @@ test "MRTR decoded-result inspection matches legacy wire inspection" {
     ),
   )
   for result in [
-    { "resultType": "complete", "content": [] },
-    { "content": [] },
-    {
+    Json::object({ "resultType": "complete", "content": [] }),
+    Json::object({ "content": [] }),
+    Json::object({
       "resultType": "input_required",
       "requestState": "opaque",
       "inputRequests": {
         "roots": { "method": "roots/list" },
       },
-    },
+    }),
   ] {
     let response = Json::object({
       "jsonrpc": "2.0",
@@ -148,9 +148,9 @@ test "MRTR decoded result reports invalid types without an extra parse" {
     ),
   )
   for result in [
-    { "resultType": 42 },
-    { "resultType": "unexpected" },
-    { "resultType": "input_required", "requestState": null },
+    Json::object({ "resultType": 42 }),
+    Json::object({ "resultType": "unexpected" }),
+    Json::object({ "resultType": "input_required", "requestState": null }),
   ] {
     try client.check_input_required_result(result) catch {
       @types.InvalidParams(_) => ()
