@@ -17,6 +17,7 @@ struct ToolRegistry {
   // Serialized definitions are immutable while the registry is unchanged.
   // Only the private tools/list encoder consumes these JSON values.
   mut sorted_definition_jsons : Array[Json]
+  mut sorted_definition_jsons_valid : Bool
   mut sorted_definitions_valid : Bool
 }
 
@@ -26,6 +27,7 @@ fn ToolRegistry::ToolRegistry() -> ToolRegistry {
     tools: Default::default(),
     sorted_definitions: [],
     sorted_definition_jsons: [],
+    sorted_definition_jsons_valid: true,
     sorted_definitions_valid: true,
   }
 }
@@ -88,6 +90,7 @@ fn ToolRegistry::register_definition(
     handler,
   })
   self.sorted_definitions_valid = false
+  self.sorted_definition_jsons_valid = false
 }
 
 ///|
@@ -96,11 +99,6 @@ fn ToolRegistry::refresh_sorted_definitions(self : ToolRegistry) -> Unit {
     let entries : Array[ToolEntry] = Array::from_iter(self.tools.values())
     entries.sort_by(fn(a, b) { a.definition.name.compare(b.definition.name) })
     self.sorted_definitions = entries.map(fn(entry) { entry.definition })
-    // Tool registration already takes an owned snapshot. Rebuild wire JSON
-    // alongside the sorted list, then reuse it until the next registration.
-    self.sorted_definition_jsons = self.sorted_definitions.map(
-      @types.ToolDefinition::to_json,
-    )
     self.sorted_definitions_valid = true
   }
 }
@@ -118,7 +116,15 @@ fn ToolRegistry::list_tools(
 /// Internal-only, read-only wire view. Do not mutate returned Json objects:
 /// they are the registry's owned cached values.
 fn ToolRegistry::list_tool_jsons(self : ToolRegistry) -> Array[Json] {
-  self.refresh_sorted_definitions()
+  if !self.sorted_definition_jsons_valid {
+    // Calling list_tools here keeps wire JSON consistent even if other
+    // internal call sites previously refreshed the sorted definitions.
+    let definitions = self.list_tools()
+    self.sorted_definition_jsons = definitions.map(
+      @types.ToolDefinition::to_json,
+    )
+    self.sorted_definition_jsons_valid = true
+  }
   self.sorted_definition_jsons.map(fn(definition) { definition })
 }
 
