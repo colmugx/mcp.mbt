@@ -61,3 +61,21 @@ test "JSON-RPC client errors retain the peer code and data instead of becoming I
     _ => fail("expected protocol error")
   }
 }
+
+///|
+/// Routing and typed consumption of a decoded response must preserve the same
+/// JSON-RPC error/result semantics as the legacy string parser.
+test "already-decoded JSON-RPC response preserves error/result semantics" {
+  let response = "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"content\":[],\"resultType\":\"complete\"}}"
+  assert_eq(
+    parse_jsonrpc_response_decoded(@validation.parse_json(response)),
+    parse_jsonrpc_response(response),
+  )
+  let invalid = "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{},\"error\":{\"code\":-32603,\"message\":\"x\"}}"
+  try parse_jsonrpc_response_decoded(@validation.parse_json(invalid)) catch {
+    @types.InvalidRequest(_) => ()
+    error => raise error
+  } noraise {
+    _ => fail("decoded response must reject simultaneous result and error")
+  }
+}

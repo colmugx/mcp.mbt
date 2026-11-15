@@ -15,9 +15,9 @@ async test "response routing isolates string ids and adjacent integers beyond bi
     @types.RequestId::Str("9007199254740993"),
     @types.RequestId::Int(42),
   ]
-  let queues : Array[@aqueue.Queue[String]] = []
+  let queues : Array[@aqueue.Queue[RoutedResponse]] = []
   for id in ids {
-    let queue : @aqueue.Queue[String] = @aqueue.Queue(kind=Unbounded)
+    let queue : @aqueue.Queue[RoutedResponse] = @aqueue.Queue(kind=Unbounded)
     client.response_map.set(id.key(), queue)
     queues.push(queue)
   }
@@ -38,7 +38,7 @@ async test "response routing isolates string ids and adjacent integers beyond bi
     @async.with_task_group(group => client.pump_direct_responses(group))
   })
   for index, queue in queues {
-    let response = @validation.parse_json(queue.try_get().unwrap())
+    let response = queue.try_get().unwrap().parsed
     guard response is { "result": { "marker": Number(marker, ..), .. }, .. } else {
       fail("missing correlated response")
     }
