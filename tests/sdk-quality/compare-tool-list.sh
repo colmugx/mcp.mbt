@@ -95,3 +95,50 @@ fs.writeFileSync('artifacts/list-ab/summary.md', summary);
 fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
 console.log(summary);
 NODE
+
+# Run the same JSON-RPC handler in-process to distinguish SDK sorting cost
+# from HTTP server/Node load-generator noise.
+index=0
+for side in base candidate candidate base; do
+  index=$((index + 1))
+  echo "=== In-process ABBA slot $index: $side ==="
+  timeout --signal=TERM --kill-after=3s 90s \
+    "$side/_build/native/release/build/colmugx/mcp/conformance/microbench/microbench.exe" \
+    > "artifacts/list-ab/micro-$index-$side.json"
+  cat "artifacts/list-ab/micro-$index-$side.json"
+done
+
+node <<'NODE'
+const fs=require('node:fs');
+const labels=['base','candidate','candidate','base'];
+const rows=labels.map((side,i)=>{
+  const value=JSON.parse(fs.readFileSync('artifacts/list-ab/micro-'+(i+1)+'-'+side+'.json','utf8'));
+  if(value.requests!==5000 || value.total_bytes<1000000 || value.rps<=0) {
+    throw new Error('Invalid microbench result in slot '+(i+1));
+  }
+  return {slot:i+1,side,...value};
+});
+const mean=side=>{
+  const a=rows.filter(r=>r.side===side).map(r=>r.rps);
+  return a.reduce((x,y)=>x+y,0)/a.length;
+};
+const base=mean('base'),candidate=mean('candidate');
+const summary=[
+  '',
+  '### In-process JSON-RPC tools/list ABBA (256 tools; no HTTP)',
+  '',
+  '| Slot | Revision | Requests | Elapsed (ms) | Requests/s |',
+  '|---|---|---:|---:|---:|',
+  ...rows.map(r=>'| '+r.slot+' | '+r.side+' | '+r.requests+' | '+r.elapsed_ms+' | '+r.rps.toFixed(1)+' |'),
+  '',
+  '**Baseline mean:** '+base.toFixed(1)+' req/s',
+  '',
+  '**Candidate mean:** '+candidate.toFixed(1)+' req/s',
+  '',
+  '**Observed delta:** '+((candidate/base-1)*100).toFixed(2)+'%',
+  '',
+].join('\n');
+fs.appendFileSync('artifacts/list-ab/summary.md',summary+'\n');
+fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,summary+'\n');
+console.log(summary);
+NODE
