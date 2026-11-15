@@ -366,3 +366,66 @@ jobs:
           path: artifacts/throughput/**
           if-no-files-found: ignore
           retention-days: 90
+
+  perf_ab:
+    name: Same-run serverInfo ABBA (experimental)
+    if: github.head_ref == 'perf/cache-server-info'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install MoonBit and load generator
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+          npm install --global @modelcontextprotocol/inspector@2.15.0
+
+      - name: Prepare same-run worktrees
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git worktree add --detach base origin/main
+          git worktree add --detach candidate HEAD
+          for side in base candidate; do
+            git -C "$side" submodule update --init --recursive
+            mkdir -p "$side/src/conformance"
+            cp -R "$side/tests/sdk-quality/fixtures/." "$side/src/conformance/"
+          done
+
+      - name: Build baseline and candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          for side in base candidate; do
+            (
+              cd "$side"
+              moon update
+              moon build --target native --release --output-json > "../$side-build.jsonl"
+            )
+          done
+
+      - name: Run ABBA
+        shell: bash
+        run: bash tests/sdk-quality/compare-server-info.sh
+
+      - name: Upload A/B evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-server-info-abba
+          path: |
+            artifacts/ab/**
+            base-build.jsonl
+            candidate-build.jsonl
+          if-no-files-found: ignore
+          retention-days: 30
