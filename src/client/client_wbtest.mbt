@@ -458,14 +458,14 @@ test "structured tools/call builder matches the wire format" {
       42,
       "echo",
       meta,
-      arguments="{\\"nested\\":{\\"flag\\":true}}",
+      arguments="{\"nested\":{\"flag\":true}}",
     ),
   )
   let actual = build_tools_call_request_json(
     42,
     "echo",
     meta,
-    arguments="{\\"nested\\":{\\"flag\\":true}}",
+    arguments="{\"nested\":{\"flag\":true}}",
   )
   assert_eq(actual, expected)
 }
