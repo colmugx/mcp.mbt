@@ -51,6 +51,8 @@ pub async fn read_sse_event(@http.ClientConnection) -> (String?, String?)
 
 pub fn request_id_from_body(String) -> @json.Json?
 
+pub fn request_id_from_json(@json.Json) -> @json.Json?
+
 pub fn sse_event_line(String) -> String
 
 pub fn sse_event_verdict(String?, String?) -> SseEventVerdict
