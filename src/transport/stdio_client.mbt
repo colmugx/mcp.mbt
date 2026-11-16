@@ -126,6 +126,29 @@ pub async fn StdioClientTransport::send(
   self : StdioClientTransport,
   message : String,
 ) -> Unit {
+  let parsed = @validation.parse_json(message) catch {
+    _ => raise @types.WriteError("Invalid JSON-RPC message: Invalid JSON")
+  }
+  self.send_impl(message, parsed)
+}
+
+///|
+/// Structured entry point: validate the decoded envelope and serialize only
+/// once for the stdio wire frame.
+pub async fn StdioClientTransport::send_json(
+  self : StdioClientTransport,
+  parsed : Json,
+) -> Unit {
+  @validation.validate_jsonrpc_value(parsed)
+  self.send_impl(parsed.stringify(), parsed)
+}
+
+///|
+async fn StdioClientTransport::send_impl(
+  self : StdioClientTransport,
+  message : String,
+  parsed : Json,
+) -> Unit {
   self.send_mutex.acquire()
   defer self.send_mutex.release()
   if self.closed {
@@ -136,7 +159,7 @@ pub async fn StdioClientTransport::send(
     None =>
       raise @types.InvalidState("Transport not started — call start() first")
   }
-  validate_jsonrpc_message(message) catch {
+  @validation.validate_jsonrpc_value(parsed) catch {
     e => raise @types.WriteError("Invalid JSON-RPC message: " + e.message())
   }
   // A failed partial frame cannot safely be followed by another JSON-RPC line.
