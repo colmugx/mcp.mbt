@@ -98,7 +98,21 @@ pub fn RequestId::from_json(value : Json) -> RequestId raise MCPError {
 /// Type-tagged canonical identity for routing, duplicate checks and cancellation.
 pub fn RequestId::key(self : RequestId) -> String {
   match self {
-    Int(value) => "n:" + JsonInteger::from_int(value).key()
+    Int(value) => {
+      // Int32 values are already validated integers. Build the same compact
+      // canonical key directly instead of allocating a JsonInteger/BigInt.
+      if value == 0 {
+        "n:0e0"
+      } else {
+        let literal = value.to_string()
+        let mut end = literal.length()
+        while end > 0 && literal[end - 1] == '0' {
+          end -= 1
+        }
+        let trailing_zeros = literal.length() - end
+        "n:" + literal[0:end].to_owned() + "e" + trailing_zeros.to_string()
+      }
+    }
     Number(value) => "n:" + value.key()
     Str(value) => "s:" + value
   }
