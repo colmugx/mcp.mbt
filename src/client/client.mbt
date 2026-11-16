@@ -393,8 +393,12 @@ fn MCPClient::request_meta(
 }
 
 ///|
-async fn MCPClient::send_request(self : MCPClient, request : String) -> String {
-  self.send_request_decoded(request).raw
+async fn MCPClient::send_request(
+  self : MCPClient,
+  request : String,
+  request_id? : @types.RequestId,
+) -> String {
+  self.send_request_decoded(request, request_id?).raw
 }
 
 ///|
@@ -403,8 +407,15 @@ async fn MCPClient::send_request(self : MCPClient, request : String) -> String {
 async fn MCPClient::send_request_decoded(
   self : MCPClient,
   request : String,
+  request_id? : @types.RequestId,
 ) -> RoutedResponse {
-  let request_id = extract_request_id(request)
+  // All typed request builders already know the numeric JSON-RPC id.
+  // Avoid parsing and validating the entire outbound request a second time.
+  // Raw request callers still take the validated string-based fallback.
+  let request_id = match request_id {
+    Some(id) => id
+    None => extract_request_id(request)
+  }
   let id = request_id.key()
   if self.request_cancellations.contains(id) {
     raise @types.InvalidRequest("Duplicate active request id")
@@ -617,16 +628,20 @@ fn MCPClient::maybe_store_server_info_decoded(
 async fn MCPClient::send_with_mrtr(
   self : MCPClient,
   request : String,
+  request_id? : @types.RequestId,
   max_rounds~ : Int32 = 8,
 ) -> Json {
   let mut current_request = request
+  let mut current_request_id = request_id
   let mut rounds = 0
   while rounds < max_rounds {
     rounds = rounds + 1
     // The receiver already decoded this response to route it by request id.
     // MRTR and the final typed result both consume that same JSON tree.
     let result = parse_jsonrpc_response_decoded(
-      self.send_request_decoded(current_request).parsed,
+      self.send_request_decoded(
+        current_request, request_id?=current_request_id,
+      ).parsed,
     )
     match self.check_input_required_result(result) {
       None => return result
@@ -644,6 +659,7 @@ async fn MCPClient::send_with_mrtr(
           responses,
           input_req.request_state,
         )
+        current_request_id = Some(@types.RequestId::Int(new_id))
       }
     }
   }
@@ -1050,7 +1066,9 @@ pub async fn MCPClient::discover(self : MCPClient) -> @types.ServerCapabilities 
       let id = self.next_request_id()
       let request = build_discover_request(id, self.request_meta())
       let result_json = parse_jsonrpc_response_decoded(
-        self.send_request_decoded(request).parsed,
+        self.send_request_decoded(
+      request, request_id=@types.RequestId::Int(id),
+    ).parsed,
       )
 
       let caps = parse_discover_capabilities(result_json)
@@ -1078,7 +1096,9 @@ pub async fn MCPClient::list_tools(
     }
     Modern => {
       let result_json = parse_jsonrpc_response_decoded(
-        self.send_request_decoded(request).parsed,
+        self.send_request_decoded(
+      request, request_id=@types.RequestId::Int(id),
+    ).parsed,
       )
 
       let list_result = parse_tools_list(result_json)
@@ -1141,7 +1161,9 @@ pub async fn MCPClient::call_tool(
       parse_call_tool,
     )
   }
-  let result_json = self.send_with_mrtr(request)
+  let result_json = self.send_with_mrtr(
+    request, request_id=@types.RequestId::Int(id),
+  )
   parse_call_tool(result_json)
 }
 
@@ -1160,7 +1182,9 @@ pub async fn MCPClient::list_resources(
     )
   }
   let result_json = parse_jsonrpc_response_decoded(
-    self.send_request_decoded(request).parsed,
+    self.send_request_decoded(
+      request, request_id=@types.RequestId::Int(id),
+    ).parsed,
   )
   parse_list_resources(result_json)
 }
@@ -1179,7 +1203,9 @@ pub async fn MCPClient::read_resource(
       parse_read_resource,
     )
   }
-  let result_json = self.send_with_mrtr(request)
+  let result_json = self.send_with_mrtr(
+    request, request_id=@types.RequestId::Int(id),
+  )
   parse_read_resource(result_json)
 }
 
@@ -1198,7 +1224,9 @@ pub async fn MCPClient::list_prompts(
     )
   }
   let result_json = parse_jsonrpc_response_decoded(
-    self.send_request_decoded(request).parsed,
+    self.send_request_decoded(
+      request, request_id=@types.RequestId::Int(id),
+    ).parsed,
   )
   parse_list_prompts(result_json)
 }
@@ -1223,7 +1251,9 @@ pub async fn MCPClient::get_prompt(
       parse_get_prompt,
     )
   }
-  let result_json = self.send_with_mrtr(request)
+  let result_json = self.send_with_mrtr(
+    request, request_id=@types.RequestId::Int(id),
+  )
   parse_get_prompt(result_json)
 }
 
@@ -1246,7 +1276,9 @@ pub async fn MCPClient::list_resource_templates(
     )
   }
   let result_json = parse_jsonrpc_response_decoded(
-    self.send_request_decoded(request).parsed,
+    self.send_request_decoded(
+      request, request_id=@types.RequestId::Int(id),
+    ).parsed,
   )
   parse_list_resource_templates(result_json)
 }
@@ -1298,7 +1330,9 @@ pub async fn MCPClient::complete_reference(
     )
   }
   let result_json = parse_jsonrpc_response_decoded(
-    self.send_request_decoded(request).parsed,
+    self.send_request_decoded(
+      request, request_id=@types.RequestId::Int(id),
+    ).parsed,
   )
   parse_completion_result(result_json)
 }
@@ -1449,7 +1483,9 @@ pub fn MCPClient::listen(
   self.subscription_handlers[key] = handler
   group.spawn_bg(async fn() {
     defer self.subscription_handlers.remove(key)
-    ignore(self.send_request(request)) catch {
+    ignore(
+      self.send_request(request, request_id=@types.RequestId::Int(id)),
+    ) catch {
       @types.Cancelled(_) => ()
       error => raise error
     }
