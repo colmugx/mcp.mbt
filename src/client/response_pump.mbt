@@ -7,7 +7,7 @@ async fn MCPClient::pump_direct_responses(
   self.receive_mutex.acquire()
   defer self.receive_mutex.release()
   while !self.response_map.is_empty() && !self.event_loop_started {
-    let message = self.transport.receive() catch {
+    let message = self.transport.receive_decoded() catch {
       error => {
         if @async.is_being_cancelled() {
           raise error
@@ -17,7 +17,7 @@ async fn MCPClient::pump_direct_responses(
       }
     }
     match message {
-      Some(message) => self.route_received_message(message, group)
+      Some((raw, parsed)) => self.route_received_message(raw, parsed, group)
       None => {
         self.close_pending_response_queues()
         return
@@ -39,15 +39,10 @@ fn MCPClient::close_pending_response_queues(self : MCPClient) -> Unit {
 fn MCPClient::route_received_message(
   self : MCPClient,
   message : String,
+  parsed : Json,
   group : @async.TaskGroup,
 ) -> Unit {
-  let json = @validation.parse_json(message) catch {
-    _ => {
-      self.close_pending_response_queues()
-      return
-    }
-  }
-  guard json is Object(obj) else {
+  guard parsed is Object(obj) else {
     self.close_pending_response_queues()
     return
   }
@@ -77,6 +72,6 @@ fn MCPClient::route_received_message(
         handle_server_notification(self.notification_handlers, notification)
     }
   } else if obj.get("id") is Some(_) {
-    self.dispatch_response(message, obj)
+    self.dispatch_response(message, obj, parsed)
   }
 }
