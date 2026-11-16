@@ -715,6 +715,44 @@ async fn MCPClient::send_with_mrtr(
 }
 
 ///|
+/// Modern typed calls preserve the request JSON for all MRTR rounds.
+/// Retries modify a detached JSON object, with no intermediate wire parsing.
+async fn MCPClient::send_with_mrtr_json(
+  self : MCPClient,
+  request : Json,
+  request_id : @types.RequestId,
+  max_rounds~ : Int32 = 8,
+) -> Json {
+  let mut current_request = request
+  let mut current_request_id = request_id
+  let mut rounds = 0
+  while rounds < max_rounds {
+    rounds = rounds + 1
+    let result = parse_jsonrpc_response_decoded(
+      self.send_request_decoded_json(current_request, current_request_id).parsed,
+    )
+    match self.check_input_required_result(result) {
+      None => return result
+      Some(input_req) => {
+        if rounds == max_rounds {
+          raise @types.InternalError("MRTR exceeded max rounds")
+        }
+        let responses = self.fulfill_input_requests(input_req.input_requests)
+        let next_id = self.next_request_id()
+        current_request = build_retry_request_json(
+          current_request,
+          next_id,
+          responses,
+          input_req.request_state,
+        )
+        current_request_id = @types.RequestId::Int(next_id)
+      }
+    }
+  }
+  raise @types.InternalError("MRTR exceeded max rounds")
+}
+
+///|
 /// Classify a response for the MRTR loop:
 /// * `None` — a `complete` result (a missing `resultType` also means
 ///   `complete`, for back-compat with pre-MRTR servers);
@@ -1012,6 +1050,31 @@ fn build_retry_request(
 }
 
 ///|
+/// Construct a retry from a copied envelope and params object. Do not mutate
+/// the original typed request or its shared cached metadata.
+fn build_retry_request_json(
+  original : Json,
+  new_id : Int32,
+  responses : Map[String, Json],
+  request_state : String?,
+) -> Json {
+  guard original is Object(root) else { return original }
+  let fields = root.copy()
+  let params : Map[String, Json] = match fields.get("params") {
+    Some(Object(p)) => p.copy()
+    _ => Map([])
+  }
+  params.set("inputResponses", Json::object(responses))
+  match request_state {
+    Some(state) => params.set("requestState", Json::string(state))
+    None => ()
+  }
+  fields.set("params", Json::object(params))
+  fields.set("id", Json::number(new_id.to_double()))
+  Json::object(fields)
+}
+
+///|
 fn sampling_result_to_json(r : @types.CreateMessageResult) -> Json {
   r.to_json()
 }
@@ -1190,24 +1253,26 @@ pub async fn MCPClient::call_tool(
   progress_token? : @types.ProgressToken,
 ) -> CallToolResult {
   let id = self.next_request_id()
-  let request = build_tools_call_request(
+  let request = build_tools_call_request_json(
     id,
     name,
     self.request_meta(),
     arguments~,
     progress_token?,
   )
-  // Legacy backends: plain send/receive, no MRTR (a 2026-07-28 mechanism).
+  // Preserve the legacy wire contract; modern calls stay as Json until send.
   if self.backend is Legacy(legacy) {
     return legacy_send_and_parse(
       legacy,
-      apply_legacy_meta_to_request(request, build_legacy_meta(progress_token?)),
+      apply_legacy_meta_to_request(
+        request.stringify(), build_legacy_meta(progress_token?),
+      ),
       parse_call_tool,
     )
   }
-  let result_json = self.send_with_mrtr(
+  let result_json = self.send_with_mrtr_json(
     request,
-    request_id=@types.RequestId::Int(id),
+    @types.RequestId::Int(id),
   )
   parse_call_tool(result_json)
 }
