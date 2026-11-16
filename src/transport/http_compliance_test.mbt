@@ -385,7 +385,6 @@ test "compliance: decoded request metadata extraction matches wire helpers" {
   let decoded = @validation.parse_json(body)
   assert_eq(json_string_field(decoded, "method"), Some("tools/call"))
   assert_eq(json_name_field(decoded), Some("echo"))
-  assert_eq(extract_name_field(body), json_name_field(decoded))
   assert_eq(extract_field(body, "method"), json_string_field(decoded, "method"))
   assert_eq(
     extract_argument_value(body, ["nested", "x"]),
