@@ -67,10 +67,10 @@ pub fn jsonrpc_error_code(message : String) -> Int32? {
 }
 
 ///|
-fn check_http_response(
+fn check_http_response_decoded(
   message : String,
   expected : Json?,
-) -> JsonRpcKind raise @types.TransportError {
+) -> (JsonRpcKind, Json) raise @types.TransportError {
   let value = @validation.parse_json(message) catch {
     _ => raise @types.ReadError("Invalid JSON in HTTP response")
   }
@@ -82,7 +82,7 @@ fn check_http_response(
     !fields.contains("id") &&
     !fields.contains("result") &&
     !fields.contains("error") {
-    return Notification
+    return (Notification, value)
   }
   guard !fields.contains("method") &&
     fields.contains("result") != fields.contains("error") &&
@@ -101,7 +101,16 @@ fn check_http_response(
       "HTTP response id does not match its originating request",
     )
   }
-  FinalResponse
+  (FinalResponse, value)
+}
+
+///|
+/// Compatibility wrapper for callers that only need the message class.
+fn check_http_response(
+  message : String,
+  expected : Json?,
+) -> JsonRpcKind raise @types.TransportError {
+  check_http_response_decoded(message, expected).0
 }
 
 ///|
