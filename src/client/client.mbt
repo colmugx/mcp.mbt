@@ -436,7 +436,9 @@ async fn MCPClient::send_request_decoded(
       })
       defer self.request_cancellations.remove(id)
       let task = group.spawn(
-        () => self.send_request_inner(request, request_id, id, cancellation_reason),
+        () => {
+          self.send_request_inner(request, request_id, id, cancellation_reason)
+        },
         allow_failure=true,
       )
       owned_task.val = Some(task)

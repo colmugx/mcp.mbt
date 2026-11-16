@@ -144,7 +144,10 @@ pub async fn StdioClientTransport::send(
   // Encode and write the complete line in one operation. This avoids a
   // second byte-array allocation and a second BufferedWriter call per RPC.
   writer.write(@utf8.encode(message + "\n")) catch {
-    e => raise transport_write_error(e, "Failed to write JSON-RPC line to child stdin: ")
+    e =>
+      raise transport_write_error(
+        e, "Failed to write JSON-RPC line to child stdin: ",
+      )
   }
   writer.flush() catch {
     e => raise transport_write_error(e, "Failed to flush child stdin: ")
