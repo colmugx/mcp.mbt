@@ -255,7 +255,7 @@ pub async fn HttpClientTransport::send(
           raise @types.ReadError("Failed to read response body: \{Repr(e)}")
         }
     }
-    guard check_http_response(body_str, request_id_from_body(message))
+    guard check_http_response(body_str, request_id)
       is FinalResponse else {
       raise @types.ReadError(
         "Single JSON HTTP response must be a final response",
