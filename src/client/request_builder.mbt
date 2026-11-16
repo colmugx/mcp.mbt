@@ -83,21 +83,20 @@ fn build_tools_call_request(
   let params_map : Map[String, Json] = Default::default()
   params_map.set("name", Json::string(name))
   params_map.set("arguments", arguments_json)
-  // Merge progressToken into the request _meta alongside protocol-level fields.
-  match meta {
-    Object(obj) => {
-      let fields = obj.copy()
-      match progress_token {
-        Some(token) => {
+  // Cached metadata is read-only; copy it only when adding per-call data.
+  match progress_token {
+    Some(token) =>
+      match meta {
+        Object(obj) => {
+          let fields = obj.copy()
           let value = token.to_json()
           ignore(@types.ProgressToken::from_json(value))
           fields.set("progressToken", value)
+          params_map.set("_meta", Json::object(fields))
         }
-        None => ()
+        _ => params_map.set("_meta", meta)
       }
-      params_map.set("_meta", Json::object(fields))
-    }
-    _ => params_map.set("_meta", meta)
+    None => params_map.set("_meta", meta)
   }
   Json::object({
     "jsonrpc": "2.0",

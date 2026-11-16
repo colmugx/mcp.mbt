@@ -367,3 +367,60 @@ jobs:
           if-no-files-found: ignore
           retention-days: 90
 
+
+  client_meta_ab:
+    name: Client request-metadata ABBA (temporary)
+    if: github.head_ref == 'perf/client-known-request-ids'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Prepare baseline and candidate with identical load
+        shell: bash
+        run: |
+          set -euo pipefail
+          git worktree add --detach base 2f12bc288e0e71cbedfce5a4d065981085228abb
+          git worktree add --detach candidate "${{ github.event.pull_request.head.sha }}"
+          for side in base candidate; do
+            git -C "$side" submodule update --init --recursive
+            mkdir -p "$side/src/conformance"
+            cp -R tests/sdk-quality/fixtures/. "$side/src/conformance/"
+            sed -i 's/let requests_per_worker = 50/let requests_per_worker = 2000/' \
+              "$side/src/conformance/client_benchmark/main.mbt"
+          done
+      - name: Compile both revisions with the same toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          for side in base candidate; do
+            (
+              cd "$side"
+              moon update
+              moon build --target native --release --output-json \
+                > "../$side-client-build.jsonl"
+            )
+          done
+      - name: Run client ABBA
+        run: bash tests/sdk-quality/compare-client-mrtr.sh
+      - name: Upload temporary A/B evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-client-request-meta-abba
+          path: |
+            artifacts/client-ab/**
+            base-client-build.jsonl
+            candidate-client-build.jsonl
+          if-no-files-found: ignore
+          retention-days: 14
