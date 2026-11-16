@@ -436,7 +436,7 @@ async fn MCPClient::send_request_decoded(
       })
       defer self.request_cancellations.remove(id)
       let task = group.spawn(
-        () => self.send_request_inner(request, request_id, cancellation_reason),
+        () => self.send_request_inner(request, request_id, id, cancellation_reason),
         allow_failure=true,
       )
       owned_task.val = Some(task)
@@ -475,9 +475,10 @@ async fn MCPClient::send_request_inner(
   self : MCPClient,
   request : String,
   request_id : @types.RequestId,
+  request_key : String,
   cancellation_reason : Ref[String?],
 ) -> RoutedResponse {
-  let id = request_id.key()
+  let id = request_key
   let queue : @aqueue.Queue[RoutedResponse] = @aqueue.Queue(
     kind=@aqueue.Kind::Unbounded,
   )

@@ -141,11 +141,10 @@ pub async fn StdioClientTransport::send(
   }
   // A failed partial frame cannot safely be followed by another JSON-RPC line.
   errdefer self.close()
-  writer.write(@utf8.encode(message)) catch {
-    e => raise transport_write_error(e, "Failed to write to child stdin: ")
-  }
-  writer.write(@utf8.encode("\n")) catch {
-    e => raise transport_write_error(e, "Failed to write newline: ")
+  // Encode and write the complete line in one operation. This avoids a
+  // second byte-array allocation and a second BufferedWriter call per RPC.
+  writer.write(@utf8.encode(message + "\n")) catch {
+    e => raise transport_write_error(e, "Failed to write JSON-RPC line to child stdin: ")
   }
   writer.flush() catch {
     e => raise transport_write_error(e, "Failed to flush child stdin: ")
@@ -170,11 +169,8 @@ pub async fn StdioClientTransport::send_notification(
   }
   let json = notification.to_jsonrpc_string()
   errdefer self.close()
-  writer.write(@utf8.encode(json)) catch {
+  writer.write(@utf8.encode(json + "\n")) catch {
     e => raise transport_write_error(e, "Failed to send notification: ")
-  }
-  writer.write(@utf8.encode("\n")) catch {
-    e => raise transport_write_error(e, "Failed to write newline: ")
   }
   writer.flush() catch {
     e => raise transport_write_error(e, "Failed to flush notification: ")
