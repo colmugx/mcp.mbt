@@ -24,13 +24,12 @@ async test "response routing isolates string ids and adjacent integers beyond bi
   transport.pending_responses.put(("{\"jsonrpc\":\"2.0\",\"id\":42.1,\"result\":{}}", @validation.parse_json("{\"jsonrpc\":\"2.0\",\"id\":42.1,\"result\":{}}")))
   for index in [3, 2, 1, 0] {
     let id = if index == 3 { "4.200e1" } else { ids[index].to_json_string() }
-    transport.pending_responses.put(
-      "{\"jsonrpc\":\"2.0\",\"id\":" +
+    let raw = "{\"jsonrpc\":\"2.0\",\"id\":" +
       id +
       ",\"result\":{\"marker\":" +
       index.to_string() +
-      "}}",
-    )
+      "}}"
+    transport.pending_responses.put((raw, @validation.parse_json(raw)))
   }
   @async.with_timeout(1000, () => {
     @async.with_task_group(group => client.pump_direct_responses(group))
