@@ -506,6 +506,20 @@ async fn MCPClient::send_request_decoded_payload(
 }
 
 ///|
+///|
+/// Preserve raw transport validation while skipping string serialization for
+/// requests that were already constructed as typed JSON by the client.
+async fn MCPClient::send_outgoing_request(
+  self : MCPClient,
+  request : OutgoingRequest,
+) -> Unit {
+  match request {
+    RawRequest(raw) => self.transport.send(raw)
+    StructuredRequest(json) => self.transport.send_json(json)
+  }
+}
+
+///|
 async fn MCPClient::send_request_inner(
   self : MCPClient,
   request : OutgoingRequest,
@@ -524,10 +538,7 @@ async fn MCPClient::send_request_inner(
     if !self.event_loop_started {
       group.spawn_bg(() => self.pump_direct_responses(group), no_wait=true)
     }
-    match request {
-      RawRequest(raw) => self.transport.send(raw)
-      StructuredRequest(json) => self.transport.send_json(json)
-    } catch {
+    self.send_outgoing_request(request) catch {
       error => {
         if @async.is_being_cancelled() {
           self.notify_cancelled_best_effort(
