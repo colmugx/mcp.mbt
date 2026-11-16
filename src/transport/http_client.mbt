@@ -16,7 +16,7 @@ pub struct HttpClientTransport {
   base_url : String
   auth_token : String?
   mut closed : Bool
-  pending_responses : @async.Queue[String]
+  pending_responses : @async.Queue[(String, Json)]
   /// Caller-supplied headers appended to every outgoing request (requests and
   /// notifications) after the built-in set; same-name entries override the
   /// built-ins (see `apply_extra_headers`).
@@ -91,12 +91,31 @@ pub async fn HttpClientTransport::send(
   self : HttpClientTransport,
   message : String,
 ) -> Unit {
+  let parsed = @validation.parse_json(message) catch { _ => Json::null() }
+  self.send_impl(message, parsed)
+}
+
+///|
+/// Structured request entry point: stringify once at the HTTP wire boundary,
+/// then reuse the original JSON value for routing headers and parameter mirrors.
+pub async fn HttpClientTransport::send_json(
+  self : HttpClientTransport,
+  parsed : Json,
+) -> Unit {
+  @validation.validate_jsonrpc_value(parsed)
+  self.send_impl(parsed.stringify(), parsed)
+}
+
+///|
+async fn HttpClientTransport::send_impl(
+  self : HttpClientTransport,
+  message : String,
+  parsed : Json,
+) -> Unit {
   if self.closed {
     raise @types.InvalidState("Cannot send on closed transport")
   }
   let body_bytes = @utf8.encode(message)
-  // Parse once and reuse the decoded JSON tree for all request metadata.
-  let parsed = @validation.parse_json(message) catch { _ => Json::null() }
   let method_name = json_string_field(parsed, "method")
   let name = json_name_field(parsed)
   let request_id = request_id_from_json(parsed)
@@ -219,8 +238,8 @@ pub async fn HttpClientTransport::send(
       let (data_opt, id_opt) = reader.next()
       match sse_event_verdict(data_opt, id_opt) {
         Message(event_json) => {
-          let kind = check_http_response(event_json, request_id)
-          self.pending_responses.put(event_json) catch {
+          let (kind, parsed) = check_http_response_decoded(event_json, request_id)
+          self.pending_responses.put((event_json, parsed)) catch {
             _ => ()
           }
           if kind is FinalResponse {
@@ -252,12 +271,13 @@ pub async fn HttpClientTransport::send(
           raise @types.ReadError("Failed to read response body: \{Repr(e)}")
         }
     }
-    guard check_http_response(body_str, request_id) is FinalResponse else {
+    let (kind, parsed) = check_http_response_decoded(body_str, request_id)
+    guard kind is FinalResponse else {
       raise @types.ReadError(
         "Single JSON HTTP response must be a final response",
       )
     }
-    self.pending_responses.put(body_str) catch {
+    self.pending_responses.put((body_str, parsed)) catch {
       _ => ()
     }
   }
@@ -270,10 +290,22 @@ pub async fn HttpClientTransport::send(
 pub async fn HttpClientTransport::receive(
   self : HttpClientTransport,
 ) -> String? {
+  match self.receive_decoded() {
+    Some((raw, _)) => Some(raw)
+    None => None
+  }
+}
+
+///|
+/// Drain the next response with its already-decoded JSON value. The raw text
+/// remains available for compatibility callers and diagnostics.
+pub async fn HttpClientTransport::receive_decoded(
+  self : HttpClientTransport,
+) -> (String, Json)? {
   if self.closed {
     return None
   }
-  let result : String? = Some(self.pending_responses.get()) catch {
+  let result : (String, Json)? = Some(self.pending_responses.get()) catch {
     error => {
       if @async.is_being_cancelled() {
         raise error
