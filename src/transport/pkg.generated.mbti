@@ -76,7 +76,9 @@ pub(all) enum AnyTransport {
 }
 pub fn AnyTransport::close(Self) -> Unit
 pub async fn AnyTransport::receive(Self) -> String?
+pub async fn AnyTransport::receive_decoded(Self) -> (String, @json.Json)?
 pub async fn AnyTransport::send(Self, String) -> Unit
+pub async fn AnyTransport::send_json(Self, @json.Json) -> Unit
 pub async fn AnyTransport::send_notification(Self, @types.Notification) -> Unit
 
 pub struct AuthConfig {
@@ -109,14 +111,16 @@ pub struct HttpClientTransport {
   base_url : String
   auth_token : String?
   mut closed : Bool
-  pending_responses : @aqueue.Queue[String]
+  pending_responses : @aqueue.Queue[(String, @json.Json)]
   extra_headers : Array[(String, String)]
   tool_header_schemas : Map[String, Array[(Array[String], String)]]
 }
 pub fn HttpClientTransport::HttpClientTransport(String, auth_token? : String, extra_headers? : Array[(String, String)]) -> Self
 pub fn HttpClientTransport::close(Self) -> Unit
 pub async fn HttpClientTransport::receive(Self) -> String?
+pub async fn HttpClientTransport::receive_decoded(Self) -> (String, @json.Json)?
 pub async fn HttpClientTransport::send(Self, String) -> Unit
+pub async fn HttpClientTransport::send_json(Self, @json.Json) -> Unit
 pub async fn HttpClientTransport::send_notification(Self, @types.Notification) -> Unit
 pub fn HttpClientTransport::set_tool_header_schemas(Self, Map[String, Array[(Array[String], String)]]) -> Unit
 
@@ -182,6 +186,7 @@ pub fn StdioClientTransport::StdioClientTransport(cmd~ : String, args? : Array[S
 pub fn StdioClientTransport::close(Self) -> Unit
 pub async fn StdioClientTransport::receive(Self) -> String?
 pub async fn StdioClientTransport::send(Self, String) -> Unit
+pub async fn StdioClientTransport::send_json(Self, @json.Json) -> Unit
 pub async fn StdioClientTransport::send_notification(Self, @types.Notification) -> Unit
 pub async fn StdioClientTransport::start(Self, @async.TaskGroup) -> Unit raise @types.TransportError
 
