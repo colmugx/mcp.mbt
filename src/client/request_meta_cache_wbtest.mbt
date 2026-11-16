@@ -93,3 +93,30 @@ test "client log-level metadata is per-request and does not mutate cached data" 
   )
   assert_eq(client.request_meta().stringify(), original)
 }
+
+///|
+test "tool request without progress token preserves cached metadata without mutation" {
+  let client = MCPClient::MCPClient(
+    name="no-progress-client",
+    version="1",
+    transport=@transport.AnyTransport::Stdio(
+      @transport.StdioTransport::StdioTransport(),
+    ),
+  )
+  let meta = client.request_meta()
+  let before = meta.stringify()
+  let request = @validation.parse_json(
+    build_tools_call_request(
+      1,
+      "echo",
+      meta,
+      arguments="{\\"message\\":\\"hi\\"}",
+    ),
+  )
+  guard request is { "params": { "_meta": wire_meta, .. }, .. } else {
+    fail("tool request must contain request metadata")
+  }
+  assert_eq(wire_meta, meta)
+  assert_eq(meta.stringify(), before)
+  assert_eq(client.request_meta().stringify(), before)
+}
