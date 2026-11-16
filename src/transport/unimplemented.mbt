@@ -168,6 +168,17 @@ pub async fn StdioClientTransport::send(
 }
 
 ///|
+///|
+#warnings("-unused_async-unused_error_type")
+pub async fn StdioClientTransport::send_json(
+  self : StdioClientTransport,
+  _message : Json,
+) -> Unit raise @types.TransportError {
+  ignore(self)
+  abort("StdioClientTransport is not available on wasm-gc target")
+}
+
+///|
 pub async fn StdioClientTransport::send_notification(
   self : StdioClientTransport,
   _notification : @types.Notification,
@@ -223,6 +234,25 @@ pub async fn HttpClientTransport::send(
   self : HttpClientTransport,
   _message : String,
 ) -> Unit raise @types.TransportError {
+  abort("HttpClientTransport is not available on wasm-gc target")
+}
+
+///|
+///|
+#warnings("-unused_async-unused_error_type")
+pub async fn HttpClientTransport::send_json(
+  self : HttpClientTransport,
+  _message : Json,
+) -> Unit raise @types.TransportError {
+  ignore(self)
+  abort("HttpClientTransport is not available on wasm-gc target")
+}
+
+///|
+pub async fn HttpClientTransport::receive_decoded(
+  self : HttpClientTransport,
+) -> (String, Json)? {
+  ignore(self)
   abort("HttpClientTransport is not available on wasm-gc target")
 }
 
