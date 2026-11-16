@@ -95,44 +95,42 @@ pub async fn HttpClientTransport::send(
     raise @types.InvalidState("Cannot send on closed transport")
   }
   let body_bytes = @utf8.encode(message)
+  // Parse once and reuse the decoded JSON tree for all request metadata.
+  let parsed = @validation.parse_json(message) catch { _ => Json::null() }
+  let method = json_string_field(parsed, "method")
+  let name = json_name_field(parsed)
+  let request_id = @transport.request_id_from_json(parsed)
   let headers : @http.Headers = Default::default()
   headers["Content-Type"] = "application/json"
   headers["Accept"] = "application/json, text/event-stream"
   headers["Content-Length"] = body_bytes.length().to_string()
   headers["MCP-Protocol-Version"] = @types.ProtocolVersion
-  // Mirror body fields into headers for intermediary routing (spec
-  // basic/transports/streamable-http#request-metadata).
-  // Mcp-Method is required for all requests; Mcp-Name for the three
-  // name-bearing methods.
-  match extract_field(message, "method") {
+  match method {
     Some(m) => headers["Mcp-Method"] = m
     None => ()
   }
-  match extract_name_field(message) {
+  match name {
     Some(n) => headers["Mcp-Name"] = encode_header_value(n)
     None => ()
   }
-  // Emit Mcp-Param-* headers for tools/call when the client layer has
-  // provided x-mcp-header schemas from tools/list.
-  match extract_field(message, "method") {
-    Some("tools/call") =>
-      match extract_name_field(message) {
-        Some(tool_name) =>
-          match self.tool_header_schemas.get(tool_name) {
-            Some(schemas) =>
-              for entry in schemas {
-                let (path, suffix) = entry
-                match extract_argument_value(message, path) {
-                  Some(value) =>
-                    headers["Mcp-Param-" + suffix] = encode_header_value(value)
-                  None => ()
-                }
+  // Reuse the parsed arguments for every x-mcp-header path.
+  if method is Some("tools/call") {
+    match name {
+      Some(tool_name) =>
+        match self.tool_header_schemas.get(tool_name) {
+          Some(schemas) =>
+            for entry in schemas {
+              let (path, suffix) = entry
+              match extract_argument_value_from_json(parsed, path) {
+                Some(value) =>
+                  headers["Mcp-Param-" + suffix] = encode_header_value(value)
+                None => ()
               }
-            None => ()
-          }
-        None => ()
-      }
-    _ => ()
+            }
+          None => ()
+        }
+      None => ()
+    }
   }
   match self.auth_token {
     Some(t) => headers["Authorization"] = "Bearer " + t
@@ -223,7 +221,7 @@ pub async fn HttpClientTransport::send(
         Message(event_json) => {
           let kind = check_http_response(
             event_json,
-            request_id_from_body(message),
+            request_id,
           )
           self.pending_responses.put(event_json) catch {
             _ => ()
@@ -345,8 +343,7 @@ pub fn HttpClientTransport::close(self : HttpClientTransport) -> Unit {
 /// Extract a top-level string field from a JSON-RPC message body.
 /// Used to mirror `method` (and `params.name`/`params.uri` below) into the
 /// `Mcp-Method` / `Mcp-Name` request headers.
-fn extract_field(body : String, field : String) -> String? {
-  let json = @validation.parse_json(body) catch { _ => return None }
+fn json_string_field(json : Json, field : String) -> String? {
   if json is Object(obj) {
     match obj.get(field) {
       Some(String(s)) => Some(s)
@@ -358,11 +355,16 @@ fn extract_field(body : String, field : String) -> String? {
 }
 
 ///|
+fn extract_field(body : String, field : String) -> String? {
+  let json = @validation.parse_json(body) catch { _ => return None }
+  json_string_field(json, field)
+}
+
+///|
 /// Extract the `Mcp-Name` source value from a request body:
 /// `params.name` for tools/call|prompts/get, `params.uri` for resources/read.
 /// Returns None for methods that do not require `Mcp-Name`.
-fn extract_name_field(body : String) -> String? {
-  let json = @validation.parse_json(body) catch { _ => return None }
+fn json_name_field(json : Json) -> String? {
   if json is Object(obj) {
     let met = match obj.get("method") {
       Some(String(m)) => m
@@ -386,12 +388,23 @@ fn extract_name_field(body : String) -> String? {
 }
 
 ///|
+fn extract_name_field(body : String) -> String? {
+  let json = @validation.parse_json(body) catch { _ => return None }
+  json_name_field(json)
+}
+
+///|
 /// Extract the value at a property path inside `params.arguments` for
 /// `tools/call` requests. Returns `None` when the path is absent or the final
 /// value is `null`. Converts string, safe integer, and boolean values to their
 /// header string representations.
 pub fn extract_argument_value(body : String, path : Array[String]) -> String? {
   let json = @validation.parse_json(body) catch { _ => return None }
+  extract_argument_value_from_json(json, path)
+}
+
+///|
+fn extract_argument_value_from_json(json : Json, path : Array[String]) -> String? {
   if json is Object(obj) {
     match obj.get("params") {
       Some(Object(params)) =>

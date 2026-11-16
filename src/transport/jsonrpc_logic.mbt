@@ -115,19 +115,22 @@ pub fn sse_event_line(json : String) -> String {
 /// echoing in transport-level error responses. Returns `None` when the body
 /// is not a JSON object or carries no `id` — JSON-RPC allows omitting `id`
 /// when it cannot be determined from the (possibly malformed) request.
-pub fn request_id_from_body(body : String) -> Json? {
-  let json = @validation.parse_json(body) catch { _ => return None }
+pub fn request_id_from_json(json : Json) -> Json? {
   if json is Object(obj) {
     match obj.get("id") {
       Some(value) =>
-        Some(@types.RequestId::from_json(value).to_json()) catch {
-          _ => None
-        }
+        Some(@types.RequestId::from_json(value).to_json()) catch { _ => None }
       None => None
     }
   } else {
     None
   }
+}
+
+///|
+pub fn request_id_from_body(body : String) -> Json? {
+  let json = @validation.parse_json(body) catch { _ => return None }
+  request_id_from_json(json)
 }
 
 ///|
