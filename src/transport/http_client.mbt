@@ -301,10 +301,9 @@ pub async fn HttpClientTransport::send_notification(
   headers["Content-Type"] = "application/json"
   headers["Content-Length"] = body_bytes.length().to_string()
   headers["MCP-Protocol-Version"] = @types.ProtocolVersion
-  match extract_field(json_body, "method") {
-    Some(m) => headers["Mcp-Method"] = m
-    None => ()
-  }
+  // Notification already carries its method; do not serialize and then
+  // parse the JSON body just to reconstruct this required routing header.
+  headers["Mcp-Method"] = notification.method_name
   match self.auth_token {
     Some(t) => headers["Authorization"] = "Bearer " + t
     None => ()
