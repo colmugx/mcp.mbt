@@ -1,6 +1,6 @@
 name = "colmugx/mcp"
 
-version = "0.18.4"
+version = "0.19.0"
 
 import {
   "cc06b/mooncry@0.13.1",
