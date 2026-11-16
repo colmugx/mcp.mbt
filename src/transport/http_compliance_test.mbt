@@ -381,7 +381,7 @@ test "compliance: extract_argument_value walks path and converts primitives" {
 
 ///|
 test "compliance: decoded request metadata extraction matches wire helpers" {
-  let body = "{\\"jsonrpc\\":\\"2.0\\",\\"id\\":42,\\"method\\":\\"tools/call\\",\\"params\\":{\\"name\\":\\"echo\\",\\"arguments\\":{\\"region\\":\\"us-west1\\",\\"nested\\":{\\"x\\":\\"deep\\"}}}}"
+  let body = "{\"jsonrpc\":\"2.0\",\"id\":42,\"method\":\"tools/call\",\"params\":{\"name\":\"echo\",\"arguments\":{\"region\":\"us-west1\",\"nested\":{\"x\":\"deep\"}}}}"
   let decoded = @validation.parse_json(body)
   assert_eq(json_string_field(decoded, "method"), Some("tools/call"))
   assert_eq(json_name_field(decoded), Some("echo"))
