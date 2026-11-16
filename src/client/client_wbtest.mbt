@@ -469,3 +469,32 @@ test "structured tools/call builder matches the wire format" {
   )
   assert_eq(actual, expected)
 }
+
+///|
+test "structured MRTR retry preserves request metadata without reparsing" {
+  let original = build_tools_call_request_json(
+    1,
+    "echo",
+    test_meta(),
+    arguments="{\"value\":23}",
+  )
+  let before = original.stringify()
+  let responses : Map[String, Json] = Map([])
+  responses.set("verification", { "approved": true })
+  let retry = build_retry_request_json(
+    original, 2, responses, Some("continue"),
+  )
+  assert_eq(original.stringify(), before)
+  guard retry is {
+    "id": Number(2, ..),
+    "params": {
+      "name": String("echo"),
+      "inputResponses": { "verification": { "approved": Bool(true), .. }, .. },
+      "requestState": String("continue"),
+      ..
+    },
+    ..
+  } else {
+    fail("structured MRTR retry lost method, inputs or request id")
+  }
+}
