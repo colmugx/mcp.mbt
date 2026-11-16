@@ -18,13 +18,12 @@ async test "temporary client pump routes out-of-order replies and progress witho
   let second : @aqueue.Queue[RoutedResponse] = @aqueue.Queue(kind=Unbounded)
   client.response_map.set(@types.RequestId::Int(1).key(), first)
   client.response_map.set(@types.RequestId::Int(2).key(), second)
-  transport.pending_responses.put(
-    Json::object({
-      "jsonrpc": "2.0",
-      "method": "notifications/progress",
-      "params": { "progressToken": 7.5, "progress": 0.5 },
-    }).stringify(),
-  )
+  let progress_raw = Json::object({
+    "jsonrpc": "2.0",
+    "method": "notifications/progress",
+    "params": { "progressToken": 7.5, "progress": 0.5 },
+  }).stringify()
+  transport.pending_responses.put((progress_raw, @validation.parse_json(progress_raw)))
   transport.pending_responses.put(("{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"marker\":\"second\"}}", @validation.parse_json("{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"marker\":\"second\"}}")))
   transport.pending_responses.put(("{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"marker\":\"first\"}}", @validation.parse_json("{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"marker\":\"first\"}}")))
   @async.with_task_group(group => client.pump_direct_responses(group))
