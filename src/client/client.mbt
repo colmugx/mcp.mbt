@@ -426,7 +426,7 @@ async fn MCPClient::send_request_decoded_json(
   request : Json,
   request_id : @types.RequestId,
 ) -> RoutedResponse {
-  self.send_request_decoded_payload(StructuredRequest(request), request_id?)
+  self.send_request_decoded_payload(StructuredRequest(request), request_id~)
 }
 
 ///|
@@ -505,7 +505,6 @@ async fn MCPClient::send_request_decoded_payload(
   answer.val.unwrap()
 }
 
-///|
 ///|
 /// Preserve raw transport validation while skipping string serialization for
 /// requests that were already constructed as typed JSON by the client.
@@ -1257,7 +1256,7 @@ pub async fn MCPClient::call_tool(
     id,
     name,
     self.request_meta(),
-    arguments~,
+    arguments=parse_argument_object(arguments),
     progress_token?,
   )
   // Preserve the legacy wire contract; modern calls stay as Json until send.
@@ -1265,15 +1264,13 @@ pub async fn MCPClient::call_tool(
     return legacy_send_and_parse(
       legacy,
       apply_legacy_meta_to_request(
-        request.stringify(), build_legacy_meta(progress_token?),
+        request.stringify(),
+        build_legacy_meta(progress_token?),
       ),
       parse_call_tool,
     )
   }
-  let result_json = self.send_with_mrtr_json(
-    request,
-    @types.RequestId::Int(id),
-  )
+  let result_json = self.send_with_mrtr_json(request, @types.RequestId::Int(id))
   parse_call_tool(result_json)
 }
 
@@ -1281,7 +1278,7 @@ pub async fn MCPClient::call_tool(
 /// Call an MCP tool with an already-decoded JSON argument object.
 ///
 /// This avoids the intermediate stringify/parse cycle. The JSON-RPC request
-/// itself is still serialized once for the transport.
+/// itself stays structured until the transport serializes it once.
 pub async fn MCPClient::call_tool_json(
   self : MCPClient,
   name : String,
@@ -1295,18 +1292,18 @@ pub async fn MCPClient::call_tool_json(
     self.request_meta(),
     arguments~,
     progress_token?,
-  ).stringify()
+  )
   if self.backend is Legacy(legacy) {
     return legacy_send_and_parse(
       legacy,
-      apply_legacy_meta_to_request(request, build_legacy_meta(progress_token?)),
+      apply_legacy_meta_to_request(
+        request.stringify(),
+        build_legacy_meta(progress_token?),
+      ),
       parse_call_tool,
     )
   }
-  let result_json = self.send_with_mrtr(
-    request,
-    request_id=@types.RequestId::Int(id),
-  )
+  let result_json = self.send_with_mrtr_json(request, @types.RequestId::Int(id))
   parse_call_tool(result_json)
 }
 

@@ -497,48 +497,44 @@ test "RequestId::to_json_string escapes control characters as valid JSON" {
 ///|
 test "structured tools/call builder matches the wire format" {
   let meta = test_meta()
+  let wire = "{\"nested\":{\"flag\":true}}"
   let expected = @validation.parse_json(
-    build_tools_call_request(
-      42,
-      "echo",
-      meta,
-      arguments="{\"nested\":{\"flag\":true}}",
-    ),
-  )
-  let actual = build_tools_call_request_json(
-    42,
-    "echo",
-    meta,
-    arguments="{\"nested\":{\"flag\":true}}",
-  )
+    build_tools_call_request(42, "echo", meta, arguments=wire),
+  ) catch {
+    _ => Json::null()
+  }
+  let args = @validation.parse_json(wire) catch { _ => Json::null() }
+  let actual = build_tools_call_request_json(42, "echo", meta, arguments=args)
   assert_eq(actual, expected)
 }
 
 ///|
 test "structured MRTR retry preserves request metadata without reparsing" {
+  let args = @validation.parse_json("{\"value\":23}") catch {
+    _ => Json::null()
+  }
   let original = build_tools_call_request_json(
     1,
     "echo",
     test_meta(),
-    arguments="{\"value\":23}",
+    arguments=args,
   )
   let before = original.stringify()
   let responses : Map[String, Json] = Map([])
   responses.set("verification", { "approved": true })
-  let retry = build_retry_request_json(
-    original, 2, responses, Some("continue"),
-  )
+  let retry = build_retry_request_json(original, 2, responses, Some("continue"))
   assert_eq(original.stringify(), before)
-  guard retry is {
-    "id": Number(2, ..),
-    "params": {
-      "name": String("echo"),
-      "inputResponses": { "verification": { "approved": Bool(true), .. }, .. },
-      "requestState": String("continue"),
+  guard retry
+    is {
+      "id": Number(2, ..),
+      "params": {
+        "name": String("echo"),
+        "inputResponses": { "verification": { "approved": True, .. }, .. },
+        "requestState": String("continue"),
+        ..
+      },
       ..
-    },
-    ..
-  } else {
+    } else {
     fail("structured MRTR retry lost method, inputs or request id")
   }
 }

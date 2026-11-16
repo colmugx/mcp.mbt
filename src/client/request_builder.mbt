@@ -122,6 +122,7 @@ fn build_tools_call_request_json(
 
 ///|
 /// Source-compatible string adapter sharing the JSON-tree builder.
+#warnings("-unused_value")
 fn build_tools_call_request(
   id : Int32,
   name : String,
