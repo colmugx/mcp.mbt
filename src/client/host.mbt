@@ -126,6 +126,30 @@ pub async fn MCPHost::call_tool(
 }
 
 ///|
+/// Call a qualified tool with an already-decoded JSON argument object.
+pub async fn MCPHost::call_tool_json(
+  self : MCPHost,
+  qualified_name : String,
+  arguments~ : Json,
+) -> CallToolResult {
+  match qualified_name.split_once(".") {
+    Some((connection_view, tool_view)) => {
+      let connection_name = connection_view.to_owned()
+      let tool_name = tool_view.to_owned()
+      match self.connections.get(connection_name) {
+        Some(client) => client.call_tool_json(tool_name, arguments~)
+        None =>
+          raise @types.MethodNotFound("Connection not found: " + connection_name)
+      }
+    }
+    None =>
+      raise @types.InvalidRequest(
+        "Tool name must be qualified as '<connection>.<tool>'",
+      )
+  }
+}
+
+///|
 pub async fn MCPHost::close_all(self : MCPHost) -> Unit {
   for entry in self.connections {
     let (_, client) = entry

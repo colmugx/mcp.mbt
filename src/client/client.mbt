@@ -1166,6 +1166,35 @@ pub async fn MCPClient::call_tool(
 }
 
 ///|
+/// Call an MCP tool with an already-decoded JSON argument object.
+///
+/// This avoids the intermediate stringify/parse cycle. The JSON-RPC request
+/// itself is still serialized once for the transport.
+pub async fn MCPClient::call_tool_json(
+  self : MCPClient,
+  name : String,
+  arguments~ : Json,
+  progress_token? : @types.ProgressToken,
+) -> CallToolResult {
+  let id = self.next_request_id()
+  let request = build_tools_call_request_json(
+    id, name, self.request_meta(), arguments~, progress_token?,
+  )
+  if self.backend is Legacy(legacy) {
+    return legacy_send_and_parse(
+      legacy,
+      apply_legacy_meta_to_request(request, build_legacy_meta(progress_token?)),
+      parse_call_tool,
+    )
+  }
+  let result_json = self.send_with_mrtr(
+    request,
+    request_id=@types.RequestId::Int(id),
+  )
+  parse_call_tool(result_json)
+}
+
+///|
 pub async fn MCPClient::list_resources(
   self : MCPClient,
   cursor~ : String = "",

@@ -95,6 +95,7 @@ pub struct MCPClient {
   mut backend : ClientBackend
 }
 pub async fn MCPClient::call_tool(Self, String, arguments? : String, progress_token? : @types.ProgressToken) -> @types.ToolResult
+pub async fn MCPClient::call_tool_json(Self, String, arguments~ : @json.Json, progress_token? : @types.ProgressToken) -> @types.ToolResult
 pub async fn MCPClient::cancel_listen(Self, String) -> Unit
 pub async fn MCPClient::cancel_request(Self, @types.RequestId, reason? : String) -> Unit
 pub async fn MCPClient::close(Self) -> Unit
@@ -127,6 +128,7 @@ pub struct MCPHost {
 }
 pub fn MCPHost::MCPHost(name~ : String, version~ : String) -> Self
 pub async fn MCPHost::call_tool(Self, String, arguments? : String) -> @types.ToolResult
+pub async fn MCPHost::call_tool_json(Self, String, arguments~ : @json.Json) -> @types.ToolResult
 pub async fn MCPHost::close_all(Self) -> Unit
 pub async fn MCPHost::connect_http(Self, name~ : String, url~ : String, auth_token? : String, era? : ProtocolEra) -> Unit
 pub async fn MCPHost::connect_stdio(Self, name~ : String, cmd~ : String, args? : Array[String], extra_env? : Map[String, String], group~ : @async.TaskGroup, era? : ProtocolEra) -> Unit

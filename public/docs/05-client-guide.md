@@ -83,7 +83,7 @@ let client = @mcp.MCPClient::connect_http(
 
 The client methods you will use most:
 
-- `list_tools(cursor?)` / `call_tool(name, arguments?, progress_token?)`
+- `list_tools(cursor?)` / `call_tool(name, arguments?, progress_token?)` / `call_tool_json(name, arguments: Json, progress_token?)`
 - `list_resources(cursor?)` / `read_resource(uri)` / `list_resource_templates(cursor?)`
 - `list_prompts(cursor?)` / `get_prompt(name, arguments?)`
 - `complete(ref_type~, ref_name~, argument_name~, argument_value~, context_arguments?)`

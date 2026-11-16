@@ -35,6 +35,33 @@ test "build_tools_call_request format" {
 }
 
 ///|
+test "build_tools_call_request_json preserves structured JSON arguments" {
+  let arguments = @json.parse("{\\"nested\\":{\\"enabled\\":true},\\"items\\":[1,2,3]}") catch {
+    _ => Json::null()
+  }
+  let req = build_tools_call_request_json(
+    2, "json_tool", test_meta(), arguments~,
+  )
+  let actual = @json.parse(req) catch { _ => Json::null() }
+  let expected = @json.parse("{\\"jsonrpc\\":\\"2.0\\",\\"id\\":2,\\"method\\":\\"tools/call\\",\\"params\\":{\\"name\\":\\"json_tool\\",\\"arguments\\":{\\"nested\\":{\\"enabled\\":true},\\"items\\":[1,2,3]},\\"_meta\\":{\\"io.modelcontextprotocol/protocolVersion\\":\\"2026-07-28\\",\\"io.modelcontextprotocol/clientCapabilities\\":{},\\"io.modelcontextprotocol/clientInfo\\":{\\"name\\":\\"test-client\\",\\"version\\":\\"1.0.0\\"}}}}") catch {
+    _ => Json::null()
+  }
+  @debug.assert_eq(actual, expected)
+}
+
+///|
+test "build_tools_call_request_json rejects non-object arguments" {
+  try build_tools_call_request_json(
+    3, "json_tool", test_meta(), arguments=Json::array([]),
+  ) catch {
+    @types.InvalidParams(message) => assert_true(message.contains("JSON object"))
+    _ => panic()
+  } noraise {
+    _ => fail("expected non-object arguments to be rejected")
+  }
+}
+
+///|
 test "build_resources_list_request format" {
   let req = build_resources_list_request(1, test_meta())
   let actual = @json.parse(req) catch { _ => Json::null() }

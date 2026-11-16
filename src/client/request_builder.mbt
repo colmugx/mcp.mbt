@@ -62,24 +62,33 @@ fn build_tools_list_request(
 
 ///|
 fn parse_argument_object(arguments : String) -> Json raise @types.MCPError {
-  let value = @validation.parse_json(arguments) catch {
+  @validation.parse_json(arguments) catch {
     _ => raise @types.InvalidParams("Arguments must be valid JSON")
   }
-  guard value is Object(_) else {
-    raise @types.InvalidParams("Arguments must be a JSON object")
-  }
-  value
 }
 
 ///|
-fn build_tools_call_request(
+/// Validate an already-decoded argument value without serializing and parsing
+/// it again. MCP tool arguments are always a JSON object.
+fn validate_argument_object(arguments : Json) -> Json raise @types.MCPError {
+  guard arguments is Object(_) else {
+    raise @types.InvalidParams("Arguments must be a JSON object")
+  }
+  arguments
+}
+
+///|
+/// Build a tools/call request from an existing JSON tree. The final request
+/// still needs one wire serialization, but no intermediate JSON string or
+/// parse pass is required.
+fn build_tools_call_request_json(
   id : Int32,
   name : String,
   meta : Json,
-  arguments~ : String = "{}",
+  arguments~ : Json,
   progress_token? : @types.ProgressToken,
 ) -> String raise @types.MCPError {
-  let arguments_json = parse_argument_object(arguments)
+  let arguments_json = validate_argument_object(arguments)
   let params_map : Map[String, Json] = Default::default()
   params_map.set("name", Json::string(name))
   params_map.set("arguments", arguments_json)
@@ -104,6 +113,21 @@ fn build_tools_call_request(
     "method": "tools/call",
     "params": Json::object(params_map),
   }).stringify()
+}
+
+///|
+/// Source-compatible string adapter sharing the JSON-tree builder.
+fn build_tools_call_request(
+  id : Int32,
+  name : String,
+  meta : Json,
+  arguments~ : String = "{}",
+  progress_token? : @types.ProgressToken,
+) -> String raise @types.MCPError {
+  let arguments_json = parse_argument_object(arguments)
+  build_tools_call_request_json(
+    id, name, meta, arguments=arguments_json, progress_token?,
+  )
 }
 
 ///|
