@@ -393,6 +393,7 @@ fn MCPClient::request_meta(
 }
 
 ///|
+#warnings("-unused_value")
 async fn MCPClient::send_request(
   self : MCPClient,
   request : String,
@@ -673,6 +674,7 @@ fn MCPClient::maybe_store_server_info_decoded(
 ///
 /// `max_rounds` bounds the retry count to prevent infinite loops if the server
 /// keeps requesting input.
+#warnings("-unused_value")
 async fn MCPClient::send_with_mrtr(
   self : MCPClient,
   request : String,
