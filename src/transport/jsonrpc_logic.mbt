@@ -105,15 +105,6 @@ fn check_http_response_decoded(
 }
 
 ///|
-/// Compatibility wrapper for callers that only need the message class.
-fn check_http_response(
-  message : String,
-  expected : Json?,
-) -> JsonRpcKind raise @types.TransportError {
-  check_http_response_decoded(message, expected).0
-}
-
-///|
 /// Format a JSON-RPC payload as one SSE event line.
 pub fn sse_event_line(json : String) -> String {
   "data: " + json + "\n\n"

@@ -102,7 +102,7 @@ pub async fn HttpClientTransport::send_json(
   self : HttpClientTransport,
   parsed : Json,
 ) -> Unit {
-  @validation.validate_jsonrpc_value(parsed)
+  validate_jsonrpc_value(parsed)
   self.send_impl(parsed.stringify(), parsed)
 }
 
