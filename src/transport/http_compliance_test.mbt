@@ -381,7 +381,7 @@ test "compliance: extract_argument_value walks path and converts primitives" {
 
 ///|
 test "compliance: decoded request id matches wire extraction" {
-  let body = "{\\"jsonrpc\\":\\"2.0\\",\\"id\\":42,\\"method\\":\\"tools/call\\",\\"params\\":{\\"name\\":\\"echo\\",\\"arguments\\":{}}}"
+  let body = "{\"jsonrpc\":\"2.0\",\"id\":42,\"method\":\"tools/call\",\"params\":{\"name\":\"echo\",\"arguments\":{}}}"
   let decoded = @validation.parse_json(body)
   assert_eq(
     @transport.request_id_from_body(body),
