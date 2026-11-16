@@ -47,8 +47,7 @@ test "build_tools_call_request_json preserves structured JSON arguments" {
     test_meta(),
     arguments=args_json,
   )
-  let actual = @json.parse(req) catch { _ => Json::null() }
-  match actual {
+  match req {
     Object(root) =>
       match root.get("params") {
         Some(Object(params)) =>
@@ -493,4 +492,24 @@ test "RequestId::to_json_string escapes control characters as valid JSON" {
   let encoded = @types.RequestId::Str(raw).to_json_string()
   let reparsed = @json.parse(encoded) catch { _ => panic() }
   assert_eq(reparsed, Json::string(raw))
+}
+
+///|
+test "structured tools/call builder matches the wire format" {
+  let meta = test_meta()
+  let expected = @validation.parse_json(
+    build_tools_call_request(
+      42,
+      "echo",
+      meta,
+      arguments="{\\"nested\\":{\\"flag\\":true}}",
+    ),
+  )
+  let actual = build_tools_call_request_json(
+    42,
+    "echo",
+    meta,
+    arguments="{\\"nested\\":{\\"flag\\":true}}",
+  )
+  assert_eq(actual, expected)
 }
