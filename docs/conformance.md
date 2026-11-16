@@ -135,7 +135,9 @@ Development uses `moon.work` to resolve the local independent library. The decla
 copy containing only the SDK module (no external-validator workspace member) resolved
 that registry release and passed native check, 409/409 SDK tests and native release
 build. The temporary copy and build artifacts were removed afterwards. This verifies
-historical dependency readiness, not publication of these MCP changes. The current workspace declares validator 0.1.4; the registry-only record below applies to the earlier 0.1.3 revision, not a fresh isolated verification of 0.1.4.
+historical dependency readiness, not publication of these MCP changes. The current
+workspace declares validator `0.1.6`; the registry-only record above applies to the
+earlier 0.1.3 revision and has not been re-run for the current one.
 
 ## Migration: resources and prompts
 
@@ -188,7 +190,7 @@ Follow `src/transport/moon.pkg`: HTTP server and stdio server I/O are native/was
 - Real-I/O channel selection (`moon test --target native --output-json -f 'e2e/*'`): **29/29** across HTTP, stdio, SSE and legacy; JS real-I/O selection: **5/5**.
 - Default `moon check --output-json`, native/JS/Wasm `--deny-warn` checks and native release build: **passed with zero warnings and zero errors**. The 48 Warning 78 diagnostics were removed by the checked-error API migration, not suppressed.
 - New registry error-boundary tests verify unchanged handler-error wire identity and cancellation precedence over returned handler errors. Existing real stdio/HTTP cancellation and cleanup assertions remain enabled; error-observing test tasks use `allow_failure=true` so the caller, not the whole group, handles their raised failures.
-- Historical registry-only isolated SDK check, **409/409** tests and native release build: passed against published `colmugx/json-schema@0.1.3` (without the local validator override), before the checked-error migration and subject to its then-existing warnings. This historical result was not rerun for the current 0.1.4 dependency during the warning cleanup.
+- Historical registry-only isolated SDK check, **409/409** tests and native release build: passed against published `colmugx/json-schema@0.1.3` (without the local validator override), before the checked-error migration and subject to its then-existing warnings. This historical result was not rerun for the current 0.1.6 dependency during the warning cleanup.
 - Fixture SHA-256 checks match the fixed-source README. `moon fmt`, `moon info` and `git diff --check` were run. The 155-definition index records representation/evidence routing, not an automatic complete-conformance proof.
 - One attempted `moon test src ... -f 'e2e/*'` selected zero tests; it is not acceptance evidence. The corrected workspace-wide commands above selected and passed the actual channel tests.
 

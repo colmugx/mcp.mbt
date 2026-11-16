@@ -6,7 +6,7 @@ async fn main {
   let client = @mcp.MCPClient::connect_http(
     url=url,
     name="colmugx-mcp-throughput-client",
-    version="0.18.4",
+    version="0.19.0",
   )
   defer @async.protect_from_cancel(() => client.close())
 

@@ -3,7 +3,7 @@ name = "colmugx/mcp-example-http"
 version = "0.1.0"
 
 import {
-  "colmugx/mcp@0.18.3",
+  "colmugx/mcp@0.19.0",
 }
 
 readme = "README.mbt.md"

@@ -2,7 +2,7 @@
 /// Independent benchmark fixture: many tools make the cost of tools/list sorting
 /// observable, without modifying the production benchmark fixtures.
 async fn main {
-  let server = @mcp.MCPServer("list-benchmark", "0.18.4")
+  let server = @mcp.MCPServer("list-benchmark", "0.19.0")
   for i in 0..<256 {
     ignore(
       server.tool(

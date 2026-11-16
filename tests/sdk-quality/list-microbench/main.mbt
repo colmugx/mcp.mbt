@@ -2,7 +2,7 @@
 /// In-process list-heavy request benchmark (no HTTP or external load process).
 /// Both main and candidate compile this exact same fixture on the same runner.
 async fn main {
-  let server = @mcp.MCPServer("microbench", "0.18.4")
+  let server = @mcp.MCPServer("microbench", "0.19.0")
   for i in 0..<256 {
     ignore(
       server.tool(

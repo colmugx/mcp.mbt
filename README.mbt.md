@@ -2,7 +2,7 @@
 
 Type-safe [Model Context Protocol](https://modelcontextprotocol.io/) SDK for MoonBit.
 
-**Version**: 0.18.3 · **Protocol**: 2026-07-28 (stateless) · **License**: Apache-2.0
+**Version**: 0.19.0 · **Protocol**: 2026-07-28 (stateless) · **License**: Apache-2.0
 
 ## Protocol support and scope
 
@@ -24,7 +24,7 @@ Install the published SDK and its async runtime dependency in your MoonBit
 project:
 
 ```bash
-moon add colmugx/mcp@0.18.3
+moon add colmugx/mcp@0.19.0
 moon add moonbitlang/core
 ```
 

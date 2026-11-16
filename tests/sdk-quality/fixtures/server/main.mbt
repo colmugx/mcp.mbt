@@ -1,6 +1,6 @@
 ///|
 async fn main {
-  let server = @mcp.MCPServer("mcp-conformance", "0.18.4")
+  let server = @mcp.MCPServer("mcp-conformance", "0.19.0")
     .tool(
       "test_simple_text",
       "Return a fixed text response for protocol conformance tests",
