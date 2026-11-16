@@ -168,6 +168,7 @@ pub async fn StdioClientTransport::send(
 }
 
 ///|
+
 ///|
 #warnings("-unused_async-unused_error_type")
 pub async fn StdioClientTransport::send_json(
@@ -238,6 +239,7 @@ pub async fn HttpClientTransport::send(
 }
 
 ///|
+
 ///|
 #warnings("-unused_async-unused_error_type")
 pub async fn HttpClientTransport::send_json(

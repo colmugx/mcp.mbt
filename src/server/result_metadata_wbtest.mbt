@@ -209,10 +209,7 @@ async test "resource handler cache hints survive the complete runtime path" {
 ///|
 test "cacheable response applies defaults without modifying handler result" {
   let server = MCPServer::MCPServer("test", "1")
-  let result : Json = {
-    "tools": [],
-    "_meta": { "trace": "once" },
-  }
+  let result : Json = { "tools": [], "_meta": { "trace": "once" } }
   let original = result.stringify()
   let response = parse_result(
     jsonrpc_cacheable_success_str(
@@ -227,7 +224,10 @@ test "cacheable response applies defaults without modifying handler result" {
   assert_eq(json_get(response, "ttlMs"), Json::number(30000))
   assert_eq(json_get(response, "cacheScope"), Json::string("public"))
   assert_eq(json_get(response, "resultType"), Json::string("complete"))
-  assert_eq(json_get(json_get(response, "_meta"), "trace"), Json::string("once"))
+  assert_eq(
+    json_get(json_get(response, "_meta"), "trace"),
+    Json::string("once"),
+  )
   assert_eq(
     json_get(json_get(response, "_meta"), "io.modelcontextprotocol/serverInfo"),
     { "name": "test", "version": "1" },

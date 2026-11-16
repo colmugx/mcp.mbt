@@ -23,9 +23,25 @@ async test "temporary client pump routes out-of-order replies and progress witho
     "method": "notifications/progress",
     "params": { "progressToken": 7.5, "progress": 0.5 },
   }).stringify()
-  transport.pending_responses.put((progress_raw, @validation.parse_json(progress_raw)))
-  transport.pending_responses.put(("{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"marker\":\"second\"}}", @validation.parse_json("{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"marker\":\"second\"}}")))
-  transport.pending_responses.put(("{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"marker\":\"first\"}}", @validation.parse_json("{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"marker\":\"first\"}}")))
+  transport.pending_responses.put(
+    (progress_raw, @validation.parse_json(progress_raw)),
+  )
+  transport.pending_responses.put(
+    (
+      "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"marker\":\"second\"}}",
+      @validation.parse_json(
+        "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"marker\":\"second\"}}",
+      ),
+    ),
+  )
+  transport.pending_responses.put(
+    (
+      "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"marker\":\"first\"}}",
+      @validation.parse_json(
+        "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"marker\":\"first\"}}",
+      ),
+    ),
+  )
   @async.with_task_group(group => client.pump_direct_responses(group))
   assert_eq(progress, [0.5])
   assert_true(

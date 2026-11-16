@@ -37,9 +37,7 @@ pub async fn AnyTransport::receive_decoded(
       match self.receive() {
         Some(raw) => {
           // Preserve exact decimal literals (notably large JSON-RPC request IDs).
-          let parsed = @validation.parse_json(raw) catch {
-            _ => Json::null()
-          }
+          let parsed = @validation.parse_json(raw) catch { _ => Json::null() }
           Some((raw, parsed))
         }
         None => None

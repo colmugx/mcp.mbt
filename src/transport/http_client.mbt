@@ -238,7 +238,9 @@ async fn HttpClientTransport::send_impl(
       let (data_opt, id_opt) = reader.next()
       match sse_event_verdict(data_opt, id_opt) {
         Message(event_json) => {
-          let (kind, parsed) = check_http_response_decoded(event_json, request_id)
+          let (kind, parsed) = check_http_response_decoded(
+            event_json, request_id,
+          )
           self.pending_responses.put((event_json, parsed)) catch {
             _ => ()
           }
