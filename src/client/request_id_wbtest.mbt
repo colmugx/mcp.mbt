@@ -134,3 +134,45 @@ test "era probes do not alias large or fractional error codes to modern reserved
     is Some(@types.HeaderMismatch(_)),
   )
 }
+
+ 
+///|
+/// The internal request-id fast path is only used with requests produced by
+/// these SDK builders. Verify the id passed to routing is the wire identity
+/// across methods and the largest supported Int32 id.
+test "typed request builders carry matching JSON-RPC ids" {
+  let meta : Json = {
+    "io.modelcontextprotocol/protocolVersion": @types.ProtocolVersion,
+  }
+  for id in [1, 42, 2147483647] {
+    let expected = @types.RequestId::Int(id)
+    assert_eq(
+      extract_request_id(
+        build_tools_call_request(
+          id, "echo", meta, arguments="{\"message\":\"hi\"}",
+        ),
+      ),
+      expected,
+    )
+    assert_eq(
+      extract_request_id(build_tools_list_request(id, meta)),
+      expected,
+    )
+    assert_eq(
+      extract_request_id(build_resources_read_request(id, "file:///x", meta)),
+      expected,
+    )
+    assert_eq(
+      extract_request_id(build_prompts_get_request(id, "prompt", meta)),
+      expected,
+    )
+  }
+  let original = build_tools_call_request(
+    1, "echo", meta, arguments="{\"message\":\"hi\"}",
+  )
+  let empty_responses : Map[String, Json] = Map([])
+  assert_eq(
+    extract_request_id(build_retry_request(original, 2, empty_responses, None)),
+    @types.RequestId::Int(2),
+  )
+}
