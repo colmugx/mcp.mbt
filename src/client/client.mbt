@@ -426,7 +426,7 @@ async fn MCPClient::send_request_decoded_json(
   request : Json,
   request_id : @types.RequestId,
 ) -> RoutedResponse {
-  self.send_request_decoded_payload(StructuredRequest(request), request_id?)
+  self.send_request_decoded_payload(StructuredRequest(request), request_id=request_id)
 }
 
 ///|

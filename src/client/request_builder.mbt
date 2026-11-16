@@ -72,6 +72,7 @@ fn parse_argument_object(arguments : String) -> Json raise @types.MCPError {
 }
 
 ///|
+#warnings("-unused_value")
 fn build_tools_call_request(
   id : Int32,
   name : String,

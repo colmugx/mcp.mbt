@@ -489,7 +489,7 @@ test "structured MRTR retry preserves request metadata without reparsing" {
     "id": Number(2, ..),
     "params": {
       "name": String("echo"),
-      "inputResponses": { "verification": { "approved": Bool(true), .. }, .. },
+      "inputResponses": { "verification": { "approved": True, .. }, .. },
       "requestState": String("continue"),
       ..
     },
