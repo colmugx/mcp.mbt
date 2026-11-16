@@ -205,3 +205,57 @@ async test "resource handler cache hints survive the complete runtime path" {
   assert_eq(json_get(result, "ttlMs"), Json::number(0))
   assert_eq(json_get(result, "cacheScope"), Json::string("public"))
 }
+
+///|
+test "cacheable response applies defaults without modifying handler result" {
+  let server = MCPServer::MCPServer("test", "1")
+  let result : Json = {
+    "tools": [],
+    "_meta": { "trace": "once" },
+  }
+  let original = result.stringify()
+  let response = parse_result(
+    jsonrpc_cacheable_success_str(
+      server,
+      @types.RequestId::Int(41),
+      result,
+      30000,
+      "public",
+    ),
+  )
+  assert_eq(result.stringify(), original)
+  assert_eq(json_get(response, "ttlMs"), Json::number(30000))
+  assert_eq(json_get(response, "cacheScope"), Json::string("public"))
+  assert_eq(json_get(response, "resultType"), Json::string("complete"))
+  assert_eq(json_get(json_get(response, "_meta"), "trace"), Json::string("once"))
+  assert_eq(
+    json_get(json_get(response, "_meta"), "io.modelcontextprotocol/serverInfo"),
+    { "name": "test", "version": "1" },
+  )
+}
+
+///|
+test "cacheable response preserves handler cache hints and extensions" {
+  let server = MCPServer::MCPServer("test", "1")
+  let result : Json = {
+    "tools": [],
+    "ttlMs": 0,
+    "cacheScope": "private",
+    "_meta": { "trace": "handler" },
+    "com.example/extension": false,
+  }
+  let before = result.stringify()
+  let response = parse_result(
+    jsonrpc_cacheable_success_str(
+      server,
+      @types.RequestId::Int(42),
+      result,
+      60000,
+      "public",
+    ),
+  )
+  assert_eq(result.stringify(), before)
+  assert_eq(json_get(response, "ttlMs"), Json::number(0))
+  assert_eq(json_get(response, "cacheScope"), Json::string("private"))
+  assert_eq(json_get(response, "com.example/extension"), Json::boolean(false))
+}

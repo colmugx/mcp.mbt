@@ -131,28 +131,25 @@ fn jsonrpc_cacheable_success_str(
   ttl_ms : Int32,
   cache_scope : String,
 ) -> String {
-  ignore(@types.ResultMetadata::from_json(result, body_fields=[])) catch {
-    _ =>
-      return jsonrpc_error_str(
-        id, -32603, "Handler returned invalid result metadata",
-      )
-  }
-  let result = with_server_meta(server, result)
-  match result {
+  // Add cache hints to a private result map. jsonrpc_success_str performs
+  // metadata validation and serverInfo/resultType decoration exactly once.
+  // Do not mutate handler-owned JSON or replace explicit cache hints.
+  let result = match result {
     Object(obj) => {
-      if !obj.contains("ttlMs") {
-        // ttlMs is schema `integer`: emit the exact Int32 literal instead of
-        // a Double that could gain a fractional wire spelling.
-        obj.set(
+      let fields = obj.copy()
+      if !fields.contains("ttlMs") {
+        // ttlMs is schema integer: preserve an exact wire literal.
+        fields.set(
           "ttlMs",
           Json::number(ttl_ms.to_double(), repr=ttl_ms.to_string()),
         )
       }
-      if !obj.contains("cacheScope") {
-        obj.set("cacheScope", Json::string(cache_scope))
+      if !fields.contains("cacheScope") {
+        fields.set("cacheScope", Json::string(cache_scope))
       }
+      Json::object(fields)
     }
-    _ => ()
+    _ => result
   }
   jsonrpc_success_str(server, id, result)
 }
