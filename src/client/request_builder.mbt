@@ -62,9 +62,15 @@ fn build_tools_list_request(
 
 ///|
 fn parse_argument_object(arguments : String) -> Json raise @types.MCPError {
-  @validation.parse_json(arguments) catch {
+  let value = @validation.parse_json(arguments) catch {
     _ => raise @types.InvalidParams("Arguments must be valid JSON")
   }
+  // Keep the legacy String API's object-only contract. This parser is shared
+  // by tools/call and prompts/get, both of which require an argument object.
+  guard value is Object(_) else {
+    raise @types.InvalidParams("Arguments must be a JSON object")
+  }
+  value
 }
 
 ///|
