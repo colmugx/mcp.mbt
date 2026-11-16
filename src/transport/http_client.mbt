@@ -97,15 +97,15 @@ pub async fn HttpClientTransport::send(
   let body_bytes = @utf8.encode(message)
   // Parse once and reuse the decoded JSON tree for all request metadata.
   let parsed = @validation.parse_json(message) catch { _ => Json::null() }
-  let method = json_string_field(parsed, "method")
+  let method_name = json_string_field(parsed, "method")
   let name = json_name_field(parsed)
-  let request_id = @transport.request_id_from_json(parsed)
+  let request_id = request_id_from_json(parsed)
   let headers : @http.Headers = Default::default()
   headers["Content-Type"] = "application/json"
   headers["Accept"] = "application/json, text/event-stream"
   headers["Content-Length"] = body_bytes.length().to_string()
   headers["MCP-Protocol-Version"] = @types.ProtocolVersion
-  match method {
+  match method_name {
     Some(m) => headers["Mcp-Method"] = m
     None => ()
   }
@@ -114,7 +114,7 @@ pub async fn HttpClientTransport::send(
     None => ()
   }
   // Reuse the parsed arguments for every x-mcp-header path.
-  if method is Some("tools/call") {
+  if method_name is Some("tools/call") {
     match name {
       Some(tool_name) =>
         match self.tool_header_schemas.get(tool_name) {
@@ -388,10 +388,6 @@ fn json_name_field(json : Json) -> String? {
 }
 
 ///|
-fn extract_name_field(body : String) -> String? {
-  let json = @validation.parse_json(body) catch { _ => return None }
-  json_name_field(json)
-}
 
 ///|
 /// Extract the value at a property path inside `params.arguments` for
