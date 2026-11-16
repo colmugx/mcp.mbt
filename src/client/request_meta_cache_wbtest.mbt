@@ -110,7 +110,7 @@ test "tool request without progress token preserves cached metadata without muta
       1,
       "echo",
       meta,
-      arguments="{\\"message\\":\\"hi\\"}",
+      arguments="{\"message\":\"hi\"}",
     ),
   )
   guard request is { "params": { "_meta": wire_meta, .. }, .. } else {
