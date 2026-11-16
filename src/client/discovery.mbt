@@ -4,16 +4,16 @@ pub async fn MCPClient::discover_result(
   self : MCPClient,
 ) -> @types.DiscoverResult {
   let id = self.next_request_id()
-  let request = build_discover_request(id, self.request_meta())
+  let request = build_discover_request_json(id, self.request_meta())
   let value = match self.backend {
     Modern =>
       parse_jsonrpc_response_decoded(
-        self.send_request_decoded(request, request_id=@types.RequestId::Int(id)).parsed,
+        self.send_request_decoded_json(request, @types.RequestId::Int(id)).parsed,
       )
     Legacy(legacy) =>
       parse_jsonrpc_response(
         legacy.send_raw(
-          apply_legacy_meta_to_request(request, build_legacy_meta()),
+          apply_legacy_meta_to_request(request.stringify(), build_legacy_meta()),
         ),
       )
   }

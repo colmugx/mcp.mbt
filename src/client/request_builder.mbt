@@ -42,11 +42,21 @@ fn build_request_meta(
 }
 
 ///|
+#warnings("-unused_value")
 fn build_tools_list_request(
   id : Int32,
   meta : Json,
   cursor~ : String = "",
 ) -> String {
+  build_tools_list_request_json(id, meta, cursor~).stringify()
+}
+
+///|
+fn build_tools_list_request_json(
+  id : Int32,
+  meta : Json,
+  cursor~ : String = "",
+) -> Json {
   let params : Map[String, Json] = Default::default()
   params.set("_meta", meta)
   if cursor != "" {
@@ -57,7 +67,7 @@ fn build_tools_list_request(
     "id": id,
     "method": "tools/list",
     "params": Json::object(params),
-  }).stringify()
+  })
 }
 
 ///|
@@ -140,11 +150,21 @@ fn build_tools_call_request(
 }
 
 ///|
+#warnings("-unused_value")
 fn build_resources_list_request(
   id : Int32,
   meta : Json,
   cursor~ : String = "",
 ) -> String {
+  build_resources_list_request_json(id, meta, cursor~).stringify()
+}
+
+///|
+fn build_resources_list_request_json(
+  id : Int32,
+  meta : Json,
+  cursor~ : String = "",
+) -> Json {
   let params : Map[String, Json] = Default::default()
   params.set("_meta", meta)
   if cursor != "" {
@@ -155,29 +175,49 @@ fn build_resources_list_request(
     "id": id,
     "method": "resources/list",
     "params": Json::object(params),
-  }).stringify()
+  })
 }
 
 ///|
+#warnings("-unused_value")
 fn build_resources_read_request(
   id : Int32,
   uri : String,
   meta : Json,
 ) -> String {
+  build_resources_read_request_json(id, uri, meta).stringify()
+}
+
+///|
+fn build_resources_read_request_json(
+  id : Int32,
+  uri : String,
+  meta : Json,
+) -> Json {
   Json::object({
     "jsonrpc": "2.0",
     "id": id,
     "method": "resources/read",
     "params": { "uri": uri, "_meta": meta },
-  }).stringify()
+  })
 }
 
 ///|
+#warnings("-unused_value")
 fn build_prompts_list_request(
   id : Int32,
   meta : Json,
   cursor~ : String = "",
 ) -> String {
+  build_prompts_list_request_json(id, meta, cursor~).stringify()
+}
+
+///|
+fn build_prompts_list_request_json(
+  id : Int32,
+  meta : Json,
+  cursor~ : String = "",
+) -> Json {
   let params : Map[String, Json] = Default::default()
   params.set("_meta", meta)
   if cursor != "" {
@@ -188,31 +228,52 @@ fn build_prompts_list_request(
     "id": id,
     "method": "prompts/list",
     "params": Json::object(params),
-  }).stringify()
+  })
 }
 
 ///|
+#warnings("-unused_value")
 fn build_prompts_get_request(
   id : Int32,
   name : String,
   meta : Json,
   arguments~ : String = "{}",
 ) -> String raise @types.MCPError {
+  build_prompts_get_request_json(id, name, meta, arguments~).stringify()
+}
+
+///|
+fn build_prompts_get_request_json(
+  id : Int32,
+  name : String,
+  meta : Json,
+  arguments~ : String = "{}",
+) -> Json raise @types.MCPError {
   let arguments_json = parse_argument_object(arguments)
   Json::object({
     "jsonrpc": "2.0",
     "id": id,
     "method": "prompts/get",
     "params": { "name": name, "arguments": arguments_json, "_meta": meta },
-  }).stringify()
+  })
 }
 
 ///|
+#warnings("-unused_value")
 fn build_resources_templates_list_request(
   id : Int32,
   meta : Json,
   cursor~ : String = "",
 ) -> String {
+  build_resources_templates_list_request_json(id, meta, cursor~).stringify()
+}
+
+///|
+fn build_resources_templates_list_request_json(
+  id : Int32,
+  meta : Json,
+  cursor~ : String = "",
+) -> Json {
   let params : Map[String, Json] = Default::default()
   params.set("_meta", meta)
   if cursor != "" {
@@ -223,10 +284,11 @@ fn build_resources_templates_list_request(
     "id": id,
     "method": "resources/templates/list",
     "params": Json::object(params),
-  }).stringify()
+  })
 }
 
 ///|
+#warnings("-unused_value")
 fn build_completion_reference_request(
   id : Int32,
   meta : Json,
@@ -235,6 +297,25 @@ fn build_completion_reference_request(
   argument_value~ : String,
   context_arguments? : Map[String, String],
 ) -> String {
+  build_completion_reference_request_json(
+    id,
+    meta,
+    reference,
+    argument_name~,
+    argument_value~,
+    context_arguments?,
+  ).stringify()
+}
+
+///|
+fn build_completion_reference_request_json(
+  id : Int32,
+  meta : Json,
+  reference : @types.CompletionReference,
+  argument_name~ : String,
+  argument_value~ : String,
+  context_arguments? : Map[String, String],
+) -> Json {
   let context = context_arguments.map(fn(arguments) {
     @types.CompletionContext::new(arguments~)
   })
@@ -252,7 +333,7 @@ fn build_completion_reference_request(
     "id": id,
     "method": "completion/complete",
     "params": Json::object(fields),
-  }).stringify()
+  })
 }
 
 ///|
@@ -263,11 +344,21 @@ fn build_completion_reference_request(
 /// `resourceSubscriptions` nests inside `notifications` and is omitted
 /// when empty. This mirrors the server-side `parse_subscription_filter`
 /// semantics: absent fields simply mean "not subscribed".
+#warnings("-unused_value")
 fn build_subscriptions_listen_request(
   id : Int32,
   meta : Json,
   filter : ListenFilter,
 ) -> String {
+  build_subscriptions_listen_request_json(id, meta, filter).stringify()
+}
+
+///|
+fn build_subscriptions_listen_request_json(
+  id : Int32,
+  meta : Json,
+  filter : ListenFilter,
+) -> Json {
   let notifications : Map[String, Json] = Default::default()
   if filter.tools_list_changed {
     notifications.set("toolsListChanged", Json::boolean(true))
@@ -292,7 +383,7 @@ fn build_subscriptions_listen_request(
     "id": id,
     "method": "subscriptions/listen",
     "params": Json::object(params),
-  }).stringify()
+  })
 }
 
 ///|
@@ -300,13 +391,19 @@ fn build_subscriptions_listen_request(
 /// carries no parameters beyond the standard `_meta`; it is the primary way
 /// clients learn a server's supported versions, capabilities, and identity,
 /// and serves as the era probe for legacy fallback.
+#warnings("-unused_value")
 fn build_discover_request(id : Int32, meta : Json) -> String {
+  build_discover_request_json(id, meta).stringify()
+}
+
+///|
+fn build_discover_request_json(id : Int32, meta : Json) -> Json {
   Json::object({
     "jsonrpc": "2.0",
     "id": id,
     "method": "server/discover",
     "params": { "_meta": meta },
-  }).stringify()
+  })
 }
 
 ///|

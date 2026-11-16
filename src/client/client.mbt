@@ -1174,9 +1174,9 @@ pub async fn MCPClient::discover(self : MCPClient) -> @types.ServerCapabilities 
     }
     Modern => {
       let id = self.next_request_id()
-      let request = build_discover_request(id, self.request_meta())
+      let request = build_discover_request_json(id, self.request_meta())
       let result_json = parse_jsonrpc_response_decoded(
-        self.send_request_decoded(request, request_id=@types.RequestId::Int(id)).parsed,
+        self.send_request_decoded_json(request, @types.RequestId::Int(id)).parsed,
       )
 
       let caps = parse_discover_capabilities(result_json)
@@ -1193,18 +1193,18 @@ pub async fn MCPClient::list_tools(
   cursor~ : String = "",
 ) -> ListToolsResult {
   let id = self.next_request_id()
-  let request = build_tools_list_request(id, self.request_meta(), cursor~)
+  let request = build_tools_list_request_json(id, self.request_meta(), cursor~)
   match self.backend {
     Legacy(legacy) => {
       let legacy_request = apply_legacy_meta_to_request(
-        request,
+        request.stringify(),
         build_legacy_meta(),
       )
       legacy_send_and_parse(legacy, legacy_request, parse_tools_list)
     }
     Modern => {
       let result_json = parse_jsonrpc_response_decoded(
-        self.send_request_decoded(request, request_id=@types.RequestId::Int(id)).parsed,
+        self.send_request_decoded_json(request, @types.RequestId::Int(id)).parsed,
       )
 
       let list_result = parse_tools_list(result_json)
@@ -1313,16 +1313,20 @@ pub async fn MCPClient::list_resources(
   cursor~ : String = "",
 ) -> ListResourcesResult {
   let id = self.next_request_id()
-  let request = build_resources_list_request(id, self.request_meta(), cursor~)
+  let request = build_resources_list_request_json(
+    id,
+    self.request_meta(),
+    cursor~,
+  )
   if self.backend is Legacy(legacy) {
     return legacy_send_and_parse(
       legacy,
-      apply_legacy_meta_to_request(request, build_legacy_meta()),
+      apply_legacy_meta_to_request(request.stringify(), build_legacy_meta()),
       parse_list_resources,
     )
   }
   let result_json = parse_jsonrpc_response_decoded(
-    self.send_request_decoded(request, request_id=@types.RequestId::Int(id)).parsed,
+    self.send_request_decoded_json(request, @types.RequestId::Int(id)).parsed,
   )
   parse_list_resources(result_json)
 }
@@ -1333,18 +1337,15 @@ pub async fn MCPClient::read_resource(
   uri : String,
 ) -> ReadResourceResult {
   let id = self.next_request_id()
-  let request = build_resources_read_request(id, uri, self.request_meta())
+  let request = build_resources_read_request_json(id, uri, self.request_meta())
   if self.backend is Legacy(legacy) {
     return legacy_send_and_parse(
       legacy,
-      apply_legacy_meta_to_request(request, build_legacy_meta()),
+      apply_legacy_meta_to_request(request.stringify(), build_legacy_meta()),
       parse_read_resource,
     )
   }
-  let result_json = self.send_with_mrtr(
-    request,
-    request_id=@types.RequestId::Int(id),
-  )
+  let result_json = self.send_with_mrtr_json(request, @types.RequestId::Int(id))
   parse_read_resource(result_json)
 }
 
@@ -1354,16 +1355,20 @@ pub async fn MCPClient::list_prompts(
   cursor~ : String = "",
 ) -> ListPromptsResult {
   let id = self.next_request_id()
-  let request = build_prompts_list_request(id, self.request_meta(), cursor~)
+  let request = build_prompts_list_request_json(
+    id,
+    self.request_meta(),
+    cursor~,
+  )
   if self.backend is Legacy(legacy) {
     return legacy_send_and_parse(
       legacy,
-      apply_legacy_meta_to_request(request, build_legacy_meta()),
+      apply_legacy_meta_to_request(request.stringify(), build_legacy_meta()),
       parse_list_prompts,
     )
   }
   let result_json = parse_jsonrpc_response_decoded(
-    self.send_request_decoded(request, request_id=@types.RequestId::Int(id)).parsed,
+    self.send_request_decoded_json(request, @types.RequestId::Int(id)).parsed,
   )
   parse_list_prompts(result_json)
 }
@@ -1375,7 +1380,7 @@ pub async fn MCPClient::get_prompt(
   arguments~ : String = "{}",
 ) -> @types.GetPromptResult {
   let id = self.next_request_id()
-  let request = build_prompts_get_request(
+  let request = build_prompts_get_request_json(
     id,
     name,
     self.request_meta(),
@@ -1384,14 +1389,11 @@ pub async fn MCPClient::get_prompt(
   if self.backend is Legacy(legacy) {
     return legacy_send_and_parse(
       legacy,
-      apply_legacy_meta_to_request(request, build_legacy_meta()),
+      apply_legacy_meta_to_request(request.stringify(), build_legacy_meta()),
       parse_get_prompt,
     )
   }
-  let result_json = self.send_with_mrtr(
-    request,
-    request_id=@types.RequestId::Int(id),
-  )
+  let result_json = self.send_with_mrtr_json(request, @types.RequestId::Int(id))
   parse_get_prompt(result_json)
 }
 
@@ -1401,7 +1403,7 @@ pub async fn MCPClient::list_resource_templates(
   cursor~ : String = "",
 ) -> ListResourceTemplatesResult {
   let id = self.next_request_id()
-  let request = build_resources_templates_list_request(
+  let request = build_resources_templates_list_request_json(
     id,
     self.request_meta(),
     cursor~,
@@ -1409,12 +1411,12 @@ pub async fn MCPClient::list_resource_templates(
   if self.backend is Legacy(legacy) {
     return legacy_send_and_parse(
       legacy,
-      apply_legacy_meta_to_request(request, build_legacy_meta()),
+      apply_legacy_meta_to_request(request.stringify(), build_legacy_meta()),
       parse_list_resource_templates,
     )
   }
   let result_json = parse_jsonrpc_response_decoded(
-    self.send_request_decoded(request, request_id=@types.RequestId::Int(id)).parsed,
+    self.send_request_decoded_json(request, @types.RequestId::Int(id)).parsed,
   )
   parse_list_resource_templates(result_json)
 }
@@ -1450,7 +1452,7 @@ pub async fn MCPClient::complete_reference(
   context_arguments? : Map[String, String],
 ) -> CompletionResult {
   let id = self.next_request_id()
-  let request = build_completion_reference_request(
+  let request = build_completion_reference_request_json(
     id,
     self.request_meta(),
     reference,
@@ -1461,12 +1463,12 @@ pub async fn MCPClient::complete_reference(
   if self.backend is Legacy(legacy) {
     return legacy_send_and_parse(
       legacy,
-      apply_legacy_meta_to_request(request, build_legacy_meta()),
+      apply_legacy_meta_to_request(request.stringify(), build_legacy_meta()),
       parse_completion_result,
     )
   }
   let result_json = parse_jsonrpc_response_decoded(
-    self.send_request_decoded(request, request_id=@types.RequestId::Int(id)).parsed,
+    self.send_request_decoded_json(request, @types.RequestId::Int(id)).parsed,
   )
   parse_completion_result(result_json)
 }
@@ -1612,7 +1614,7 @@ pub fn MCPClient::listen(
   }
   let id = self.next_request_id()
   let id_str = id.to_string()
-  let request = build_subscriptions_listen_request(
+  let request = build_subscriptions_listen_request_json(
     id,
     self.request_meta(),
     filter,
@@ -1621,7 +1623,7 @@ pub fn MCPClient::listen(
   self.subscription_handlers[key] = handler
   group.spawn_bg(async fn() {
     defer self.subscription_handlers.remove(key)
-    ignore(self.send_request(request, request_id=@types.RequestId::Int(id))) catch {
+    ignore(self.send_request_decoded_json(request, @types.RequestId::Int(id))) catch {
       @types.Cancelled(_) => ()
       error => raise error
     }
