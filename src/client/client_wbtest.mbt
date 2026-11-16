@@ -449,3 +449,23 @@ test "RequestId::to_json_string escapes control characters as valid JSON" {
   let reparsed = @json.parse(encoded) catch { _ => panic() }
   assert_eq(reparsed, Json::string(raw))
 }
+
+///|
+test "structured tools/call builder matches the wire format" {
+  let meta = test_meta()
+  let expected = @validation.parse_json(
+    build_tools_call_request(
+      42,
+      "echo",
+      meta,
+      arguments="{\\"nested\\":{\\"flag\\":true}}",
+    ),
+  )
+  let actual = build_tools_call_request_json(
+    42,
+    "echo",
+    meta,
+    arguments="{\\"nested\\":{\\"flag\\":true}}",
+  )
+  assert_eq(actual, expected)
+}

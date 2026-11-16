@@ -79,6 +79,19 @@ fn build_tools_call_request(
   arguments~ : String = "{}",
   progress_token? : @types.ProgressToken,
 ) -> String raise @types.MCPError {
+  build_tools_call_request_json(id, name, meta, arguments~, progress_token?).stringify()
+}
+
+///|
+/// Build one structured request; the transport serializes it only at I/O.
+/// String arguments are decoded at the public call_tool API boundary.
+fn build_tools_call_request_json(
+  id : Int32,
+  name : String,
+  meta : Json,
+  arguments~ : String = "{}",
+  progress_token? : @types.ProgressToken,
+) -> Json raise @types.MCPError {
   let arguments_json = parse_argument_object(arguments)
   let params_map : Map[String, Json] = Default::default()
   params_map.set("name", Json::string(name))
@@ -103,7 +116,7 @@ fn build_tools_call_request(
     "id": id,
     "method": "tools/call",
     "params": Json::object(params_map),
-  }).stringify()
+  })
 }
 
 ///|
