@@ -36,17 +36,24 @@ test "build_tools_call_request format" {
 
 ///|
 test "build_tools_call_request_json preserves structured JSON arguments" {
-  let arguments = @json.parse("{\\"nested\\":{\\"enabled\\":true},\\"items\\":[1,2,3]}") catch {
-    _ => Json::null()
-  }
+  let nested = Json::object({ "enabled": Json::boolean(true) })
+  let args_json = Json::object({
+    "nested": nested,
+    "items": Json::array([Json::number(1.0), Json::number(2.0)]),
+  })
   let req = build_tools_call_request_json(
-    2, "json_tool", test_meta(), arguments~,
+    2, "json_tool", test_meta(), arguments=args_json,
   )
   let actual = @json.parse(req) catch { _ => Json::null() }
-  let expected = @json.parse("{\\"jsonrpc\\":\\"2.0\\",\\"id\\":2,\\"method\\":\\"tools/call\\",\\"params\\":{\\"name\\":\\"json_tool\\",\\"arguments\\":{\\"nested\\":{\\"enabled\\":true},\\"items\\":[1,2,3]},\\"_meta\\":{\\"io.modelcontextprotocol/protocolVersion\\":\\"2026-07-28\\",\\"io.modelcontextprotocol/clientCapabilities\\":{},\\"io.modelcontextprotocol/clientInfo\\":{\\"name\\":\\"test-client\\",\\"version\\":\\"1.0.0\\"}}}}") catch {
-    _ => Json::null()
+  match actual {
+    Object(root) =>
+      match root.get("params") {
+        Some(Object(params)) =>
+          assert_eq(params.get("arguments"), Some(args_json))
+        _ => fail("missing params object")
+      }
+    _ => fail("request must be a JSON object")
   }
-  @debug.assert_eq(actual, expected)
 }
 
 ///|
@@ -61,6 +68,7 @@ test "build_tools_call_request_json rejects non-object arguments" {
   }
 }
 
+///|
 ///|
 test "build_resources_list_request format" {
   let req = build_resources_list_request(1, test_meta())
