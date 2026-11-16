@@ -404,9 +404,35 @@ async fn MCPClient::send_request(
 ///|
 /// Internal typed response: cancellation, request id ownership and error
 /// mapping remain identical to send_request; only the returned carrier differs.
+priv enum OutgoingRequest {
+  RawRequest(String)
+  StructuredRequest(Json)
+}
+
+///|
+/// Public/raw-style requests retain the original string transport behavior.
 async fn MCPClient::send_request_decoded(
   self : MCPClient,
   request : String,
+  request_id? : @types.RequestId,
+) -> RoutedResponse {
+  self.send_request_decoded_payload(RawRequest(request), request_id?)
+}
+
+///|
+/// Typed callers keep JSON structured until the transport writes the request.
+async fn MCPClient::send_request_decoded_json(
+  self : MCPClient,
+  request : Json,
+  request_id : @types.RequestId,
+) -> RoutedResponse {
+  self.send_request_decoded_payload(StructuredRequest(request), request_id?)
+}
+
+///|
+async fn MCPClient::send_request_decoded_payload(
+  self : MCPClient,
+  request : OutgoingRequest,
   request_id? : @types.RequestId,
 ) -> RoutedResponse {
   // All typed request builders already know the numeric JSON-RPC id.
@@ -414,7 +440,14 @@ async fn MCPClient::send_request_decoded(
   // Raw request callers still take the validated string-based fallback.
   let request_id = match request_id {
     Some(id) => id
-    None => extract_request_id(request)
+    None =>
+      match request {
+        RawRequest(raw) => extract_request_id(raw)
+        StructuredRequest(_) =>
+          raise @types.InvalidRequest(
+            "Structured request must include a known id",
+          )
+      }
   }
   let id = request_id.key()
   if self.request_cancellations.contains(id) {
@@ -475,7 +508,7 @@ async fn MCPClient::send_request_decoded(
 ///|
 async fn MCPClient::send_request_inner(
   self : MCPClient,
-  request : String,
+  request : OutgoingRequest,
   request_id : @types.RequestId,
   request_key : String,
   cancellation_reason : Ref[String?],
@@ -491,7 +524,10 @@ async fn MCPClient::send_request_inner(
     if !self.event_loop_started {
       group.spawn_bg(() => self.pump_direct_responses(group), no_wait=true)
     }
-    self.transport.send(request) catch {
+    match request {
+      RawRequest(raw) => self.transport.send(raw)
+      StructuredRequest(json) => self.transport.send_json(json)
+    } catch {
       error => {
         if @async.is_being_cancelled() {
           self.notify_cancelled_best_effort(
@@ -1183,7 +1219,7 @@ pub async fn MCPClient::call_tool_json(
     self.request_meta(),
     arguments~,
     progress_token?,
-  )
+  ).stringify()
   if self.backend is Legacy(legacy) {
     return legacy_send_and_parse(
       legacy,

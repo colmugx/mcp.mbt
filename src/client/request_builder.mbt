@@ -84,16 +84,15 @@ fn validate_argument_object(arguments : Json) -> Json raise @types.MCPError {
 }
 
 ///|
-/// Build a tools/call request from an existing JSON tree. The final request
-/// still needs one wire serialization, but no intermediate JSON string or
-/// parse pass is required.
+/// Build a tools/call request from an existing JSON tree. The transport
+/// serializes it once at I/O; no intermediate JSON string or parse pass.
 fn build_tools_call_request_json(
   id : Int32,
   name : String,
   meta : Json,
   arguments~ : Json,
   progress_token? : @types.ProgressToken,
-) -> String raise @types.MCPError {
+) -> Json raise @types.MCPError {
   let arguments_json = validate_argument_object(arguments)
   let params_map : Map[String, Json] = Default::default()
   params_map.set("name", Json::string(name))
@@ -118,7 +117,7 @@ fn build_tools_call_request_json(
     "id": id,
     "method": "tools/call",
     "params": Json::object(params_map),
-  }).stringify()
+  })
 }
 
 ///|
@@ -130,14 +129,13 @@ fn build_tools_call_request(
   arguments~ : String = "{}",
   progress_token? : @types.ProgressToken,
 ) -> String raise @types.MCPError {
-  let arguments_json = parse_argument_object(arguments)
   build_tools_call_request_json(
     id,
     name,
     meta,
-    arguments=arguments_json,
+    arguments=parse_argument_object(arguments),
     progress_token?,
-  )
+  ).stringify()
 }
 
 ///|
