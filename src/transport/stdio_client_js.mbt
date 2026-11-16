@@ -384,7 +384,7 @@ pub async fn StdioClientTransport::send_json(
   self : StdioClientTransport,
   parsed : Json,
 ) -> Unit {
-  @validation.validate_jsonrpc_value(parsed)
+  validate_jsonrpc_value(parsed)
   self.send_impl(parsed.stringify(), parsed)
 }
 
@@ -404,7 +404,7 @@ async fn StdioClientTransport::send_impl(
     None =>
       raise @types.InvalidState("Transport not started — call start() first")
   }
-  @validation.validate_jsonrpc_value(parsed) catch {
+  validate_jsonrpc_value(parsed) catch {
     e => raise @types.WriteError("Invalid JSON-RPC message: " + e.message())
   }
   errdefer self.close()
