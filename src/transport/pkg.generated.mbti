@@ -95,6 +95,11 @@ pub(all) struct AuthenticatedRequest {
   cancellation_token : @runtime.CancellationToken
 }
 
+pub(all) struct DecodedHttpRequest {
+  envelope : AuthenticatedRequest
+  parsed : @json.Json
+}
+
 pub(all) enum HeaderSchemaValidation {
   Valid(Array[(Array[String], String)])
   Invalid(String)
@@ -121,13 +126,14 @@ pub struct HttpTransport {
   auth : AuthConfig?
   keepalive_interval_ms : Int32
   tool_schema_resolver : @ref.Ref[(String) -> @json.Json?]
-  pending_requests : @aqueue.Queue[AuthenticatedRequest]
+  pending_requests : @aqueue.Queue[DecodedHttpRequest]
   pending_reply_queues : Map[String, @aqueue.Queue[String]]
 }
 pub fn HttpTransport::HttpTransport(port? : Int32, endpoint_path? : String, keepalive_interval_ms? : Int32) -> Self
 pub fn HttpTransport::close(Self) -> Unit
 pub async fn HttpTransport::receive(Self) -> String? raise @types.TransportError
 pub async fn HttpTransport::receive_authenticated_request(Self) -> AuthenticatedRequest? raise @types.TransportError
+pub async fn HttpTransport::receive_decoded_request(Self) -> DecodedHttpRequest? raise @types.TransportError
 pub async fn HttpTransport::receive_request(Self) -> (String, @aqueue.Queue[String])? raise @types.TransportError
 pub async fn HttpTransport::send(Self, String) -> Unit raise @types.TransportError
 pub fn HttpTransport::send_notification(Self, @types.Notification) -> Unit

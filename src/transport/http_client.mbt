@@ -219,10 +219,7 @@ pub async fn HttpClientTransport::send(
       let (data_opt, id_opt) = reader.next()
       match sse_event_verdict(data_opt, id_opt) {
         Message(event_json) => {
-          let kind = check_http_response(
-            event_json,
-            request_id,
-          )
+          let kind = check_http_response(event_json, request_id)
           self.pending_responses.put(event_json) catch {
             _ => ()
           }
@@ -255,8 +252,7 @@ pub async fn HttpClientTransport::send(
           raise @types.ReadError("Failed to read response body: \{Repr(e)}")
         }
     }
-    guard check_http_response(body_str, request_id)
-      is FinalResponse else {
+    guard check_http_response(body_str, request_id) is FinalResponse else {
       raise @types.ReadError(
         "Single JSON HTTP response must be a final response",
       )
@@ -400,7 +396,10 @@ pub fn extract_argument_value(body : String, path : Array[String]) -> String? {
 }
 
 ///|
-fn extract_argument_value_from_json(json : Json, path : Array[String]) -> String? {
+fn extract_argument_value_from_json(
+  json : Json,
+  path : Array[String],
+) -> String? {
   if json is Object(obj) {
     match obj.get("params") {
       Some(Object(params)) =>

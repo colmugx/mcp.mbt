@@ -38,7 +38,6 @@ async test "unknown tool returns invalid params" {
   }
 }
 
-
 ///|
 test "tool list cache invalidates on insertion and replacement" {
   let registry = ToolRegistry::ToolRegistry()
@@ -67,7 +66,6 @@ test "tool list cache invalidates on insertion and replacement" {
   assert_eq(registry.list_tools(), final_list)
 }
 
-
 ///|
 test "tool wire JSON cache follows registrations and replacements" {
   let registry = ToolRegistry::ToolRegistry()
@@ -94,10 +92,7 @@ test "tool wire JSON cache follows registrations and replacements" {
   let caller_array = registry.list_tool_jsons()
   caller_array.push(Json::null())
   assert_eq(registry.list_tool_jsons(), after_replace)
-  assert_eq(
-    registry.list_tool_jsons()[0],
-    after_replace[0],
-  )
+  assert_eq(registry.list_tool_jsons()[0], after_replace[0])
   // Previously materialized snapshots still contain the earlier description.
   guard expected[0] is { "description": String(description), .. } else {
     fail("expected old tool description")

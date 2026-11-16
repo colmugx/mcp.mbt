@@ -135,7 +135,6 @@ test "era probes do not alias large or fractional error codes to modern reserved
   )
 }
 
- 
 ///|
 /// The internal request-id fast path is only used with requests produced by
 /// these SDK builders. Verify the id passed to routing is the wire identity
@@ -149,15 +148,15 @@ test "typed request builders carry matching JSON-RPC ids" {
     assert_eq(
       extract_request_id(
         build_tools_call_request(
-          id, "echo", meta, arguments="{\"message\":\"hi\"}",
+          id,
+          "echo",
+          meta,
+          arguments="{\"message\":\"hi\"}",
         ),
       ),
       expected,
     )
-    assert_eq(
-      extract_request_id(build_tools_list_request(id, meta)),
-      expected,
-    )
+    assert_eq(extract_request_id(build_tools_list_request(id, meta)), expected)
     assert_eq(
       extract_request_id(build_resources_read_request(id, "file:///x", meta)),
       expected,
@@ -168,7 +167,10 @@ test "typed request builders carry matching JSON-RPC ids" {
     )
   }
   let original = build_tools_call_request(
-    1, "echo", meta, arguments="{\"message\":\"hi\"}",
+    1,
+    "echo",
+    meta,
+    arguments="{\"message\":\"hi\"}",
   )
   let empty_responses : Map[String, Json] = Map([])
   assert_eq(

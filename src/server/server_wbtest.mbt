@@ -275,16 +275,14 @@ test "example: server with complex schemas" {
 // with_auth tests moved to server_io_wbtest.mbt (gated native+wasm:
 // AuthConfig aborts on js / wasm-gc).
 
-
 ///|
 test "decoded request envelope preserves string parser semantics" {
-  for message in [
-    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}",
-    "{\"jsonrpc\":\"2.0\",\"id\":\"id-2\",\"method\":\"tools/list\",\"params\":{}}",
-    "{\"jsonrpc\":\"2.0\",\"id\":9007199254740993,\"method\":\"tools/list\",\"params\":{}}",
-    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/list\",\"params\":{}}",
-    "{\"jsonrpc\":\"2.0\",\"id\":null,\"method\":\"tools/list\"}",
-  ] {
+  for
+    message in [
+      "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}", "{\"jsonrpc\":\"2.0\",\"id\":\"id-2\",\"method\":\"tools/list\",\"params\":{}}",
+      "{\"jsonrpc\":\"2.0\",\"id\":9007199254740993,\"method\":\"tools/list\",\"params\":{}}",
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/list\",\"params\":{}}", "{\"jsonrpc\":\"2.0\",\"id\":null,\"method\":\"tools/list\"}",
+    ] {
     let decoded = @validation.parse_json(message)
     assert_eq(
       parse_decoded_request_message(decoded),
@@ -295,12 +293,12 @@ test "decoded request envelope preserves string parser semantics" {
 
 ///|
 test "decoded notification classification preserves string notification path" {
-  for message in [
-    "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/cancelled\",\"params\":{\"requestId\":2}}",
-    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}",
-    "{\"jsonrpc\":\"2.0\",\"id\":null,\"method\":\"notifications/cancelled\"}",
-    "{\"jsonrpc\":\"2.0\",\"result\":{}}",
-  ] {
+  for
+    message in [
+      "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/cancelled\",\"params\":{\"requestId\":2}}",
+      "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}", "{\"jsonrpc\":\"2.0\",\"id\":null,\"method\":\"notifications/cancelled\"}",
+      "{\"jsonrpc\":\"2.0\",\"result\":{}}",
+    ] {
     assert_eq(
       is_notification_json(@validation.parse_json(message)),
       is_notification_message(message),

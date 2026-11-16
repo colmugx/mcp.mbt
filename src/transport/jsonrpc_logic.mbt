@@ -119,7 +119,9 @@ pub fn request_id_from_json(json : Json) -> Json? {
   if json is Object(obj) {
     match obj.get("id") {
       Some(value) =>
-        Some(@types.RequestId::from_json(value).to_json()) catch { _ => None }
+        Some(@types.RequestId::from_json(value).to_json()) catch {
+          _ => None
+        }
       None => None
     }
   } else {

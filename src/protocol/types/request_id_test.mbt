@@ -104,9 +104,7 @@ test "request ids distinguish strings from numbers and preserve integers beyond 
 
 ///|
 test "Int request-id keys match exact JSON integer canonicalization" {
-  for value in [
-    -2147483648, -120, -10, -1, 0, 1, 10, 42, 100, 1200, 2147483647,
-  ] {
+  for value in [-2147483648, -120, -10, -1, 0, 1, 10, 42, 100, 1200, 2147483647] {
     assert_eq(
       @types.RequestId::Int(value).key(),
       "n:" + @types.JsonInteger::from_int(value).key(),

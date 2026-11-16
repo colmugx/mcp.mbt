@@ -254,7 +254,12 @@ pub async fn HttpTransport::start(
         }
         try {
           self.pending_requests.put({
-            envelope: { message, reply: reply_queue, principal, cancellation_token, },
+            envelope: {
+              message,
+              reply: reply_queue,
+              principal,
+              cancellation_token,
+            },
             parsed,
           })
           if is_notif {

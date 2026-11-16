@@ -25,7 +25,9 @@ pub fn MCPClient::with_capabilities(
     ..self,
     capabilities,
     request_meta_cache: build_request_meta(
-      self.client_name, self.client_version, capabilities,
+      self.client_name,
+      self.client_version,
+      capabilities,
     ),
   }
 }

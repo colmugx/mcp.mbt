@@ -798,7 +798,6 @@ async fn MCPServer::handle_server_request_result(
   cancellation_token~ : @runtime.CancellationToken = @runtime.CancellationToken::new(),
 ) -> Unit {
   match parsed {
-
     Err(response) => request.reply.put(response) catch { _ => () }
     Ok(parsed_request) => {
       match check_protocol_version(parsed_request.id, parsed_request.params) {

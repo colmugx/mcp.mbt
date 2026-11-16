@@ -639,9 +639,7 @@ async fn MCPClient::send_with_mrtr(
     // The receiver already decoded this response to route it by request id.
     // MRTR and the final typed result both consume that same JSON tree.
     let result = parse_jsonrpc_response_decoded(
-      self.send_request_decoded(
-        current_request, request_id?=current_request_id,
-      ).parsed,
+      self.send_request_decoded(current_request, request_id?=current_request_id).parsed,
     )
     match self.check_input_required_result(result) {
       None => return result
@@ -1066,9 +1064,7 @@ pub async fn MCPClient::discover(self : MCPClient) -> @types.ServerCapabilities 
       let id = self.next_request_id()
       let request = build_discover_request(id, self.request_meta())
       let result_json = parse_jsonrpc_response_decoded(
-        self.send_request_decoded(
-      request, request_id=@types.RequestId::Int(id),
-    ).parsed,
+        self.send_request_decoded(request, request_id=@types.RequestId::Int(id)).parsed,
       )
 
       let caps = parse_discover_capabilities(result_json)
@@ -1096,9 +1092,7 @@ pub async fn MCPClient::list_tools(
     }
     Modern => {
       let result_json = parse_jsonrpc_response_decoded(
-        self.send_request_decoded(
-      request, request_id=@types.RequestId::Int(id),
-    ).parsed,
+        self.send_request_decoded(request, request_id=@types.RequestId::Int(id)).parsed,
       )
 
       let list_result = parse_tools_list(result_json)
@@ -1162,7 +1156,8 @@ pub async fn MCPClient::call_tool(
     )
   }
   let result_json = self.send_with_mrtr(
-    request, request_id=@types.RequestId::Int(id),
+    request,
+    request_id=@types.RequestId::Int(id),
   )
   parse_call_tool(result_json)
 }
@@ -1182,9 +1177,7 @@ pub async fn MCPClient::list_resources(
     )
   }
   let result_json = parse_jsonrpc_response_decoded(
-    self.send_request_decoded(
-      request, request_id=@types.RequestId::Int(id),
-    ).parsed,
+    self.send_request_decoded(request, request_id=@types.RequestId::Int(id)).parsed,
   )
   parse_list_resources(result_json)
 }
@@ -1204,7 +1197,8 @@ pub async fn MCPClient::read_resource(
     )
   }
   let result_json = self.send_with_mrtr(
-    request, request_id=@types.RequestId::Int(id),
+    request,
+    request_id=@types.RequestId::Int(id),
   )
   parse_read_resource(result_json)
 }
@@ -1224,9 +1218,7 @@ pub async fn MCPClient::list_prompts(
     )
   }
   let result_json = parse_jsonrpc_response_decoded(
-    self.send_request_decoded(
-      request, request_id=@types.RequestId::Int(id),
-    ).parsed,
+    self.send_request_decoded(request, request_id=@types.RequestId::Int(id)).parsed,
   )
   parse_list_prompts(result_json)
 }
@@ -1252,7 +1244,8 @@ pub async fn MCPClient::get_prompt(
     )
   }
   let result_json = self.send_with_mrtr(
-    request, request_id=@types.RequestId::Int(id),
+    request,
+    request_id=@types.RequestId::Int(id),
   )
   parse_get_prompt(result_json)
 }
@@ -1276,9 +1269,7 @@ pub async fn MCPClient::list_resource_templates(
     )
   }
   let result_json = parse_jsonrpc_response_decoded(
-    self.send_request_decoded(
-      request, request_id=@types.RequestId::Int(id),
-    ).parsed,
+    self.send_request_decoded(request, request_id=@types.RequestId::Int(id)).parsed,
   )
   parse_list_resource_templates(result_json)
 }
@@ -1330,9 +1321,7 @@ pub async fn MCPClient::complete_reference(
     )
   }
   let result_json = parse_jsonrpc_response_decoded(
-    self.send_request_decoded(
-      request, request_id=@types.RequestId::Int(id),
-    ).parsed,
+    self.send_request_decoded(request, request_id=@types.RequestId::Int(id)).parsed,
   )
   parse_completion_result(result_json)
 }
@@ -1366,9 +1355,7 @@ pub fn MCPClient::on_sampling(
     ..self.capabilities,
     sampling: Some(
       capabilities.unwrap_or(
-        self.capabilities.sampling.unwrap_or(
-          @types.SamplingCapabilities::new(),
-        ),
+        self.capabilities.sampling.unwrap_or(@types.SamplingCapabilities::new()),
       ),
     ),
   }
@@ -1377,7 +1364,9 @@ pub fn MCPClient::on_sampling(
     sampling_handler: Some(handler),
     capabilities,
     request_meta_cache: build_request_meta(
-      self.client_name, self.client_version, capabilities,
+      self.client_name,
+      self.client_version,
+      capabilities,
     ),
   }
 }
@@ -1398,7 +1387,9 @@ pub fn MCPClient::on_roots(
     roots_handler: Some(handler),
     capabilities,
     request_meta_cache: build_request_meta(
-      self.client_name, self.client_version, capabilities,
+      self.client_name,
+      self.client_version,
+      capabilities,
     ),
   }
 }
@@ -1424,7 +1415,9 @@ pub fn MCPClient::on_elicitation(
     elicitation_handler: Some(handler),
     capabilities,
     request_meta_cache: build_request_meta(
-      self.client_name, self.client_version, capabilities,
+      self.client_name,
+      self.client_version,
+      capabilities,
     ),
   }
 }
@@ -1483,9 +1476,7 @@ pub fn MCPClient::listen(
   self.subscription_handlers[key] = handler
   group.spawn_bg(async fn() {
     defer self.subscription_handlers.remove(key)
-    ignore(
-      self.send_request(request, request_id=@types.RequestId::Int(id)),
-    ) catch {
+    ignore(self.send_request(request, request_id=@types.RequestId::Int(id))) catch {
       @types.Cancelled(_) => ()
       error => raise error
     }

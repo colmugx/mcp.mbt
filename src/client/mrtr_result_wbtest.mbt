@@ -97,7 +97,6 @@ test "MRTR accepts state-only load shedding and roots requests without params" {
   assert_true(empty.input_requests.is_empty())
 }
 
-
 ///|
 test "MRTR decoded-result inspection matches legacy wire inspection" {
   let client = MCPClient::MCPClient(
@@ -107,27 +106,23 @@ test "MRTR decoded-result inspection matches legacy wire inspection" {
       @transport.StdioTransport::StdioTransport(),
     ),
   )
-  for result in [
-    Json::object({ "resultType": "complete", "content": [] }),
-    Json::object({ "content": [] }),
-    Json::object({
-      "resultType": "input_required",
-      "requestState": "opaque",
-      "inputRequests": {
-        "roots": { "method": "roots/list" },
-      },
-    }),
-  ] {
-    let response = Json::object({
-      "jsonrpc": "2.0",
-      "id": 1,
-      "result": result,
-    }).stringify()
+  for
+    result in [
+      Json::object({ "resultType": "complete", "content": [] }),
+      Json::object({ "content": [] }),
+      Json::object({
+        "resultType": "input_required",
+        "requestState": "opaque",
+        "inputRequests": { "roots": { "method": "roots/list" } },
+      }),
+    ] {
+    let response = Json::object({ "jsonrpc": "2.0", "id": 1, "result": result }).stringify()
     let decoded = parse_jsonrpc_response(response)
-    match (
-      client.check_input_required(response),
-      client.check_input_required_result(decoded),
-    ) {
+    match
+      (
+        client.check_input_required(response),
+        client.check_input_required_result(decoded),
+      ) {
       (None, None) => ()
       (Some(old), Some(new)) => {
         assert_eq(old.request_state, new.request_state)
@@ -147,11 +142,12 @@ test "MRTR decoded result reports invalid types without an extra parse" {
       @transport.StdioTransport::StdioTransport(),
     ),
   )
-  for result in [
-    Json::object({ "resultType": 42 }),
-    Json::object({ "resultType": "unexpected" }),
-    Json::object({ "resultType": "input_required", "requestState": null }),
-  ] {
+  for
+    result in [
+      Json::object({ "resultType": 42 }),
+      Json::object({ "resultType": "unexpected" }),
+      Json::object({ "resultType": "input_required", "requestState": null }),
+    ] {
     try client.check_input_required_result(result) catch {
       @types.InvalidParams(_) => ()
       error => raise error

@@ -301,7 +301,6 @@ async test "e2e/http: compliance: registry-aware mirrored headers reject before 
   })
 }
 
-
 ///|
 #cfg(target="native")
 async test "e2e/http: decoded queue reuses parsed body and preserves authenticated envelope" {

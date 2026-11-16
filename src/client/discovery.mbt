@@ -8,9 +8,7 @@ pub async fn MCPClient::discover_result(
   let value = match self.backend {
     Modern =>
       parse_jsonrpc_response_decoded(
-        self.send_request_decoded(
-          request, request_id=@types.RequestId::Int(id),
-        ).parsed,
+        self.send_request_decoded(request, request_id=@types.RequestId::Int(id)).parsed,
       )
     Legacy(legacy) =>
       parse_jsonrpc_response(
