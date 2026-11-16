@@ -354,12 +354,6 @@ fn json_string_field(json : Json, field : String) -> String? {
 }
 
 ///|
-fn extract_field(body : String, field : String) -> String? {
-  let json = @validation.parse_json(body) catch { _ => return None }
-  json_string_field(json, field)
-}
-
-///|
 /// Extract the `Mcp-Name` source value from a request body:
 /// `params.name` for tools/call|prompts/get, `params.uri` for resources/read.
 /// Returns None for methods that do not require `Mcp-Name`.
