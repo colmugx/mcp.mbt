@@ -1522,13 +1522,13 @@ pub async fn MCPClient::run(self : MCPClient, group : @async.TaskGroup) -> Unit 
     self.subscription_handlers.clear()
   }
   while true {
-    let msg_opt = self.transport.receive()
+    let msg_opt = self.transport.receive_decoded()
     match msg_opt {
       None => {
         self.transport.close()
         break
       }
-      Some(message) => self.route_received_message(message, group)
+      Some((raw, parsed)) => self.route_received_message(raw, parsed, group)
     }
   }
 }
@@ -1538,6 +1538,7 @@ fn MCPClient::dispatch_response(
   self : MCPClient,
   raw_message : String,
   obj : Map[String, Json],
+  parsed : Json,
 ) -> Unit {
   let id = match obj.get("id") {
     Some(value) => @types.RequestId::from_json(value) catch { _ => return }
@@ -1547,7 +1548,7 @@ fn MCPClient::dispatch_response(
   match self.response_map.get(key) {
     Some(queue) => {
       try {
-        let _ = queue.try_put({ raw: raw_message, parsed: Json::object(obj), })
+        let _ = queue.try_put({ raw: raw_message, parsed, })
       } catch {
         _ => ()
       }
