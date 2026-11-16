@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.19.1
+
+### Added
+
+- `MCPClient::call_tool_json` and `MCPHost::call_tool_json` accept an
+  already-decoded JSON object for `tools/call`. This avoids the redundant
+  stringify-then-parse cycle at adapters that already hold structured JSON;
+  the existing string-based `call_tool` API remains source-compatible.
+
+
 ## 0.18.3
 
 Dependencies: `colmugx/json-schema` 0.1.5 → 0.1.6.
