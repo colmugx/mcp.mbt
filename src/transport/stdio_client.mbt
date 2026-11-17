@@ -84,7 +84,9 @@ pub async fn StdioClientTransport::start(
   }
   self.reader = Some(stdout_reader)
   self.raw_writer = Some(stdin_writer)
-  self.writer = Some(@io.BufferedWriter::new(stdin_writer, size=8192))
+  self.writer = Some(
+    @io.BufferedWriter::BufferedWriter(stdin_writer, size=8192),
+  )
 }
 
 ///|

@@ -3,4 +3,5 @@ import {
   "moonbitlang/core/debug",
   "moonbitlang/core/bigint",
   "moonbitlang/core/json",
+  "moonbitlang/core/string",
 }

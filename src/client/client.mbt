@@ -1178,7 +1178,11 @@ pub async fn MCPClient::call_tool_json(
 ) -> CallToolResult {
   let id = self.next_request_id()
   let request = build_tools_call_request_json(
-    id, name, self.request_meta(), arguments~, progress_token?,
+    id,
+    name,
+    self.request_meta(),
+    arguments~,
+    progress_token?,
   )
   if self.backend is Legacy(legacy) {
     return legacy_send_and_parse(

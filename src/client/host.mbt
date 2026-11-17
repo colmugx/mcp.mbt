@@ -139,7 +139,9 @@ pub async fn MCPHost::call_tool_json(
       match self.connections.get(connection_name) {
         Some(client) => client.call_tool_json(tool_name, arguments~)
         None =>
-          raise @types.MethodNotFound("Connection not found: " + connection_name)
+          raise @types.MethodNotFound(
+            "Connection not found: " + connection_name,
+          )
       }
     }
     None =>

@@ -132,7 +132,11 @@ fn build_tools_call_request(
 ) -> String raise @types.MCPError {
   let arguments_json = parse_argument_object(arguments)
   build_tools_call_request_json(
-    id, name, meta, arguments=arguments_json, progress_token?,
+    id,
+    name,
+    meta,
+    arguments=arguments_json,
+    progress_token?,
   )
 }
 

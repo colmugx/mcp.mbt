@@ -17,7 +17,7 @@ pub(all) enum ToolCallOutcome {
   /// by the handler before being sent to the client).
   InputRequired(
     input_requests~ : Map[String, @types.InputRequestEntry],
-    state~ : Json
+    state~ : Json,
   )
 }
 

@@ -153,9 +153,7 @@ fn integer_key(literal : String, integer_only~ : Bool = true) -> String? {
     if exponent_start == pos {
       return None
     }
-    exponent = @bigint.BigInt::from_string(
-      literal[exponent_start:pos].to_owned(),
-    )
+    exponent = try! @string.parse_bigint(literal[exponent_start:pos])
     if exponent_negative {
       exponent = -exponent
     }

@@ -14,7 +14,7 @@ pub(all) enum ResourceReadOutcome {
   Complete(ResourceReadResult)
   InputRequired(
     input_requests~ : Map[String, @types.InputRequestEntry],
-    state~ : Json
+    state~ : Json,
   )
 }
 

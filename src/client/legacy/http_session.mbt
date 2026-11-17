@@ -79,14 +79,7 @@ async fn LegacyHttpSessionTransport::do_post(
   let body_bytes = @utf8.encode(message)
   let headers : @http.Headers = Map([])
   self.apply_request_headers(headers)
-  let client = @http.post(self.base_url, headers~) catch {
-    e =>
-      if @async.is_being_cancelled() {
-        raise e
-      } else {
-        raise @types.WriteError("HTTP POST failed: \{e}")
-      }
-  }
+  let client = @http.post_stream(self.base_url, headers~)
   // On success the client escapes via the return value, so only failure
   // paths (including async cancellation) may release it here.
   errdefer client.close()
@@ -95,25 +88,11 @@ async fn LegacyHttpSessionTransport::do_post(
       if @async.is_being_cancelled() {
         raise e
       } else {
-        raise @types.WriteError("Failed to write body: \{e}")
+        raise @types.WriteError("Failed to write body: \{Repr(e)}")
       }
   }
-  client.flush() catch {
-    e =>
-      if @async.is_being_cancelled() {
-        raise e
-      } else {
-        raise @types.WriteError("Failed to flush: \{e}")
-      }
-  }
-  let response = client.end_request() catch {
-    e =>
-      if @async.is_being_cancelled() {
-        raise e
-      } else {
-        raise @types.ReadError("Failed to get response: \{e}")
-      }
-  }
+  client.flush_partial_data()
+  let response = client.end_request()
   if response.code == 401 {
     let www_auth = match response.headers.get("www-authenticate") {
       Some(v) => v
@@ -182,7 +161,7 @@ pub async fn LegacyHttpSessionTransport::send(
         if @async.is_being_cancelled() {
           raise e
         } else {
-          raise @types.ReadError("Failed to read response body: \{e}")
+          raise @types.ReadError("Failed to read response body: \{Repr(e)}")
         }
     }
     let body_str = @utf8.decode(body) catch {

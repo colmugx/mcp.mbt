@@ -123,7 +123,7 @@ fn decimal_key_parts(key : String) -> (Bool, String, @bigint.BigInt) {
     end += 1
   }
   let digits = key[if negative { 1 } else { 0 }:end].to_owned()
-  let exponent = @bigint.BigInt::from_string(key[end + 1:].to_owned())
+  let exponent = try! @string.parse_bigint(key[end + 1:])
   (negative, digits, exponent)
 }
 

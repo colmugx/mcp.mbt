@@ -18,7 +18,7 @@ pub fn StdioTransport::StdioTransport() -> StdioTransport {
     // stdin is already buffered internally (has ReaderBuffer)
     reader: @stdio.stdin,
     // Wrap stdout with BufferedWriter to batch writes (8KB buffer)
-    writer: @io.BufferedWriter::new(@stdio.stdout, size=8192),
+    writer: @io.BufferedWriter::BufferedWriter(@stdio.stdout, size=8192),
   }
 }
 
@@ -32,7 +32,7 @@ pub async fn StdioTransport::receive(
   // Use the Reader trait's read_until method
   // (stdin is already buffered, so this is efficient)
   let line_opt = self.reader.text.read_until("\n") catch {
-    e => raise @types.ReadError("Failed to read from stdin: " + e.to_string())
+    e => raise @types.ReadError("Failed to read from stdin: \{Repr(e)}")
   }
   match line_opt {
     None => {
@@ -62,10 +62,10 @@ pub async fn StdioTransport::send(
   }
   // Write to buffered writer (batches small writes)
   self.writer.write(@utf8.encode(message)) catch {
-    e => raise @types.WriteError("Failed to write to stdout: " + e.to_string())
+    e => raise @types.WriteError("Failed to write to stdout: \{Repr(e)}")
   }
   self.writer.write(@utf8.encode("\n")) catch {
-    e => raise @types.WriteError("Failed to write newline: " + e.to_string())
+    e => raise @types.WriteError("Failed to write newline: \{Repr(e)}")
   }
   // Flush immediately to ensure message is sent
   // (important for request-response pattern)
@@ -85,11 +85,10 @@ pub async fn StdioTransport::send_notification(
   let json = notification.to_jsonrpc_string()
   // Write to buffered writer
   self.writer.write(@utf8.encode(json)) catch {
-    e =>
-      raise @types.WriteError("Failed to send notification: " + e.to_string())
+    e => raise @types.WriteError("Failed to send notification: \{Repr(e)}")
   }
   self.writer.write(@utf8.encode("\n")) catch {
-    e => raise @types.WriteError("Failed to write newline: " + e.to_string())
+    e => raise @types.WriteError("Failed to write newline: \{Repr(e)}")
   }
   self.writer.flush() catch {
     e =>

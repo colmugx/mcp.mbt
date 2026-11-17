@@ -71,7 +71,7 @@ pub(all) suberror MCPError {
     String,
     code~ : JsonInteger,
     data~ : Json?,
-    extensions~ : Map[String, Json]
+    extensions~ : Map[String, Json],
   )
   /// Streamable HTTP header/body mismatch (-32020, MCP-spec-defined).
   /// `data` carries detail; server returns HTTP 400.
@@ -85,7 +85,7 @@ pub(all) suberror MCPError {
   UnsupportedProtocolVersion(
     String,
     supported~ : Array[String],
-    requested~ : String
+    requested~ : String,
   )
 }
 

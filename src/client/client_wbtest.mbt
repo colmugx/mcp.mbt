@@ -42,7 +42,10 @@ test "build_tools_call_request_json preserves structured JSON arguments" {
     "items": Json::array([Json::number(1.0), Json::number(2.0)]),
   })
   let req = build_tools_call_request_json(
-    2, "json_tool", test_meta(), arguments=args_json,
+    2,
+    "json_tool",
+    test_meta(),
+    arguments=args_json,
   )
   let actual = @json.parse(req) catch { _ => Json::null() }
   match actual {
@@ -58,10 +61,16 @@ test "build_tools_call_request_json preserves structured JSON arguments" {
 
 ///|
 test "build_tools_call_request_json rejects non-object arguments" {
-  try build_tools_call_request_json(
-    3, "json_tool", test_meta(), arguments=Json::array([]),
-  ) catch {
-    @types.InvalidParams(message) => assert_true(message.contains("JSON object"))
+  try
+    build_tools_call_request_json(
+      3,
+      "json_tool",
+      test_meta(),
+      arguments=Json::array([]),
+    )
+  catch {
+    @types.InvalidParams(message) =>
+      assert_true(message.contains("JSON object"))
     _ => panic()
   } noraise {
     _ => fail("expected non-object arguments to be rejected")
@@ -69,6 +78,7 @@ test "build_tools_call_request_json rejects non-object arguments" {
 }
 
 ///|
+
 ///|
 test "build_resources_list_request format" {
   let req = build_resources_list_request(1, test_meta())

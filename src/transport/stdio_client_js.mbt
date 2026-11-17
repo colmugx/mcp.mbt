@@ -294,7 +294,7 @@ async fn watch_child_in_group(
 ) -> Unit {
   // Supplying a controller makes Promise::wait's suspension cancellable.
   // The exit promise itself remains registered until the child emits exit.
-  let ctrl = @js_async.AbortController::new()
+  let ctrl = @js_async.AbortController()
   match @async.handle_cancellation(() => exit.wait(abort_controller=ctrl)) {
     Some(_) => ()
     None => {

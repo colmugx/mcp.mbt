@@ -106,14 +106,14 @@ pub(all) enum ElicitationRequest {
     requested_schema~ : Json,
     explicit_mode~ : Bool,
     meta~ : Map[String, Json]?,
-    extensions~ : Map[String, Json]
+    extensions~ : Map[String, Json],
   )
   Url(
     String,
     url~ : String,
     elicitation_id~ : String?,
     meta~ : Map[String, Json]?,
-    extensions~ : Map[String, Json]
+    extensions~ : Map[String, Json],
   )
 }
 

@@ -156,14 +156,7 @@ async fn HttpClientTransport::send_impl(
     None => ()
   }
   apply_extra_headers(headers, self.extra_headers)
-  let client = @http.post(self.base_url, headers~) catch {
-    e =>
-      if @async.is_being_cancelled() {
-        raise e
-      } else {
-        raise @types.WriteError("HTTP POST failed: \{Repr(e)}")
-      }
-  }
+  let client = @http.post_stream(self.base_url, headers~)
   // `send` consumes the client on every path, so a plain `defer` covers both
   // the success exits and every raise (including async cancellation) below.
   defer client.close()
@@ -175,22 +168,8 @@ async fn HttpClientTransport::send_impl(
         raise @types.WriteError("Failed to write body: \{Repr(e)}")
       }
   }
-  client.flush() catch {
-    e =>
-      if @async.is_being_cancelled() {
-        raise e
-      } else {
-        raise @types.WriteError("Failed to flush: \{Repr(e)}")
-      }
-  }
-  let response = client.end_request() catch {
-    e =>
-      if @async.is_being_cancelled() {
-        raise e
-      } else {
-        raise @types.ReadError("Failed to get response: \{Repr(e)}")
-      }
-  }
+  client.flush_partial_data()
+  let response = client.end_request()
   // Stateless transport: 404 no longer means "session expired". Surface it
   // (and other 4xx/5xx) as a transport error for the caller to handle.
   if response.code == 401 {
@@ -343,19 +322,12 @@ pub async fn HttpClientTransport::send_notification(
     None => ()
   }
   apply_extra_headers(headers, self.extra_headers)
-  let client = @http.post(self.base_url, headers~) catch {
-    e =>
-      if @async.is_being_cancelled() {
-        raise e
-      } else {
-        raise @types.WriteError("Failed to send notification: \{Repr(e)}")
-      }
-  }
+  let client = @http.post_stream(self.base_url, headers~)
   defer client.close()
   // Fire-and-forget: write body, end request; errors are intentionally swallowed.
   try {
     client.write(body_bytes)
-    client.flush()
+    client.flush_partial_data()
     let _ = client.end_request()
   } catch {
     _ => ()

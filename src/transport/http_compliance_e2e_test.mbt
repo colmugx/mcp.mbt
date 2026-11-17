@@ -129,19 +129,13 @@ async fn origin_probe_post(
   headers["MCP-Protocol-Version"] = @types.ProtocolVersion
   headers["Mcp-Method"] = "ping"
   headers["Origin"] = origin
-  let client = @http.post(url, headers~) catch {
-    e => fail("origin probe POST failed: \{e}")
-  }
+  let client = @http.post_stream(url, headers~)
   defer client.close()
   client.write(body_bytes) catch {
-    e => fail("origin probe write failed: \{e}")
+    e => fail("origin probe write failed: \{Repr(e)}")
   }
-  client.flush() catch {
-    e => fail("origin probe flush failed: \{e}")
-  }
-  let response = client.end_request() catch {
-    e => fail("origin probe got no response: \{e}")
-  }
+  client.flush_partial_data()
+  let response = client.end_request()
   let body_str = @utf8.decode(client.read_all()) catch { _ => "" }
   (response.code, body_str)
 }

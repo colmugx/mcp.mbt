@@ -20,7 +20,7 @@ pub(all) enum PromptGetOutcome {
   /// `state` is opaque server continuation data sealed into `requestState`.
   InputRequired(
     input_requests~ : Map[String, @types.InputRequestEntry],
-    state~ : Json
+    state~ : Json,
   )
 }
 
