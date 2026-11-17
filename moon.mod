@@ -5,7 +5,7 @@ version = "0.19.1"
 import {
   "cc06b/mooncry@0.13.1",
   "gmlewis/base64@0.16.11",
-  "colmugx/json-schema@0.1.6",
+  "colmugx/json-schema@0.1.7",
 }
 
 readme = "README.mbt.md"
