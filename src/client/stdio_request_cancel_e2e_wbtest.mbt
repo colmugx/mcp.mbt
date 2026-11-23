@@ -31,6 +31,18 @@ async fn wait_until(timeout_ms : Int32, cond : () -> Bool) -> Unit {
 }
 
 ///|
+/// Consume one POST body under either request framing: the HTTP client
+/// declares `Content-Length`, but older core/async builds ignored it and
+/// streamed with chunked encoding instead.
+async fn era_consume_request_body(conn : @socket.Tcp, head : String) -> Unit {
+  if head.to_lower().contains("transfer-encoding: chunked") {
+    ignore(era_read_chunked_body(conn))
+  } else {
+    ignore(conn.read_exactly(era_content_length(head)))
+  }
+}
+
+///|
 async test "e2e/stdio: cancelled send_request re-raises and delivers notifications/cancelled" {
   @async.with_task_group(group => {
     let transport = @transport.StdioClientTransport::StdioClientTransport(
@@ -169,8 +181,7 @@ async test "e2e/stdio: explicit HTTP cancellation closes the owned request strea
       let (connection, _) = server.accept()
       defer connection.close()
       let head = era_tcp_read_until(connection, b"\r\n\r\n").unwrap()
-      assert_true(head.to_lower().contains("transfer-encoding: chunked"))
-      ignore(era_tcp_read_until(connection, b"\r\n0\r\n\r\n").unwrap())
+      era_consume_request_body(connection, head)
       connection.write(
         @utf8.encode(
           "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\nd\r\n: keepalive\n\n\r\n",
@@ -275,8 +286,8 @@ async test "e2e/stdio: direct HTTP calls consume progress then their own respons
       for id in [1, 2] {
         let (connection, _) = server.accept()
         defer connection.close()
-        ignore(era_tcp_read_until(connection, b"\r\n\r\n").unwrap())
-        ignore(era_tcp_read_until(connection, b"\r\n0\r\n\r\n").unwrap())
+        let head = era_tcp_read_until(connection, b"\r\n\r\n").unwrap()
+        era_consume_request_body(connection, head)
         let notification = Json::object({
           "jsonrpc": "2.0",
           "method": "notifications/progress",
@@ -370,13 +381,13 @@ async test "e2e/stdio: concurrent direct HTTP calls correlate out-of-order repli
     group.spawn_bg(() => {
       let (first, _) = server.accept()
       defer first.close()
-      ignore(era_tcp_read_until(first, b"\r\n\r\n").unwrap())
-      ignore(era_tcp_read_until(first, b"\r\n0\r\n\r\n").unwrap())
+      let head = era_tcp_read_until(first, b"\r\n\r\n").unwrap()
+      era_consume_request_body(first, head)
       first_started.put(())
       let (second, _) = server.accept()
       defer second.close()
-      ignore(era_tcp_read_until(second, b"\r\n\r\n").unwrap())
-      ignore(era_tcp_read_until(second, b"\r\n0\r\n\r\n").unwrap())
+      let head = era_tcp_read_until(second, b"\r\n\r\n").unwrap()
+      era_consume_request_body(second, head)
       second.write(
         @utf8.encode(
           "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: " +
