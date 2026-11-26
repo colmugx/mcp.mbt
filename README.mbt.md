@@ -24,7 +24,7 @@ Install the published SDK and its async runtime dependency in your MoonBit
 project:
 
 ```bash
-moon add colmugx/mcp@0.19.0
+moon add colmugx/mcp@0.20.0
 moon add moonbitlang/core
 ```
 
