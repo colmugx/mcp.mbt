@@ -11,7 +11,7 @@
 ///|
 /// Accept one connection and park forever without writing anything.
 async fn stall_after_accept_legacy(server : @socket.TcpServer) -> Unit {
-  let (conn, _addr) = server.accept()
+  let conn = server.accept()
   ignore(conn)
   @async.sleep(3_600_000)
 }

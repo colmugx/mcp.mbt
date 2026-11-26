@@ -169,7 +169,7 @@ async fn era_fake_server(
   methods : Array[String],
 ) -> Unit {
   while true {
-    let (conn, _addr) = server.accept()
+    let conn = server.accept()
     era_fake_handle_conn(conn, legacy_only, methods)
     conn.close()
   }
@@ -467,7 +467,7 @@ async test "e2e/http: legacy fallback carries extra_headers through initialize" 
   @async.with_task_group(group => {
     let server_task = group.spawn(async fn() {
       while true {
-        let (conn, _addr) = server.accept()
+        let conn = server.accept()
         era_gate_handle_conn(conn, marker_seen)
         conn.close()
       }
@@ -506,7 +506,7 @@ async test "e2e/http: legacy initialize 4xx error carries the response body" {
   @async.with_task_group(group => {
     let server_task = group.spawn(async fn() {
       while true {
-        let (conn, _addr) = server.accept()
+        let conn = server.accept()
         era_gate_handle_conn(conn, [])
       }
     })

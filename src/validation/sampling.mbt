@@ -23,7 +23,7 @@ fn sampling_tool_ids(
             "Sampling tool uses require assistant role and distinct ids",
           )
         }
-        uses.add(tool.id)
+        uses.insert(tool.id)
       }
       ToolResult(tool) => {
         if message.role != @types.User || results.contains(tool.tool_use_id) {
@@ -31,7 +31,7 @@ fn sampling_tool_ids(
             "Sampling tool results require user role and distinct toolUseIds",
           )
         }
-        results.add(tool.tool_use_id)
+        results.insert(tool.tool_use_id)
       }
       _ => ()
     }

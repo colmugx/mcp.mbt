@@ -116,7 +116,7 @@ pub async fn HttpTransport::start(
             "Content-Type": "application/json",
             "Cache-Control": "max-age=3600",
           })
-          conn.write_string(metadata)
+          conn.text.write_string(metadata)
           conn.end_response()
           return
         }
@@ -148,7 +148,7 @@ pub async fn HttpTransport::start(
           conn.send_response(403, "Forbidden", extra_headers={
             "Content-Type": "application/json",
           })
-          conn.write_string("{\"error\":\"invalid_origin\"}")
+          conn.text.write_string("{\"error\":\"invalid_origin\"}")
           conn.end_response()
           return
         }
@@ -207,7 +207,7 @@ pub async fn HttpTransport::start(
             conn.send_response(400, "Bad Request", extra_headers={
               "Content-Type": "application/json",
             })
-            conn.write_string(jsonrpc_error_body(error, body=message))
+            conn.text.write_string(jsonrpc_error_body(error, body=message))
             conn.end_response()
             return
           }
@@ -220,7 +220,7 @@ pub async fn HttpTransport::start(
           conn.send_response(400, "Bad Request", extra_headers={
             "Content-Type": "application/json",
           })
-          conn.write_string(
+          conn.text.write_string(
             jsonrpc_error_body(
               @types.InvalidRequest(
                 "HTTP POST body must be a single JSON-RPC request or notification",
@@ -237,7 +237,7 @@ pub async fn HttpTransport::start(
             conn.send_response(400, "Bad Request", extra_headers={
               "Content-Type": "application/json",
             })
-            conn.write_string(err_response)
+            conn.text.write_string(err_response)
             conn.end_response()
             return
           }
@@ -288,7 +288,7 @@ pub async fn HttpTransport::start(
                 // flush nothing reaches the wire until end_response, which
                 // for a long-lived subscriptions/listen stream never comes.
                 conn.flush_partial_data()
-                conn.write_string(sse_event_line(first))
+                conn.text.write_string(sse_event_line(first))
                 conn.flush_partial_data()
                 @async.with_task_group(group => {
                   // Keepalive travels through the same queue: exactly one task owns socket writes.
@@ -305,9 +305,9 @@ pub async fn HttpTransport::start(
                   while true {
                     let msg = reply_queue.get()
                     if msg == ": keepalive\n\n" {
-                      conn.write_string(msg)
+                      conn.text.write_string(msg)
                     } else {
-                      conn.write_string(sse_event_line(msg))
+                      conn.text.write_string(sse_event_line(msg))
                     }
                     conn.flush_partial_data()
                     if classify_jsonrpc_message(msg) is FinalResponse {
@@ -324,7 +324,7 @@ pub async fn HttpTransport::start(
                   "Content-Type": "application/json",
                   "MCP-Protocol-Version": @types.ProtocolVersion,
                 })
-                conn.write_string(first)
+                conn.text.write_string(first)
                 conn.end_response()
               }
             }

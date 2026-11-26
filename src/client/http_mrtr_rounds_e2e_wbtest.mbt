@@ -12,7 +12,7 @@ async test "e2e/http: MRTR maximum rounds bounds exchanges without a final uncon
     @async.with_task_group(group => {
       let serving = group.spawn(() => {
         while true {
-          let (conn, _) = server.accept()
+          let conn = server.accept()
           defer conn.close()
           let head = era_tcp_read_until(conn, b"\r\n\r\n").unwrap()
           let body = if head.to_lower().contains("transfer-encoding: chunked") {
@@ -132,7 +132,7 @@ async test "e2e/http: error fidelity, forbidden duplex requests and final SSE ow
     @async.with_task_group(group => {
       let serving = group.spawn(() => {
         for index in 0..<5 {
-          let (conn, _) = server.accept()
+          let conn = server.accept()
           defer conn.close()
           let head = era_tcp_read_until(conn, b"\r\n\r\n").unwrap()
           let body = if head.to_lower().contains("transfer-encoding: chunked") {

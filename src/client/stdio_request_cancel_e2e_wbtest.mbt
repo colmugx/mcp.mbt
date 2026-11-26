@@ -178,7 +178,7 @@ async test "e2e/stdio: explicit HTTP cancellation closes the owned request strea
   )
   @async.with_task_group(group => {
     group.spawn_bg(() => {
-      let (connection, _) = server.accept()
+      let connection = server.accept()
       defer connection.close()
       let head = era_tcp_read_until(connection, b"\r\n\r\n").unwrap()
       era_consume_request_body(connection, head)
@@ -284,7 +284,7 @@ async test "e2e/stdio: direct HTTP calls consume progress then their own respons
   @async.with_task_group(group => {
     group.spawn_bg(() => {
       for id in [1, 2] {
-        let (connection, _) = server.accept()
+        let connection = server.accept()
         defer connection.close()
         let head = era_tcp_read_until(connection, b"\r\n\r\n").unwrap()
         era_consume_request_body(connection, head)
@@ -379,12 +379,12 @@ async test "e2e/stdio: concurrent direct HTTP calls correlate out-of-order repli
   }).stringify()
   @async.with_task_group(group => {
     group.spawn_bg(() => {
-      let (first, _) = server.accept()
+      let first = server.accept()
       defer first.close()
       let head = era_tcp_read_until(first, b"\r\n\r\n").unwrap()
       era_consume_request_body(first, head)
       first_started.put(())
-      let (second, _) = server.accept()
+      let second = server.accept()
       defer second.close()
       let head = era_tcp_read_until(second, b"\r\n\r\n").unwrap()
       era_consume_request_body(second, head)
