@@ -58,27 +58,28 @@ test "requestState: seal/open round-trip returns the payload" {
 }
 
 ///|
-test "requestState: tampered ciphertext is rejected" {
+test "requestState: tampered authentication tag is rejected" {
   let codec = AesGcmStateCodec::with_key(fixed_key())
+  let params = Json::object({})
   let payload : RequestStatePayload = {
     principal: None,
     expires_at: future_expiry(),
     request_method: "tools/call",
-    params_digest: "",
+    params_digest: params_digest(params),
     state: Json::object({}),
   }
-  let blob = codec.seal(payload, now=test_now)
-  // Append junk — must fail to open (base64 damage or tag mismatch).
-  let tampered = blob + "X"
   let ctx : RequestStateContext = {
     principal: None,
     request_method: "tools/call",
-    params: Json::object({}),
+    params,
   }
-  match codec.open(tampered, ctx, now=test_now) {
-    Some(_) => panic()
-    None => ()
-  }
+  let blob = codec.seal(payload, now=test_now)
+  assert_true(codec.open(blob, ctx, now=test_now) is Some(_))
+  let raw = base64url_decode(blob)
+  let last = raw.length() - 1
+  let changed_tag_byte : Bytes = [raw[last] ^ b'\x01']
+  let tampered = base64url_encode(raw[:last].to_owned() + changed_tag_byte)
+  assert_true(codec.open(tampered, ctx, now=test_now) is None)
 }
 
 ///|

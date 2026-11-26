@@ -123,7 +123,7 @@ impl RequestStateCodec for AesGcmStateCodec with fn seal(
     None =>
       abort("AesGcmStateCodec: secure platform entropy unavailable for nonce")
   }
-  let (ct, tag) = @mooncry.aes_gcm_encrypt(
+  let { ct, tag, } = @mooncry.aes_gcm_encrypt(
     plaintext,
     self.key,
     nonce,
@@ -149,15 +149,10 @@ impl RequestStateCodec for AesGcmStateCodec with fn open(
   let nonce = slice_bytes(raw, 0, 12)
   let ct = slice_bytes(raw, 12, ct_len)
   let tag = slice_bytes(raw, 12 + ct_len, 16)
-  let (pt, ok) = @mooncry.aes_gcm_decrypt(
-    ct,
-    self.key,
-    nonce,
-    request_state_aad,
-    tag,
-  )
-  if !ok {
-    return None
+  let pt = match
+    @mooncry.aes_gcm_decrypt(ct, self.key, nonce, request_state_aad, tag) {
+    Ok(plaintext) => plaintext
+    Err(_) => return None
   }
   let payload = match parse_payload_json(@utf8.decode_lossy(pt)) {
     Some(p) => p

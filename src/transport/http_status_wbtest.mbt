@@ -11,12 +11,11 @@ test "HTTP status mappings distinguish protocol errors from application errors" 
       (-32099, 200),
     ] {
     let (code, expected) = entry
-    let message = (
-      {
-        "jsonrpc": "2.0",
-        "id": 1,
-        "error": { "code": Json::number(code.to_double()), "message": "test" },
-      } : Json).stringify()
+    let message : Json = {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "error": { "code": Json::number(code.to_double()), "message": "test" },
+    }
     let (status, _) = http_response_status(message)
     assert_eq(status, expected)
   }

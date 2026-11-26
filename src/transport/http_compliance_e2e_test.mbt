@@ -326,3 +326,42 @@ async test "e2e/http: decoded queue reuses parsed body and preserves authenticat
     })
   })
 }
+
+///|
+#cfg(target="native")
+async test "e2e/http: queued error replies preserve status and exact wire body" {
+  let transport = @transport.HttpTransport::HttpTransport(port=47404)
+  let request = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\",\"params\":{\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":\"2026-07-28\",\"io.modelcontextprotocol/clientCapabilities\":{}}}}"
+  let replies = [
+    (
+      "{ \"jsonrpc\":\"2.0\", \"id\":1, \"error\":{\"code\":-32601,\"message\":\"test\"} }",
+      404,
+    ),
+    (
+      "{ \"jsonrpc\":\"2.0\", \"id\":1, \"error\":{\"code\":-32602,\"message\":\"test\"} }",
+      200,
+    ),
+  ]
+  @async.with_timeout(5000, () => {
+    @async.with_task_group(group => {
+      let server = group.spawn(() => transport.start())
+      await_http_listen(@socket.Addr::parse("127.0.0.1:47404"))
+      group.spawn_bg(() => {
+        for (reply, _) in replies {
+          transport.receive_authenticated_request().unwrap().reply.put(reply)
+        }
+      })
+      for entry in replies {
+        let (reply, expected_status) = entry
+        let (status, body) = origin_probe_post(
+          "http://127.0.0.1:47404/mcp",
+          request,
+          origin="http://localhost",
+        )
+        assert_eq(status, expected_status)
+        assert_eq(body, reply)
+      }
+      server.cancel()
+    })
+  })
+}

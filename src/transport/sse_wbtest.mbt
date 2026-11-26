@@ -70,6 +70,18 @@ async test "scan_sse_event dispatches unterminated final line at EOF" {
 }
 
 ///|
+async test "scan_sse_event captures empty values and removes only one ASCII space" {
+  let buf = @lexbuf.AsyncLexbuf::from_fn(
+    feed(["data:\r", "\nid:  event\r", "data:\tvalue\n\n", "id:"]),
+  )
+  @debug.assert_eq(
+    scan_sse_event(buf, [], None),
+    (Some("\n\tvalue"), Some(" event")),
+  )
+  @debug.assert_eq(scan_sse_event(buf, [], None), (None, Some("")))
+}
+
+///|
 async test "scan_sse_event at EOF with no data returns None" {
   let buf = @lexbuf.AsyncLexbuf::from_fn(feed([]))
   let (payload, id) = scan_sse_event(buf, [], None)

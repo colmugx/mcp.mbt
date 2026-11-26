@@ -28,6 +28,11 @@ pub fn is_notification(body : Json) -> Bool {
 /// Classify a serialized JSON-RPC message for response-mode selection.
 pub fn classify_jsonrpc_message(message : String) -> JsonRpcKind {
   let json = @validation.parse_json(message) catch { _ => return Other }
+  classify_jsonrpc_value(json)
+}
+
+///|
+fn classify_jsonrpc_value(json : Json) -> JsonRpcKind {
   if json is Object(obj) {
     let has_method = obj.get("method") is Some(_)
     let has_id = obj.get("id") is Some(_)
@@ -49,6 +54,11 @@ pub fn classify_jsonrpc_message(message : String) -> JsonRpcKind {
 /// Extract the JSON-RPC error code from a serialized response, if any.
 pub fn jsonrpc_error_code(message : String) -> Int32? {
   let json = @validation.parse_json(message) catch { _ => return None }
+  jsonrpc_value_error_code(json)
+}
+
+///|
+fn jsonrpc_value_error_code(json : Json) -> Int32? {
   if json is Object(obj) {
     match obj.get("error") {
       Some(Object(err)) =>

@@ -66,9 +66,13 @@ fn sse_reader_from_bytes(refill : async () -> Bytes?) -> SseEventReader {
           return None
         }
       }
-      let bytes = tail.val + chunk
+      let bytes = if tail.val.is_empty() { chunk } else { tail.val + chunk }
       let end = utf8_complete_prefix(bytes)
-      tail.val = bytes[end:].to_owned()
+      tail.val = if end == bytes.length() {
+        b""
+      } else {
+        bytes[end:].to_owned()
+      }
       if end == 0 {
         continue
       }
@@ -166,16 +170,12 @@ async fn scan_sse_event(
   event_id : String?,
 ) -> (String?, String?) {
   lexscan buf {
-    re"^data:[^\n\r]*(\r\n|\r|\n)?" as line => {
-      data.push(sse_field_value(line, field="data:"))
+    re"^data:" + (re"[^\n\r]*" as value) + re"(\r\n|\r|\n)?" => {
+      data.push(strip_sse_field_space(value))
       scan_sse_event(buf, data, event_id)
     }
-    re"^id:[^\n\r]*(\r\n|\r|\n)?" as line =>
-      scan_sse_event(
-        buf,
-        data,
-        Some(sse_field_value(line, field="id:").to_owned()),
-      )
+    re"^id:" + (re"[^\n\r]*" as value) + re"(\r\n|\r|\n)?" =>
+      scan_sse_event(buf, data, Some(strip_sse_field_space(value).to_owned()))
     // Blank line: dispatch what has accumulated. Comment-only events
     // (heartbeats) carry the id but no payload.
     re"^(\r\n|\r|\n)" =>
@@ -194,26 +194,11 @@ async fn scan_sse_event(
 }
 
 ///|
-/// Reduce a matched `data:`/`id:` line to its field value: drop the field
-/// name, at most one leading space, and the trailing line terminator.
-fn sse_field_value(matched : StringView, field~ : String) -> StringView {
-  let body = drop_sse_eol(matched[field.length():])
-  if body is [' ', .. rest] {
+fn strip_sse_field_space(value : StringView) -> StringView {
+  if value is [' ', .. rest] {
     rest
   } else {
-    body
-  }
-}
-
-///|
-/// Drop the trailing `\r\n`, `\n`, or `\r` from a fully matched line, if any.
-fn drop_sse_eol(line : StringView) -> StringView {
-  if line.has_suffix("\r\n") {
-    line[:line.length() - 2]
-  } else if line.has_suffix("\n") || line.has_suffix("\r") {
-    line[:line.length() - 1]
-  } else {
-    line
+    value
   }
 }
 

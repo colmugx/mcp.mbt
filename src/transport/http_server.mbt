@@ -273,7 +273,10 @@ pub async fn HttpTransport::start(
             // JSON-RPC request: per-request response, either single JSON or
             // an SSE stream scoped to this request.
             let first = reply_queue.get()
-            match classify_jsonrpc_message(first) {
+            let decoded = @validation.parse_json(first) catch {
+              _ => Json::null()
+            }
+            match classify_jsonrpc_value(decoded) {
               Notification => {
                 // First message is a notification (e.g., subscriptions/listen
                 // ack or progress). Switch to SSE mode and stream until the
@@ -304,13 +307,17 @@ pub async fn HttpTransport::start(
                   )
                   while true {
                     let msg = reply_queue.get()
-                    if msg == ": keepalive\n\n" {
-                      conn.text.write_string(msg)
-                    } else {
-                      conn.text.write_string(sse_event_line(msg))
-                    }
+                    let is_keepalive = msg == ": keepalive\n\n"
+                    conn.text.write_string(
+                      if is_keepalive {
+                        msg
+                      } else {
+                        sse_event_line(msg)
+                      },
+                    )
                     conn.flush_partial_data()
-                    if classify_jsonrpc_message(msg) is FinalResponse {
+                    if !is_keepalive &&
+                      classify_jsonrpc_message(msg) is FinalResponse {
                       break
                     }
                   }
@@ -319,7 +326,7 @@ pub async fn HttpTransport::start(
               }
               _ => {
                 // Single JSON response. MethodNotFound (-32601) maps to HTTP 404.
-                let (status, reason) = http_response_status(first)
+                let (status, reason) = http_response_status(decoded)
                 conn.send_response(status, reason, extra_headers={
                   "Content-Type": "application/json",
                   "MCP-Protocol-Version": @types.ProtocolVersion,
