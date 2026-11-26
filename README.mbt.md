@@ -2,7 +2,7 @@
 
 Type-safe [Model Context Protocol](https://modelcontextprotocol.io/) SDK for MoonBit.
 
-**Version**: 0.19.0 · **Protocol**: 2026-07-28 (stateless) · **License**: Apache-2.0
+**Version**: 0.20.0 · **Protocol**: 2026-07-28 (stateless) · **License**: Apache-2.0
 
 ## Protocol support and scope
 
